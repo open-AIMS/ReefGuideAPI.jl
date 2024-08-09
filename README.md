@@ -1,1 +1,3 @@
-# GBR-reef-guidance-API
+# Reef Guidance API
+
+API for supporting reef suitability assessments.
