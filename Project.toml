@@ -1,4 +1,4 @@
-name = "ReefGuideAPI.jl"
+name = "ReefGuideAPI"
 uuid = "45c573e6-5605-41d1-a10b-0e5ac5982b4e"
 authors = ["Takuya Iwanaga", "Benjamin Grier"]
 version = "0.1.0"
@@ -20,5 +20,6 @@ Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 ThreadsX = "ac1d9e8a-700a-412c-b207-f0111f4b6c0d"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
