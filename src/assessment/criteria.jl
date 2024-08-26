@@ -94,23 +94,34 @@ function setup_region_routes(config)
 
     @get "/assess/{reg}/{rtype}" function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
+        file_id = string(hash(qp))
+        mask_temp_path = mktempdir()  # TODO: Point to cache location
+        mask_path = joinpath(mask_temp_path, file_id*".tiff")
+
+        if isfile(mask_path)
+            return file(mask_path)
+        end
+
+        # Otherwise, create the file
         criteria_names = string.(split(qp["criteria_names"], ","))
         lbs = string.(split(qp["lb"], ","))
         ubs = string.(split(qp["ub"], ","))
 
         assess = reg_assess_data[reg]
         mask_data = make_threshold_mask(assess, Symbol(rtype), CriteriaBounds.(criteria_names, lbs, ubs))
+        tmp_mask_path = joinpath(mask_temp_path, file_id*"_tmp.tiff")
 
-        mask_temp_path = mktempdir()
-        mask_path = joinpath(mask_temp_path, string(hash(qp))*".tiff")
-        @info "Writing to $(mask_path)"
+        @info "Writing to $(tmp_mask_path)"
         Rasters.write(
-            mask_path,
+            tmp_mask_path,
             Raster(assess.cache; data=mask_data, missingval=0);
             ext=".tiff",
             source="gdal",
             driver="COG"
         )
+
+        mask_dataset = AG.read(tmp_mask_path)
+        AG.write(mask_dataset, mask_path; driver=AG.getdriver("COG"), options=["COMPRESS=DEFLATE", ])
 
         return file(mask_path)
     end
