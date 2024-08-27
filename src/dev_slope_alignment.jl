@@ -3,30 +3,31 @@ using LinearAlgebra
 import ArchGDAL as AG
 import GeoInterface as GI
 import GeoDataFrames as GDF
+import GeoFormatTypes as GFT
 
 include("geom_handlers/site_assessment.jl")
 
 reg = "Townsville-Whitsunday"
 MPA_OUTPUT_DIR = "c:/Users/bgrier/Documents/Projects/GBR-reef-guidance-assessment/outputs/MPA/"
-# rst_stack = (
-#     Depth = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-#     # Slope = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-#     # Benthic = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-#     # Geomorphic = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-#     # WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-#     WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
-#     # Turbidity = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-#     # Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
+rst_stack = (
+     Depth = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+    #  Slope = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+    #  Benthic = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+    #  Geomorphic = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+    #  WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+     WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
+    # Turbidity = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+    # Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
 #     # ValidSlopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"),
 #     # ValidFlats = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif")
-# )
+)
 scan_locs = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_rugosity.tif")
 scan_locs = Raster(scan_locs)
-scan_locs = Rasters.resample(scan_locs; crs=EPSG(7856))
+#scan_locs = Rasters.resample(scan_locs; crs=EPSG(7856))
 threshold = 95
 scan_locs = trim(scan_locs .> threshold)
 
-# rst_stack = RasterStack(rst_stack; lazy=true)
+rst_stack = RasterStack(rst_stack; lazy=true)
 # rst_stack = Rasters.reproject(rst_stack; crs=EPSG(7856))
 
 # Define the polygon shape to search for (and auto-rotate)
@@ -35,10 +36,10 @@ ys = (1, 10)
 search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
 poly(search_plot)
 geom=search_plot
-# geom = GeometryOps.reproject(geom, EPSG(7856), EPSG(7844))
+geom = GO.reproject(geom, EPSG(7856), EPSG(7844))
 
 gdf = GDF.read("../canonical-reefs/output/rrap_canonical_2024-07-24-T12-38-38.gpkg")
-gdf.geometry = AG.reproject(gdf.geometry, EPSG(7844), EPSG(7856); order=:trad)
+#gdf.geometry = AG.reproject(gdf.geometry, EPSG(7844), EPSG(7856); order=:trad)
 gdf.geometry = GO.simplify.(gdf.geometry; number=20)
 valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry))
 indices = findall(valid_pixels)
@@ -117,7 +118,9 @@ function identify_potential_sites(rst_stack, scan_locs, indices, threshold, geom
         lon = dims(valid_pixels, X)[index[1]]
         lat = dims(valid_pixels, Y)[index[2]]
 
-        mv_geom = move_geom(geom, (lon, lat))
+        m_coords = AG.reproject([lon, lat], GFT.EPSG(7844), GFT.EPSG(7856); order=:trad)
+        mv_geom = move_geom(geom, (m_coords[1], m_coords[2]))
+        mv_geom = GO.reproject(mv_geom; source_crs=EPSG(7856), target_crs=EPSG(7844))
         search_box_line = find_horiz(mv_geom)
         geom_buff = GO.buffer(mv_geom, res)
 
