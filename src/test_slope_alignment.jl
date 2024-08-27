@@ -39,7 +39,18 @@ for (j, point) in enumerate(test_points)
     mv_boxes[j] = mv_box
     search_box_line = find_horiz(mv_box)
 
-    edge_line = identify_closest_edge(pixel, hex)
+    point_coords = GI.coordinates(hex)
+    point_coords = vcat(point_coords...)
+    reef_points = Vector{Union{Missing, AG.IGeometry{AG.wkbPoint}}}(missing, size(point_coords, 1))
+    for (z, point) in enumerate(point_coords)
+        reef_points[z] = AG.createpoint(point)
+    end
+
+    distances = GO.distance.([pixel], reef_points)
+    # Find the two closest vertices to a pixel
+    point_a = tuple(point_coords[distances .== sort(distances)[1]][1]...)
+    point_b = tuple(point_coords[distances .== sort(distances)[2]][1]...)
+    edge_line = [point_a, point_b]
 
     edge_bearing = angle_cust([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
     rot_angle = angle_cust(from_zero(search_box_line), from_zero(edge_line))
