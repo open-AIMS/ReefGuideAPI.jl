@@ -37,7 +37,7 @@ poly(search_plot)
 geom=search_plot
 # geom = GeometryOps.reproject(geom, EPSG(7856), EPSG(7844))
 
-gdf = GDF.read("../../canonical-reefs/output/rrap_canonical_2024-07-24-T12-38-38.gpkg")
+gdf = GDF.read("../canonical-reefs/output/rrap_canonical_2024-07-24-T12-38-38.gpkg")
 gdf.geometry = AG.reproject(gdf.geometry, EPSG(7844), EPSG(7856); order=:trad)
 gdf.geometry = GO.simplify.(gdf.geometry; number=20)
 valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry))
@@ -75,17 +75,22 @@ function angle_cust(a, b)
 end
 
 function identify_closest_edge(pixel, reef)
-   reef_points = GI.coordinates(reef...)
-   reef_points = vcat(reef_points...)
-   reef_points = Vector{Union{Missing, AG.IGeometry{AG.wkbPoint}}}(missing, size(point_coords, 1))
-   for (z, point) in enumerate(point_coords)
-       reef_points[z] = AG.createpoint(point)
-   end
+    if typeof(reef) == Vector{GI.Wrappers.WrapperGeometry{false, false}}
+        reef_points = GI.coordinates(reef...)
+    else
+        reef_points = GI.coordinates(reef)
+    end
 
-    distances = GO.distance.([pixel], reef_points)
+    reef_points = vcat(reef_points...)
+    point_coords = Vector{Union{Missing, AG.IGeometry{AG.wkbPoint}}}(missing, size(reef_points, 1))
+    for (z, point) in enumerate(reef_points)
+        point_coords[z] = AG.createpoint(point)
+    end
+
+    distances = GO.distance.([pixel], point_coords)
     # Find the two closest vertices to a pixel
-    point_a = tuple(point_coords[distances .== sort(distances)[1]][1]...)
-    point_b = tuple(point_coords[distances .== sort(distances)[2]][1]...)
+    point_a = tuple(reef_points[distances .== sort(distances)[1]][1]...)
+    point_b = tuple(reef_points[distances .== sort(distances)[2]][1]...)
     edge_line = [point_a, point_b]
 
     return edge_line
