@@ -94,7 +94,7 @@ function rotate_geom(geom, degrees::Float64)
     cx, cy = GO.centroid(geom)
 
     # Extract points
-    new_points = GI.coordinates(geom)
+    new_points = collect(GI.coordinates(geom)...)
     #new_points = get_points(geom)
 
     rotate_point(p) = begin
