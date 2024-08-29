@@ -25,6 +25,7 @@ By convention, this file is named `.config.toml` (note the leading `.`).
 ```julia
 using ReefGuideAPI
 
+# If multiple threads are available, a parallel server will be spun up
 ReefGuideAPI.start_server(".config.toml")
 
 # An example URL to query:

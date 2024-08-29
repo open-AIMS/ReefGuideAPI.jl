@@ -1,5 +1,6 @@
 module ReefGuideAPI
 
+using Base.Threads
 using
     Glob,
     TOML
@@ -82,6 +83,16 @@ function regional_assessment_data(config)
     return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
 end
 
+function start_server(config_path)
+    config = TOML.parsefile(config_path)
+    setup_region_routes(config)
+
+    if Threads.nthreads() > 1
+        serveparallel(port=8000)
+    else
+        serve(port=8000)
+    end
+end
 
 export
     RegionalCriteria,
@@ -105,12 +116,5 @@ export
     valid_slope_lat_inds,
     valid_flat_lon_inds,
     valid_flat_lat_inds
-
-
-function start_server(config_path)
-    config = TOML.parsefile(config_path)
-    setup_region_routes(config)
-    serve(port=8000)
-end
 
 end
