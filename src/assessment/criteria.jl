@@ -22,7 +22,6 @@ struct RegionalCriteria{T}
     stack::RasterStack
     valid_slopes::T
     valid_flats::T
-    cache::Raster
 end
 
 function valid_slope_lon_inds(reg::RegionalCriteria)

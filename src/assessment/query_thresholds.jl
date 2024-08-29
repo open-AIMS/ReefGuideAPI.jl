@@ -190,7 +190,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
 end
 function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)
     # Result store
-    res = falses(size(reg_criteria.cache))
+    res = falses(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for rule_name in keys(ruleset)
@@ -204,7 +204,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
 end
 function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
     # Result store
-    res = falses(size(reg_criteria.cache))
+    res = falses(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for threshold in ruleset
