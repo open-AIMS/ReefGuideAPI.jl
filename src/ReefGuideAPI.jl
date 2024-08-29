@@ -36,7 +36,7 @@ function get_regions()
     return regions
 end
 
-@memoize function setup_regional_data(reef_data_path::String)
+function setup_regional_data(reef_data_path::String)
     regional_assessment_data = OrderedDict{String, RegionalCriteria}()
     for reg in get_regions()
         data_paths = String[]
