@@ -1,4 +1,8 @@
+using Base.Threads
+
+using Dates
 using StructTypes
+
 
 const REEF_TYPE = [:slopes, :flats]
 
@@ -114,6 +118,7 @@ function setup_region_routes(config)
             CriteriaBounds.(criteria_names, lbs, ubs)
         )
 
+        @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
         # Writing typical time: ~10-15 seconds
         Rasters.write(
@@ -122,9 +127,10 @@ function setup_region_routes(config)
             ext=".tiff",
             source="gdal",
             driver="COG",
-            options=Dict(
+            options=Dict{String,String}(
                 "COMPRESS"=>"DEFLATE",
                 "SPARSE_OK"=>"TRUE",
+                "OVERVIEW_COUNT"=>"5"
             )
         )
 
