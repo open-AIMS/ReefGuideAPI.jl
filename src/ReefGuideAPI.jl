@@ -57,11 +57,10 @@ end
                 # Load up Parquet files
                 parq_file = replace(first(g), ".tif"=>"_lookup.parq")
 
-                _valid_geodf = GeoParquet.read(parq_file)
                 if occursin("slope", string(dp))
-                    slope_table = _valid_geodf
+                    slope_table = GeoParquet.read(parq_file)
                 elseif occursin("flat", string(dp))
-                    flat_table = _valid_geodf
+                    flat_table = GeoParquet.read(parq_file)
                 else
                     error("Unknown lookup found: $(parq_file)")
                 end
@@ -69,16 +68,10 @@ end
         end
 
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
-
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
             slope_table,
-            flat_table,
-            Raster(
-                rst_stack[names(rst_stack)[1]];
-                data=zeros(Float32, size(rst_stack)),
-                missingval=-9999.0
-            )
+            flat_table
         )
     end
 
