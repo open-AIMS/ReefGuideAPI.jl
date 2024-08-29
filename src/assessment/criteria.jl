@@ -128,8 +128,6 @@ function setup_region_routes(config)
             )
         )
 
-        GC.gc()
-
         return file(mask_path)
     end
 
