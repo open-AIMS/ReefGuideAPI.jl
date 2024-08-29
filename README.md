@@ -42,8 +42,8 @@ Create a sandbox enviroment:
 ```bash
 $ mkdir sandbox
 $ cd sandbox
-$ julia project=.
-(sandbox) julia> ]add Revise Infiltrate
+$ julia --project=.
+(sandbox) julia> ]add Revise Infiltrator
 (sandbox) julia> ]dev ..
 ```
 
