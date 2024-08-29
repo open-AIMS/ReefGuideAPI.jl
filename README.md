@@ -16,6 +16,10 @@ These are currently the files/data created in Step/Script 1a in https://github.c
 ```toml
 [prepped_data]
 PREPPED_DATA_DIR = "C:/some_path_to_data/MPA/"
+
+[server_config]
+CACHE_DIR = "<some location to cache geotiffs>"
+DEBUG_MODE = "false"  # optional, disables file caching
 ```
 
 By convention, this file is named `.config.toml` (note the leading `.`).

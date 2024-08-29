@@ -98,7 +98,7 @@ function setup_region_routes(config)
     @get "/assess/{reg}/{rtype}" function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
         file_id = string(hash(qp))
-        mask_temp_path = mktempdir()  # TODO: Point to cache location
+        mask_temp_path = _cache_location(config)
         mask_path = joinpath(mask_temp_path, file_id*".tiff")
 
         if isfile(mask_path)

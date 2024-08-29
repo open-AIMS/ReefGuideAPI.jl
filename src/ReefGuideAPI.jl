@@ -83,6 +83,21 @@ function regional_assessment_data(config)
     return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
 end
 
+function _cache_location(config)
+    cache_loc = try
+        in_debug = "DEBUG_MODE" in config["server_config"]
+        if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
+            mktempdir()
+        else
+            config["server_config"]["CACHE_DIR"]
+        end
+    catch
+        mktempdir()
+    end
+
+    return cache_loc
+end
+
 function start_server(config_path)
     config = TOML.parsefile(config_path)
     setup_region_routes(config)
