@@ -102,25 +102,33 @@ function setup_region_routes(config)
         end
 
         # Otherwise, create the file
+        # Typical time: 0.6 - 1.5 seconds
         criteria_names = string.(split(qp["criteria_names"], ","))
         lbs = string.(split(qp["lb"], ","))
         ubs = string.(split(qp["ub"], ","))
 
         assess = reg_assess_data[reg]
-        mask_data = make_threshold_mask(assess, Symbol(rtype), CriteriaBounds.(criteria_names, lbs, ubs))
-        tmp_mask_path = joinpath(mask_temp_path, file_id*"_tmp.tiff")
-
-        @info "Writing to $(tmp_mask_path)"
-        Rasters.write(
-            tmp_mask_path,
-            Raster(assess.cache; data=mask_data, missingval=0);
-            ext=".tiff",
-            source="gdal",
-            driver="COG"
+        mask_data = make_threshold_mask(
+            assess,
+            Symbol(rtype),
+            CriteriaBounds.(criteria_names, lbs, ubs)
         )
 
-        mask_dataset = AG.read(tmp_mask_path)
-        AG.write(mask_dataset, mask_path; driver=AG.getdriver("COG"), options=["COMPRESS=DEFLATE", ])
+        @debug "Writing to $(mask_path)"
+        # Typical time: ~10-15 seconds
+        Rasters.write(
+            mask_path,
+            Raster(assess.stack[names(assess.stack)[1]]; data=mask_data, missingval=0);
+            ext=".tiff",
+            source="gdal",
+            driver="COG",
+            options=Dict(
+                "COMPRESS"=>"DEFLATE",
+                "SPARSE_OK"=>"TRUE",
+            )
+        )
+
+        GC.gc()
 
         return file(mask_path)
     end
