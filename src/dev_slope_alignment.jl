@@ -47,6 +47,7 @@ scan_locs = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
 scan_locs = Raster(scan_locs)
 threshold = 90
 threshold = 95
+threshold = 80
 scan_locs = trim(scan_locs .> threshold)
 
 #rst_stack = RasterStack(rst_stack; lazy=true)
@@ -189,6 +190,19 @@ function initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_
     end
 
     return geom_buff, rot_angle
+    distances = GO.distance.([pixel], point_coords)
+
+    # Find the two closest vertices to a pixel
+    point_a = tuple(reef_points[distances .== sort(distances)[1]][1]...)
+    point_b = tuple(reef_points[distances .== sort(distances)[2]][1]...)
+    # If the closest point is the start/end of a polygon coords then it will also be the
+    # second closest point, so we have to select the third closest instead.
+    if point_a == point_b
+        point_b = tuple(reef_points[distances .== sort(distances)[3]][1]...)
+    end
+    edge_line = [point_a, point_b]
+
+    return edge_line
 end
 
 """
@@ -205,6 +219,7 @@ end
         n_rot_p_side::Int64=2
     )::DataFrame
 function initial_search_box(lon, lat, x_dist, y_dist, res, crs, gdf)
+function initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf)
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist/2, lon + lon_dist/2)
     lat_dist = meters_to_degrees(y_dist, lat)
@@ -216,6 +231,7 @@ lengths of the search polygon. A buffer of `rst_stack` resolution is applied to 
 And angle from a pixel to a reef edge is identified and used for searching with custom rotation
 parameters.
     search_plot = create_poly(create_bbox(xs, ys), crs)
+    search_plot = create_poly(create_bbox(xs, ys), t_crs)
     search_box_line = find_horiz(search_plot)
     geom_buff = GO.buffer(search_plot, res)
 
@@ -265,16 +281,21 @@ end
 """
     identify_potential_sites(
         rst_stack::RasterStack,
-        search_pixels::Raster,
+        indices_pixels::Raster,
         indices::Vector{CartesianIndex{2}},
         gdf::DataFrame,
         x_dist::Union{Int64, Float64},
-        y_dist::Union{Int64, Float64}
+        y_dist::Union{Int64, Float64},
+        crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+        degree_step::Float64=15.0,
+        n_rot_p_side::Int64=2
     )::DataFrame
 
 Identify the most suitable site polygons for each pixel in the `search_pixels` raster where
 `indices` denotes which pixels to check for suitability. `x_dist` and `y_dist` are x and y
 lengths of the search polygon. A buffer of `rst_stack` resolution is applied to the search box.
+And angle from a pixel to a reef edge is identified and used for searching with custom rotation
+parameters.
 
 # Arguments
 - `rst_stack` : RasterStack containing environmental variables for assessment.
@@ -284,6 +305,8 @@ lengths of the search polygon. A buffer of `rst_stack` resolution is applied to 
 - `x_dist` : Length of horizontal side of search box.
 - `y_dist` : Length of vertical side of search box.
 - `crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
+- `degree_step` : Degree to perform rotations around identified edge angle.
+- `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
@@ -295,7 +318,9 @@ function identify_potential_sites(
     gdf::DataFrame,
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
-    crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+    t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+    degree_step::Float64=15.0,
+    n_rot_p_side::Int64=2
 )::DataFrame
     res = abs(step(dims(rst_stack, X)))
     #geom_buff = GO.simplify(geom_buff; number = 4) # simplify buffer to 4 vertex polygon
@@ -318,6 +343,7 @@ function identify_potential_sites(
         lon = dims(indices_pixels, X)[index[1]]
         lat = dims(indices_pixels, Y)[index[2]]
         geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, crs, gdf)
+        geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf)
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,
@@ -332,8 +358,9 @@ function identify_potential_sites(
             geom_buff,
             ruleset;
             degree_step=15.0,
+            degree_step=degree_step,
             start_rot=rot_angle,
-            n_per_side=2
+            n_per_side=n_rot_p_side
         )
 
         best_score[i] = b_score
@@ -409,5 +436,32 @@ reduced_df = TSV_95_slopes
 for (ind, row) in enumerate(eachrow(TSV_95_slopes))
     intersecting_polys = TSV_95_slopes[(GO.intersects.([row.poly], TSV_95_slopes[:, :poly])), :]
     reduced_df[ind, :] = TSV_95_slopes[argmax(intersecting_polys.score), :]
+function filter_intersecting_sites(res_df::DataFrame)::DataFrame
+    res_df.row_ID = 1:size(res_df,1)
+    ignore_list = []
+
+    for (ind, row) in enumerate(eachrow(res_df))
+        if row.row_ID ∈ ignore_list
+            continue
+        end
+
+        if any(GO.intersects.([row.poly], res_df[:,:poly]))
+            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:,:poly])),:]
+            if maximum(intersecting_polys.score) <= row.score
+                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID,:])
+                    push!(ignore_list, x_row.row_ID)
+                end
+            else
+                push!(ignore_list, row.row_ID)
+            end
+        end
+    end
+
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:row_ID)]
 end
-test = unique(TSV_95_slopes)
+
+MCap_80_slopes = identify_potential_sites(rst_stack, valid_pixels, indices, gdf, 450, 10, EPSG(7844))
+filtered = filter_intersecting_sites(MCap_80_slopes)
+poly(gdf[gdf.management_area .== "Townsville/Whitsunday Management Area", :geometry])
+poly!(TSV_80_slopes.poly; color=:orange, alpha=0.3, strokewidth=1)
+poly!(filtered.poly; color=:green, alpha=0.5, strokewidth=2)
