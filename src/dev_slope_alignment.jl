@@ -48,6 +48,7 @@ scan_locs = Raster(scan_locs)
 threshold = 90
 threshold = 95
 threshold = 80
+threshold = 90
 scan_locs = trim(scan_locs .> threshold)
 
 #rst_stack = RasterStack(rst_stack; lazy=true)
@@ -55,6 +56,7 @@ function meters_to_degrees(x, lat)
     return x / (111.1*1000 * cosd(lat))
 end
 rst_stack = RasterStack(rst_stack; lazy=true)
+#rst_stack = RasterStack(rst_stack; lazy=true)
 
 function polygon_to_lines(polygon)
     if typeof(polygon) == Vector{GI.Wrappers.WrapperGeometry{false, false}}
@@ -102,6 +104,13 @@ end
 valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry, boundary=:inside))
 gdf.geometry = GO.simplify.(gdf.geometry; number=20)
 valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry))
+gdf.buffer = GO.simplify.(gdf.geometry; number=20)
+for row in eachrow(gdf)
+    lat = GO.centroid(row.buffer)[2]
+    row.buffer = GO.buffer(row.buffer, meters_to_degrees(10, lat))
+end
+
+valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry, boundary=:inside))
 indices = findall(valid_pixels)
 
 x_dist = 450
@@ -163,6 +172,25 @@ function identify_closest_edge(pixel, reef)
     reef_lines = polygon_to_lines(reef)
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
     nearest_edge = GI.coordinates(nearest_edge)
+# function nearest_point(target_point, point_coords)
+#     point_coords = point_coords[point_coords .!= [GI.coordinates(target_point)]]
+#     points = Vector{Union{Missing, AG.IGeometry{AG.wkbPoint}}}(missing, size(point_coords, 1))
+#     for (z, point) in enumerate(point_coords)
+#         points[z] = AG.createpoint(point)
+#     end
+#     distances = GO.distance.([target_point], points)
+
+#     nearest = tuple(point_coords[distances .== sort(distances)[1]][1]...)
+
+#     return nearest
+# end
+
+function polygon_to_lines(polygon)
+    if typeof(polygon) == Vector{GI.Wrappers.WrapperGeometry{false, false}}
+        linestring = GO.polygon_to_line(polygon...)
+    else
+        linestring = GO.polygon_to_line(polygon)
+    end
 
     return [tuple(x...) for x in nearest_edge]
 end
@@ -187,22 +215,28 @@ function initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_
     rot_angle = angle_cust(from_zero(search_box_line), from_zero(edge_line))
     if edge_bearing > 90
         rot_angle = -rot_angle
+    if GI.nhole(polygon...) > 0
+        poly_lines = []
+        for s in 1:size(linestring.geom, 1)
+            lines_s = GO.LineString(GO.Point.(GI.getlinestring(linestring, s).geom))
+            push!(poly_lines, lines_s)
+        end
+
+    else
+        poly_lines = GO.LineString(GO.Point.(linestring.geom))
     end
 
     return geom_buff, rot_angle
     distances = GO.distance.([pixel], point_coords)
+    return vcat(poly_lines...)
+end
 
-    # Find the two closest vertices to a pixel
-    point_a = tuple(reef_points[distances .== sort(distances)[1]][1]...)
-    point_b = tuple(reef_points[distances .== sort(distances)[2]][1]...)
-    # If the closest point is the start/end of a polygon coords then it will also be the
-    # second closest point, so we have to select the third closest instead.
-    if point_a == point_b
-        point_b = tuple(reef_points[distances .== sort(distances)[3]][1]...)
-    end
-    edge_line = [point_a, point_b]
+function identify_closest_edge(pixel, reef)
+    reef_lines = polygon_to_lines(reef)
+    nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
+    nearest_edge = GI.coordinates(nearest_edge)
 
-    return edge_line
+    return [tuple(x...) for x in nearest_edge]
 end
 
 """
@@ -220,6 +254,7 @@ end
     )::DataFrame
 function initial_search_box(lon, lat, x_dist, y_dist, res, crs, gdf)
 function initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf)
+function initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_col)
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist/2, lon + lon_dist/2)
     lat_dist = meters_to_degrees(y_dist, lat)
@@ -265,7 +300,7 @@ function identify_potential_sites(
     res = abs(step(dims(rst_stack, X)))
     pixel = AG.createpoint()
     pixel = AG.addpoint!(pixel, lon, lat)
-    reef = gdf[GO.within.([pixel], gdf.geometry),:].geometry
+    reef = gdf[GO.within.([pixel], gdf[:, geometry_col]), geometry_col]
     edge_line = identify_closest_edge(pixel, reef)
 
     # Calculate the angle between the two lines
@@ -286,7 +321,8 @@ end
         gdf::DataFrame,
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+        t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+        geometry_col::Symbol=:buffer,
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2
     )::DataFrame
@@ -304,7 +340,8 @@ parameters.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box.
 - `y_dist` : Length of vertical side of search box.
-- `crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
+- `t_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
+- `geometry_col` : Column name containing target geometries for edge detection in gdf.
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 
@@ -319,6 +356,7 @@ function identify_potential_sites(
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
     t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+    geometry_col::Symbol=:buffer,
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2
 )::DataFrame
@@ -344,6 +382,7 @@ function identify_potential_sites(
         lat = dims(indices_pixels, Y)[index[2]]
         geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, crs, gdf)
         geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf)
+        geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_col)
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,
@@ -461,7 +500,8 @@ function filter_intersecting_sites(res_df::DataFrame)::DataFrame
 end
 
 MCap_80_slopes = identify_potential_sites(rst_stack, valid_pixels, indices, gdf, 450, 10, EPSG(7844))
+@time MCap_80_slopes = identify_potential_sites(rst_stack, valid_pixels, indices, gdf, 450, 10, EPSG(7844))
 filtered = filter_intersecting_sites(MCap_80_slopes)
-poly(gdf[gdf.management_area .== "Townsville/Whitsunday Management Area", :geometry])
+poly(gdf[gdf.management_area .== "Mackay/Capricorn Management Area", :geometry])
 poly!(TSV_80_slopes.poly; color=:orange, alpha=0.3, strokewidth=1)
 poly!(filtered.poly; color=:green, alpha=0.5, strokewidth=2)
