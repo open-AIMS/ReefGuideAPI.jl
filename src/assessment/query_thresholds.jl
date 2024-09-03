@@ -154,7 +154,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
 end
 function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)
     # Result store
-    res = falses(size(reg_criteria.stack))
+    res = spzeros(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for rule_name in keys(ruleset)
@@ -162,13 +162,13 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= 1.0
 
     return res
 end
 function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
     # Result store
-    res = falses(size(reg_criteria.stack))
+    res = spzeros(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for threshold in ruleset
@@ -176,7 +176,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= 1.0
 
     return res
 end
@@ -207,5 +207,57 @@ function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)
         crit_map
     )
 
-    return UInt8.(mask_layer)
+    return mask_layer
+end
+
+"""
+    generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
+
+Generate mask file for a given region and reef type (slopes or flats) according to thresholds
+applied to a set of criteria.
+
+# Notes
+- Zero values indicate locations to mask **out**.
+- Ones indicate locations to **keep**.
+
+# Arguments
+- `fn` : File to write geotiff to
+- `reg_criteria` : RegionalCriteria to assess
+- `rtype` : reef type to assess (`:slopes` or `:flats`)
+- `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
+
+# Returns
+Nothing
+"""
+function generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::Nothing
+    # Create the geotiff
+    res = spzeros(size(rst_stack))
+    tmp_rst = Raster(
+        rst_stack[names(rst_stack)[1]];
+        data=res,
+        missingval=0.0
+    )
+
+    res_lookup = trues(nrow(lookup))
+    for threshold in ruleset
+        res_lookup .= res_lookup .& threshold.rule(lookup[!, threshold.name])
+    end
+
+    tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
+    tmp_rst[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= 1.0
+
+    write(
+        fn,
+        UInt8.(tmp_rst),
+        ext=".tiff",
+        source="gdal",
+        driver="COG",  # GTiff
+        options=Dict{String,String}(
+            "COMPRESS"=>"LZW",
+            "SPARSE_OK"=>"TRUE",
+            "OVERVIEW_COUNT"=>"5"
+        )
+    )
+
+    return nothing
 end
