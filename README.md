@@ -29,6 +29,9 @@ By convention, this file is named `.config.toml` (note the leading `.`).
 ```julia
 using ReefGuideAPI
 
+# To enable debug messages:
+# ENV["JULIA_DEBUG"] = "ReefGuideAPI"
+
 # If multiple threads are available, a parallel server will be spun up
 ReefGuideAPI.start_server(".config.toml")
 
