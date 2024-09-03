@@ -106,7 +106,8 @@ function setup_region_routes(config)
         end
 
         # Otherwise, create the file
-        # Filtering typical time: 0.6 - 1.5 seconds
+        @debug "$(now()) : Assessing criteria"
+        # Filtering time: 0.6 - 7.0 seconds
         criteria_names = string.(split(qp["criteria_names"], ","))
         lbs = string.(split(qp["lb"], ","))
         ubs = string.(split(qp["ub"], ","))
@@ -120,7 +121,7 @@ function setup_region_routes(config)
 
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
-        # Writing typical time: ~10-15 seconds
+        # Writing time: ~10-25 seconds
         Rasters.write(
             mask_path,
             Raster(assess.stack[names(assess.stack)[1]]; data=mask_data, missingval=0);
