@@ -125,42 +125,6 @@ function valid_pixel_positions(data::DataFrame, criteria::Symbol, lb::T, ub::T) 
     return pixel_pos
 end
 
-# @memoize function query_valid_pos(region, criteria, rtype, lb, ub)
-#     data = try
-#         getfield(regional_assessment_data(CONFIG)[region], Symbol("valid_", rtype))
-#     catch err
-#         if isa(err, KeyError)
-#             throw(KeyError("Unknown region: $(region)"))
-#         elseif occursin(err.msg, "has no field")
-#             throw(ArgumentError("Unknown reef type: $(rtype)"))
-#         else
-#             throw(err)
-#         end
-#     end
-
-#     return valid_pixel_positions(data, Symbol(criteria), lb, ub)
-# end
-
-# @memoize function query_valid_inds(region, criteria, rtype, lb, ub)
-#     data = try
-#         getfield(regional_assessment_data(CONFIG)[region], Symbol("valid_", rtype))
-#     catch err
-#         if isa(err, KeyError)
-#             throw(KeyError("Unknown region: $(region)"))
-#         elseif occursin(err.msg, "has no field")
-#             throw(ArgumentError("Unknown reef type: $(rtype)"))
-#         else
-#             throw(err)
-#         end
-#     end
-
-#     return valid_lonlat_inds(data, Symbol(criteria), lb, ub)
-# end
-
-# function query_valid_inds(lookup::DataFrame, ruleset::NamedTuple, criteria::Symbol)
-#     return lookup[ruleset[criteria](lookup[!, criteria]), [:lon_idx, :lat_idx]]
-# end
-
 function _create_filter(bounds::Tuple)
     return (x) -> bounds[1] .< x .<= bounds[2]
 end
