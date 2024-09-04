@@ -9,6 +9,7 @@ import GeoInterface as GI
 import GeometryOps as GO
 using Proj
 using LibGEOS
+using GeometryBasics
 
 using CoordinateTransformations
 
@@ -148,3 +149,54 @@ end
 # search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
 
 # b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, search_plot, 5.0)
+
+"""
+    polygon_to_lines(polygon::Union{
+        Vector{GI.Wrappers.WrapperGeometry{false, false}},
+        GI.Wrappers.Polygon,
+        GI.Wrappers.MultiPolygon
+        })
+
+Extract the individual lines between vertices that make up the outline of a polygon.
+"""
+function polygon_to_lines(polygon::Union{
+    Vector{GI.Wrappers.WrapperGeometry{false, false}},
+    GI.Wrappers.Polygon,
+    GI.Wrappers.MultiPolygon
+    })
+    poly_lines = [GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...))) for geometry in polygon.geom]
+
+    return vcat(poly_lines...)
+end
+
+"""
+    identify_closest_edge(
+        pixel::AG.IGeometry{AG.wkbPoint},
+        reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+        )::Vector{Tuple{Float64, Float64}}
+
+Identify the closest reef edge to a `pixel` point from a set of lines that make up a reef outline.
+"""
+function identify_closest_edge(
+    pixel::AG.IGeometry{AG.wkbPoint},
+    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+    )::Vector{Tuple{Float64, Float64}}
+    nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
+    return [tuple(x...) for x in nearest_edge]
+end
+
+"""
+    find_horiz(geom)
+
+Find a horizontal line if one exists within a geometry.
+"""
+function find_horiz(geom)
+    coords = collect(GI.coordinates(geom)...)
+    first_coord = first(coords)
+    second_coord = coords[
+        (getindex.(coords, 2) .∈ first_coord[2]) .&&
+        (getindex.(coords, 1) .∉ first_coord[1])
+    ]
+
+    return [tuple(first_coord...), tuple(first(second_coord)...)]
+end
