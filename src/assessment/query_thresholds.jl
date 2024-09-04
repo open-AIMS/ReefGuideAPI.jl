@@ -154,7 +154,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
 end
 function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)
     # Result store
-    res = spzeros(size(reg_criteria.stack))
+    res = falses(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for rule_name in keys(ruleset)
@@ -162,13 +162,17 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= 1.0
+    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
 
     return res
 end
-function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
+function apply_criteria_thresholds(
+    reg_criteria::RegionalCriteria,
+    lookup::DataFrame,
+    ruleset::Vector{CriteriaBounds{Function}}
+)::BitMatrix
     # Result store
-    res = spzeros(size(reg_criteria.stack))
+    res = falses(size(reg_criteria.stack))
 
     res_lookup = trues(nrow(lookup))
     for threshold in ruleset
@@ -176,7 +180,7 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= 1.0
+    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
 
     return res
 end
@@ -197,9 +201,9 @@ applied to a set of criteria.
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
 
 # Returns
-Matrix of type UInt8 indicating locations within desired thresholds.
+BitMatrix indicating locations within desired thresholds.
 """
-function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)
+function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)::BitMatrix
     valid_lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     mask_layer = apply_criteria_thresholds(
         reg_criteria,
