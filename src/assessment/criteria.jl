@@ -112,6 +112,15 @@ function setup_region_routes(config)
         lbs = string.(split(qp["lb"], ","))
         ubs = string.(split(qp["ub"], ","))
 
+        if !contains(reg, "Townsville")
+            # Remove rugosity layer from consideration as it doesn't exist for regions
+            # outside of Townsville.
+            pos = findfirst(lowercase.(criteria_names) .== "rugosity")
+            criteria_names = [cname for (i, cname) in enumerate(criteria_names) if i != pos]
+            lbs = [lb for (i, lb) in enumerate(lbs) if i != pos]
+            ubs = [ub for (i, ub) in enumerate(ubs) if i != pos]
+        end
+
         assess = reg_assess_data[reg]
         mask_data = make_threshold_mask(
             assess,
