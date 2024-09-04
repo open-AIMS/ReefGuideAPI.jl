@@ -49,13 +49,50 @@ threshold = 90
 scan_locs = trim(scan_locs .> threshold)
 
 #rst_stack = RasterStack(rst_stack; lazy=true)
+function meters_to_degrees(x, lat)
+    return x / (111.1*1000 * cosd(lat))
+end
+
+function polygon_to_lines(polygon)
+    if typeof(polygon) == Vector{GI.Wrappers.WrapperGeometry{false, false}}
+        coords = GI.coordinates(polygon...)
+    else
+        coords = GI.coordinates(polygon)
+    end
+
+    holes = try
+        GI.nhole(polygon...)
+    catch
+        GI.nhole(polygon)
+    end
+
+    if holes > 0
+        coords = [vcat(x) for x in coords]
+        poly_lines = []
+        for s in 1:size(coords, 1)
+            lines_s = GO.LineString(GO.Point.([tuple(x...) for x in coords[s]]))
+            push!(poly_lines, lines_s)
+        end
+    else
+        coords = vcat(coords...)
+        poly_lines = GO.LineString(GO.Point.([tuple(x...) for x in coords]))
+    end
+
+    return vcat(poly_lines...)
+end
 
 gdf = GDF.read("../canonical-reefs/output/rrap_canonical_2024-07-24-T12-38-38.gpkg")
 
 gdf.buffer = GO.simplify.(gdf.geometry; number=20)
 for row in eachrow(gdf)
     lat = GO.centroid(row.buffer)[2]
-    row.buffer = GO.buffer(row.buffer, meters_to_degrees(10, lat))
+    row.buffer = GO.simplify(GO.buffer(row.buffer, meters_to_degrees(10, lat)); number=19)
+end
+
+gdf.lines = Vector{Any}(missing, size(gdf, 1))
+for (r, row) in enumerate(eachrow(gdf))
+    println("$(r)")
+    row.lines = polygon_to_lines(row.buffer)
 end
 
 valid_pixels = Rasters.trim(mask(scan_locs; with=gdf.geometry, boundary=:inside))
@@ -95,9 +132,7 @@ function angle_cust(a, b)
     return acosd(clamp(a⋅b/(norm(a)*norm(b)), -1, 1))
 end
 
-function meters_to_degrees(x, lat)
-    return x / (111.1*1000 * cosd(lat))
-end
+
 
 # function nearest_point(target_point, point_coords)
 #     point_coords = point_coords[point_coords .!= [GI.coordinates(target_point)]]
@@ -112,26 +147,7 @@ end
 #     return nearest
 # end
 
-function polygon_to_lines(polygon)
-    if typeof(polygon) == Vector{GI.Wrappers.WrapperGeometry{false, false}}
-        linestring = GO.polygon_to_line(polygon...)
-    else
-        linestring = GO.polygon_to_line(polygon)
-    end
 
-    if GI.nhole(polygon...) > 0
-        poly_lines = []
-        for s in 1:size(linestring.geom, 1)
-            lines_s = GO.LineString(GO.Point.(GI.getlinestring(linestring, s).geom))
-            push!(poly_lines, lines_s)
-        end
-
-    else
-        poly_lines = GO.LineString(GO.Point.(linestring.geom))
-    end
-
-    return vcat(poly_lines...)
-end
 
 function identify_closest_edge(pixel, reef)
     reef_lines = polygon_to_lines(reef)
