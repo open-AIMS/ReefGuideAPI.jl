@@ -211,6 +211,14 @@ function initial_search_rotation(
 )::Float64
     reef_lines = reef_lines[GO.within.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])]
     reef_lines = vcat(reef_lines...)
+
+    # If a pixel is outside of a polygon, use the closest polygon instead.
+    if isempty(reef_lines)
+        reef_distances = GO.distance.([pixel], gdf[:, geometry_col])
+        reef_lines = gdf[argmin(reef_distances), lines_col]
+        reef_lines = vcat(reef_lines...)
+    end
+
     edge_line = identify_closest_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
