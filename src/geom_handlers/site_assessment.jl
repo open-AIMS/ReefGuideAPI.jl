@@ -86,7 +86,7 @@ function from_zero(v)
 end
 
 function angle_cust(a, b)
-    return acosd(clamp(a⋅b/(norm(a)*norm(b)), -1, 1))
+    return acosd(clamp(a⋅b / (norm(a) * norm(b)), -1, 1))
 end
 
 function identify_closest_edge(
@@ -94,6 +94,7 @@ function identify_closest_edge(
     reef_lines::Vector{GeometryBasics.Line{2, Float64}}
     )::Vector{Tuple{Float64, Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
+
     return [tuple(x...) for x in nearest_edge]
 end
 
@@ -124,7 +125,7 @@ function initial_search_box(
     gdf::DataFrame,
     geometry_col::Symbol,
     lines_col::Symbol
-    )::Tuple{GI.Wrappers.Polygon, Float64}
+)::Tuple{GI.Wrappers.Polygon, Float64}
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist/2, lon + lon_dist/2)
     lat_dist = meters_to_degrees(y_dist, lat)
@@ -136,7 +137,7 @@ function initial_search_box(
 
     pixel = AG.createpoint()
     pixel = AG.addpoint!(pixel, lon, lat)
-    reef_lines = gdf[GO.within.([pixel], gdf[:, :geometry]), :lines]
+    reef_lines = gdf[GO.within.([pixel], gdf[:, geometry_col]), lines_col]
     reef_lines = vcat(reef_lines...)
     edge_line = identify_closest_edge(pixel, reef_lines)
 
@@ -157,7 +158,7 @@ function assess_reef_site(
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=1
-    )::Tuple{Float64, Int64, GI.Wrappers.Polygon}
+)::Tuple{Float64, Int64, GI.Wrappers.Polygon}
 
     rotations = start_rot-(degree_step*n_per_side):degree_step:start_rot+(degree_step*n_per_side)
     n_rotations = length(rotations)
@@ -272,6 +273,15 @@ function identify_potential_sites_edges(
     return DataFrame(score=best_score, orientation=best_rotation, poly=best_poly)
 end
 
+"""
+    filter_intersecting_sites(res_df::DataFrame)::DataFrame
+
+Identify and keep the highest scoring site polygon where site polygons are overlapping.
+
+# Arguments
+- `res_df` : Results DataFrame containing potential site polygons (output from
+`identify_potential_sites()` or `identify_potential_sites_edges()`).
+"""
 function filter_intersecting_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df,1)
     ignore_list = []

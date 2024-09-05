@@ -160,10 +160,10 @@ end
 Extract the individual lines between vertices that make up the outline of a polygon.
 """
 function polygon_to_lines(polygon::Union{
-    Vector{GI.Wrappers.WrapperGeometry{false, false}},
+    Vector{GI.Wrappers.WrapperGeometry{false,false}},
     GI.Wrappers.Polygon,
     GI.Wrappers.MultiPolygon
-    })
+})
     poly_lines = [GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...))) for geometry in polygon.geom]
 
     return vcat(poly_lines...)
@@ -179,9 +179,10 @@ Identify the closest reef edge to a `pixel` point from a set of lines that make 
 """
 function identify_closest_edge(
     pixel::AG.IGeometry{AG.wkbPoint},
-    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
-    )::Vector{Tuple{Float64, Float64}}
+    reef_lines::Vector{GeometryBasics.Line{2,Float64}}
+)::Vector{Tuple{Float64,Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
+
     return [tuple(x...) for x in nearest_edge]
 end
 
@@ -194,8 +195,8 @@ function find_horiz(geom)
     coords = collect(GI.coordinates(geom)...)
     first_coord = first(coords)
     second_coord = coords[
-        (getindex.(coords, 2) .∈ first_coord[2]) .&&
-        (getindex.(coords, 1) .∉ first_coord[1])
+        (getindex.(coords, 2).∈first_coord[2]) .&&
+        (getindex.(coords, 1).∉first_coord[1])
     ]
 
     return [tuple(first_coord...), tuple(first(second_coord)...)]
