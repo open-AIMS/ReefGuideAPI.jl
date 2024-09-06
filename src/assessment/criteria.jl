@@ -142,9 +142,10 @@ function setup_region_routes(config)
                 "COMPRESS"=>"DEFLATE",
                 "SPARSE_OK"=>"TRUE",
                 "OVERVIEW_COUNT"=>"5",
-                "BLOCKSIZE"=>"512",
+                "BLOCKSIZE"=>"256",
                 "NUM_THREADS"=>n_gdal_threads(config)
-            )
+            ),
+            force=true
         )
 
         return file(mask_path)
