@@ -102,7 +102,7 @@ function n_gdal_threads(config)::String
     n_cog_threads = try
         config["server_config"]["COG_THREADS"]
     catch
-        "1"
+        "1"  # Default to using a single thread for GDAL write
     end
 
     return n_cog_threads

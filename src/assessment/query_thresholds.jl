@@ -130,9 +130,9 @@ function _create_filter(bounds::Tuple)
 end
 
 """
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)
+    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::BitMatrix
+    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)::BitMatrix
+    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)::BitMatrix
 
 Apply thresholds for each criteria.
 
@@ -145,14 +145,14 @@ Apply thresholds for each criteria.
 # Returns
 BitMatrix indicating locations within desired thresholds
 """
-function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)
+function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)::BitMatrix
     ruleset = NamedTuple{(keys(ruleset)...,)}(
         Tuple(_create_filter.(values(ruleset)))
     )
 
     return apply_criteria_thresholds(reg_criteria, lookup, ruleset)
 end
-function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)
+function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)::BitMatrix
     # Result store
     res = falses(size(reg_criteria.stack))
 
