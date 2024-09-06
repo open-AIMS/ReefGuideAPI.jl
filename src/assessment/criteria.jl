@@ -141,7 +141,9 @@ function setup_region_routes(config)
             options=Dict{String,String}(
                 "COMPRESS"=>"DEFLATE",
                 "SPARSE_OK"=>"TRUE",
-                "OVERVIEW_COUNT"=>"5"
+                "OVERVIEW_COUNT"=>"5",
+                "BLOCKSIZE"=>"512",
+                "NUM_THREADS"=>n_gdal_threads(config)
             )
         )
 

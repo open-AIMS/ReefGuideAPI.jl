@@ -98,6 +98,16 @@ function _cache_location(config)
     return cache_loc
 end
 
+function n_gdal_threads(config)::String
+    n_cog_threads = try
+        config["server_config"]["COG_THREADS"]
+    catch
+        "1"
+    end
+
+    return n_cog_threads
+end
+
 function start_server(config_path)
     config = TOML.parsefile(config_path)
     setup_region_routes(config)
