@@ -67,3 +67,10 @@ Julia REPL at project root:
 ;cd sandbox
 include("dev_server.jl")
 ```
+
+## Performance notes
+
+The config setting `COG_THREADS` controls how many threads should be requested when writing
+out COGs. Ideally this will be set to at least 2 (preferably 4).
+Higher values do seem to reduce write times but with diminishing returns (tested up to 8).
+Locally, write times with four threads configured range from 10 to 15 seconds.
