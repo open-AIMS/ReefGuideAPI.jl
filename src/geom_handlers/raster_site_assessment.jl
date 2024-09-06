@@ -5,7 +5,6 @@ using FLoops
 
 include("geom_ops.jl")
 
-
 function identify_potential_sites(rst_stack, scan_locs, threshold, geom)
     res = abs(step(dims(rst_stack, X)))
     geom_buff = GO.buffer(geom, res)
