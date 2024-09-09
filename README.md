@@ -19,8 +19,9 @@ PREPPED_DATA_DIR = "C:/some_path_to_data/MPA/"
 
 [server_config]
 CACHE_DIR = "<some location to cache geotiffs>"
-DEBUG_MODE = "false"  # Optional, disables file caching
-COG_THREADS = "2"  # Number of threads to use when creating COGs (defaults to 1)
+DEBUG_MODE = "false"  # Optional, disables file caching and displays debug logs
+COG_THREADS = "2"  # Optional, Number of threads to use when creating COGs (defaults to 1)
+TILE_SIZE = "256"  # Optional, tile block size to use (defaults to 256)
 ```
 
 By convention, this file is named `.config.toml` (note the leading `.`).

@@ -127,6 +127,17 @@ function n_gdal_threads(config)::String
     return n_cog_threads
 end
 
+function tile_size(config)::Tuple
+    tile_dims = try
+        res = parse(Int, config["server_config"]["TILE_SIZE"])
+        (res, res)
+    catch
+        (256, 256)  # 256x256
+    end
+
+    return tile_dims
+end
+
 function start_server(config_path)
     config = TOML.parsefile(config_path)
     setup_region_routes(config)
