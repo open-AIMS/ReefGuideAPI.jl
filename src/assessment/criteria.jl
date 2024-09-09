@@ -96,7 +96,7 @@ end
 # reeftype_router = router("/suitability", middleware=[criteria_middleware], tags=["suitability"])
 
 function setup_region_routes(config)
-    reg_assess_data = regional_assessment_data(config)
+    reg_assess_data = setup_regional_data(config)
 
     @get "/assess/{reg}/{rtype}" function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
