@@ -12,11 +12,11 @@ using SparseArrays
 
 import GeoDataFrames as GDF
 using
+    ArchGDAL,
     GeoParquet,
     Rasters
 
 using
-    FLoops,
     HTTP,
     Oxygen
 

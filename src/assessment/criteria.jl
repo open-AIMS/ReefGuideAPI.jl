@@ -3,6 +3,9 @@ using Base.Threads
 using Dates
 using StructTypes
 
+import Rasters: Between
+using CairoMakie, ImageIO, Images
+
 
 const REEF_TYPE = [:slopes, :flats]
 
