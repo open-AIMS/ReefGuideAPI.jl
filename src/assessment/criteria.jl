@@ -214,10 +214,9 @@ function setup_region_routes(config)
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
         # Writing time: ~10-25 seconds
-        rst_layer = assess.stack[names(assess.stack)[1]]
         Rasters.write(
             mask_path,
-            Raster(rst_layer; data=UInt8.(mask_data), missingval=0);
+            UInt8.(mask_data);
             ext=".tiff",
             source="gdal",
             driver="COG",

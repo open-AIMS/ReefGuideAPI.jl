@@ -130,14 +130,14 @@ function _create_filter(bounds::Tuple)
 end
 
 """
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::BitMatrix
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)::BitMatrix
-    apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)::BitMatrix
+    apply_criteria_thresholds(criteria_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::Raster
+    apply_criteria_thresholds(criteria_stack::RasterStack, lookup::DataFrame, ruleset::Dict)::Raster
+    apply_criteria_thresholds(criteria_stack::RasterStack, lookup::DataFrame, ruleset::NamedTuple)::Raster
 
 Apply thresholds for each criteria.
 
 # Arguments
-- `reg_criteria` : Dataset for a given region
+- `criteria_stack` : RasterStack of criteria data for a given region
 - `lookup` : Lookup dataframe for the region
 - `ruleset` : A set of CriteriaBounds, Dictionary or NamedTuple indicating a mapping of
               criteria names to their lower and upper thresholds.
@@ -145,16 +145,24 @@ Apply thresholds for each criteria.
 # Returns
 BitMatrix indicating locations within desired thresholds
 """
-function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::Dict)::BitMatrix
+function apply_criteria_thresholds(
+    criteria_stack::RasterStack,
+    lookup::DataFrame,
+    ruleset::Dict
+)::Raster
     ruleset = NamedTuple{(keys(ruleset)...,)}(
         Tuple(_create_filter.(values(ruleset)))
     )
 
-    return apply_criteria_thresholds(reg_criteria, lookup, ruleset)
+    return apply_criteria_thresholds(criteria_stack, lookup, ruleset)
 end
-function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataFrame, ruleset::NamedTuple)::BitMatrix
+function apply_criteria_thresholds(
+    criteria_stack::RasterStack,
+    lookup::DataFrame,
+    ruleset::NamedTuple
+)::Raster
     # Result store
-    res = falses(size(reg_criteria.stack))
+    res = Raster(criteria_stack.Depth; data=falses(size(criteria_stack)), missingval=0)
 
     res_lookup = trues(nrow(lookup))
     for rule_name in keys(ruleset)
@@ -167,12 +175,12 @@ function apply_criteria_thresholds(reg_criteria::RegionalCriteria, lookup::DataF
     return res
 end
 function apply_criteria_thresholds(
-    reg_criteria::RegionalCriteria,
+    criteria_stack::T,
     lookup::DataFrame,
     ruleset::Vector{CriteriaBounds{Function}}
-)::BitMatrix
+)::Raster where {T}
     # Result store
-    res = falses(size(reg_criteria.stack))
+    res = Raster(criteria_stack.Depth; data=falses(size(criteria_stack)), missingval=0)
 
     res_lookup = trues(nrow(lookup))
     for threshold in ruleset
