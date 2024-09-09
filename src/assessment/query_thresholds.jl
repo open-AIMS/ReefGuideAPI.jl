@@ -207,19 +207,48 @@ applied to a set of criteria.
 - `reg_criteria` : RegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
+- `lons` : Longitudinal extent (min and max)
+- `lats` : Latitudinal extent (min and max)
 
 # Returns
-BitMatrix indicating locations within desired thresholds.
+True/false mask indicating locations within desired thresholds.
 """
-function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)::BitMatrix
+function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
     valid_lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     mask_layer = apply_criteria_thresholds(
-        reg_criteria,
+        reg_criteria.stack,
         valid_lookup,
         crit_map
     )
 
     return mask_layer
+end
+function make_threshold_mask(
+    reg_criteria,
+    rtype::Symbol,
+    crit_map,
+    lons::Tuple,
+    lats::Tuple
+)::Raster
+    lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
+
+    within_search = (
+        (lons[1] .<= lookup.lons .<= lons[2]) .&
+        (lats[1] .<= lookup.lats .<= lats[2])
+    )
+    lookup = lookup[within_search, :]
+
+    # Need to pass in full representation of the raster as the lookup table relies on
+    # the original Cartesian indices.
+    res = apply_criteria_thresholds(
+        reg_criteria.stack,
+        lookup,
+        crit_map
+    )
+
+    # Extract data between lon/lats
+    view_of_data = view(res, X(lons[1] .. lons[2]), Y(lats[1] .. lats[2]))
+    return Raster(view_of_data; data=sparse(convert.(UInt8, view_of_data.data)))
 end
 
 """
