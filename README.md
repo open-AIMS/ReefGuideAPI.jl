@@ -36,12 +36,25 @@ using ReefGuideAPI
 
 # If multiple threads are available, a parallel server will be spun up
 ReefGuideAPI.start_server(".config.toml")
-
-# An example URL to query:
-# http://127.0.0.1:8000/assess/Cairns-Cooktown/slopes?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40.0
 ```
 
 In its current state, the main page displays a simple form for dev/testing purposes.
+
+## Dynamic COG generation
+
+Example URL:
+
+```code
+http://127.0.0.1:8000/assess/Cairns-Cooktown/slopes?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40.0
+```
+
+## Simple Slippy Tiles
+
+Example URL:
+
+```code
+http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
+```
 
 ## Development setup
 
@@ -68,6 +81,10 @@ Julia REPL at project root:
 ;cd sandbox
 include("dev_server.jl")
 ```
+
+Note that the server now caches the initially loaded spatial data in between server
+launches to reduce downtime. It will be necessary to restart the Julia session to reload
+spatial data.
 
 ## Performance notes
 
