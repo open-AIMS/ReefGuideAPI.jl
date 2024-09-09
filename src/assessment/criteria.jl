@@ -283,17 +283,11 @@ function setup_region_routes(config)
         )
 
         if any(size(mask_data) .== 0)
-            # TODO: Return empty tile?
-            return json(
-                Dict(
-                    "error"=>"Error: Invalid bounds",
-                    "details"=>Dict(
-                        "Lons"=>(lon_min, lon_max),
-                        "Lats"=>(lat_min, lat_max),
-                    )
-                )
-            )
+            @debug "No data for $reg ($rtype) at $z/$x/$y"
+            save(mask_path, zeros(RGBA, tile_size(config)))
+            return file(mask_path)
         end
+
         @debug "Extracted data size: $(size(mask_data))"
 
         # Working:
