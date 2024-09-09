@@ -37,7 +37,18 @@ function get_regions()
     return regions
 end
 
+function setup_regional_data(config::Dict)
+    return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
+end
 function setup_regional_data(reef_data_path::String)
+    if @isdefined(REGIONAL_DATA)
+        @debug "Using previously generated regional data store."
+        sleep(1)  # Pause so message is noticeably visible
+        return REGIONAL_DATA
+    end
+
+    @debug "Setting up regional data store..."
+
     regional_assessment_data = OrderedDict{String, RegionalCriteria}()
     for reg in get_regions()
         data_paths = String[]
@@ -68,6 +79,15 @@ function setup_regional_data(reef_data_path::String)
             end
         end
 
+        # Pre-extract long/lat coordinates
+        coords = GI.coordinates.(slope_table.geometry)
+        slope_table[!, :lons] .= first.(coords)
+        slope_table[!, :lats] .= last.(coords)
+
+        coords = GI.coordinates.(flat_table.geometry)
+        flat_table[!, :lons] .= first.(coords)
+        flat_table[!, :lats] .= last.(coords)
+
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
@@ -76,11 +96,10 @@ function setup_regional_data(reef_data_path::String)
         )
     end
 
-    return regional_assessment_data
-end
+    # Remember, `@eval` runs in global scope.
+    @eval const REGIONAL_DATA = $(regional_assessment_data)
 
-function regional_assessment_data(config)
-    return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
+    return REGIONAL_DATA
 end
 
 function _cache_location(config)
@@ -121,8 +140,7 @@ end
 
 export
     RegionalCriteria,
-    criteria_data_map,
-    regional_assessment_data
+    criteria_data_map
 
 # Methods to assess/identify deployment "plots" of reef.
 export
