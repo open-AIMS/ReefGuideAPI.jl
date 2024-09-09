@@ -233,6 +233,89 @@ function setup_region_routes(config)
         return file(mask_path)
     end
 
+    @get "/bounds/{reg}" function (req::Request, reg::String)
+        rst_stack = reg_assess_data[reg].stack
+
+        return json(Rasters.bounds(rst_stack))
+    end
+
+    @get "/tile/{z}/{x}/{y}" function (req::Request, z::Int64, x::Int64, y::Int64)
+        # http://127.0.0.1:8000/tile/10/10/10?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
+        qp = queryparams(req)
+        file_id = string(hash(qp))
+        mask_temp_path = _cache_location(config)
+        mask_path = joinpath(mask_temp_path, file_id*".png")
+
+        if isfile(mask_path)
+            return file(mask_path)
+        end
+
+        # Otherwise, create the file
+        @debug "$(now()) : Assessing criteria"
+        # Filtering time: 0.6 - 7.0 seconds
+        reg = qp["region"]
+        rtype = qp["rtype"]
+        criteria_names = string.(split(qp["criteria_names"], ","))
+        lbs = string.(split(qp["lb"], ","))
+        ubs = string.(split(qp["ub"], ","))
+
+        if !contains(reg, "Townsville")
+            # Remove rugosity layer from consideration as it doesn't exist for regions
+            # outside of Townsville.
+            pos = findfirst(lowercase.(criteria_names) .== "rugosity")
+            criteria_names = [cname for (i, cname) in enumerate(criteria_names) if i != pos]
+            lbs = [lb for (i, lb) in enumerate(lbs) if i != pos]
+            ubs = [ub for (i, ub) in enumerate(ubs) if i != pos]
+        end
+
+        # Calculate tile bounds
+        lon_min, lon_max, lat_min, lat_max = _tile_to_lon_lat(z, x, y)
+        @debug "$(now()) : Calculated bounds (lon bounds, lat bounds): ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
+
+        # Extract relevant data based on tile coordinates
+        @debug "$(now()) : Extracting tile data"
+        mask_data = make_threshold_mask(
+            reg_assess_data[reg],
+            Symbol(rtype),
+            CriteriaBounds.(criteria_names, lbs, ubs),
+            (lon_min, lon_max),
+            (lat_min, lat_max)
+        )
+
+        if any(size(mask_data) .== 0)
+            # TODO: Return empty tile?
+            return json(
+                Dict(
+                    "error"=>"Error: Invalid bounds",
+                    "details"=>Dict(
+                        "Lons"=>(lon_min, lon_max),
+                        "Lats"=>(lat_min, lat_max),
+                    )
+                )
+            )
+        end
+        @debug "Extracted data size: $(size(mask_data))"
+
+        # Working:
+        # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
+        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
+
+        # Using if block to avoid type instability
+        @debug "$(now()) : Creating PNG (with transparency)"
+        if any(size(mask_data) .> tile_size(config))
+            resampled = fast_resample(mask_data, tile_size(config))
+            img = zeros(RGBA, size(resampled));
+            img[resampled .== 1] .= RGBA(0,0,0,1);
+        else
+            img = zeros(RGBA, size(mask_data));
+            img[mask_data .== 1] .= RGBA(0,0,0,1);
+        end
+
+        @debug "$(now()) : Saving and serving file"
+        save(mask_path, img)
+        file(mask_path)
+    end
+
     # Form for testing/dev
     # https:://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
     @get "/" function()
