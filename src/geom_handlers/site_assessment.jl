@@ -292,9 +292,6 @@ lengths of the search polygon. A buffer of `rst_stack` resolution is applied to 
 And angle from a pixel to a reef edge is identified and used for searching with custom rotation
 parameters.
 
-# Extra help
-Test
-
 # Arguments
 - `rst_stack` : RasterStack containing environmental variables for assessment.
 - `indices_pixels` : Raster that matches indices for lon/lat information.
