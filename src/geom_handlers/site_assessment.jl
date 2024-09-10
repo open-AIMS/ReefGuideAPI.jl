@@ -68,6 +68,8 @@ end
 
 """
     meters_to_degrees(x, lat)
+
+Convert meters to degrees.
 """
 function meters_to_degrees(x, lat)
     return x / (111.1 * 1000 * cosd(lat))
@@ -366,7 +368,7 @@ function filter_intersecting_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
-    for (ind, row) in enumerate(eachrow(res_df))
+    for row in eachrow(res_df)
         if row.row_ID ∈ ignore_list
             continue
         end
