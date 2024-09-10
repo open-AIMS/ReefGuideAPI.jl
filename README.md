@@ -100,9 +100,9 @@ This method works by identifying the closest edge of reef polygon geometries tha
 converted into lines.
 
 The following processing is required before use:
-- Reef polygons should be simplified (GO.simplify()) and buffered to avoid matching possibly inaccurate reef edges.
-- Simplified reef polygons should be provided as vertex-vertex lines with polygon_to_lines().
-- Require raster of target pixels to search, and their indices (currently a vector of cartesianindices for identifying search pixels). Use findall(bool_search_raster) to return pixel indices.
+- Reef polygons should be simplified (`GO.simplify()`) and buffered to avoid matching possibly inaccurate reef edges.
+- Simplified reef polygons should be provided as vertex-vertex lines with `polygon_to_lines()`.
+- Require raster of target pixels to search, and their indices (currently a vector of `CartesianIndices` for identifying search pixels). Use `findall(bool_search_raster)` to return pixel indices.
 - Raster of search pixels should be masked by reef polygons or simplified reef polygons.
 The column used for masking should be the same as the column specified as geometry_col in
-`identify_potential_sites_edges` (default = :geometry).
+`identify_potential_sites_edges` (default = `:geometry`).
