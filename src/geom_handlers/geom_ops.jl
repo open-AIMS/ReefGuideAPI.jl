@@ -96,7 +96,6 @@ function rotate_geom(geom, degrees::Float64)
 
     # Extract points
     new_points = collect(GI.coordinates(geom)...)
-    #new_points = get_points(geom)
 
     rotate_point(p) = begin
         x, y = p
@@ -130,68 +129,34 @@ function move_geom(geom, new_centroid::Tuple)
     return GO.transform(f, geom)
 end
 
-
-# using GLMakie, GeoMakie
-
-# include("geom_handlers/site_assessment.jl")
-
-
-# rst = Raster("../outputs/MPA/_Cairns-Cooktown_suitable_flats_new.tif")
-
-# # Flip so that longs are along the X dimension, and lats are along the Y dimension
-# rst2 = resample(rst; crs=EPSG(7856))'
-
-# # b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, 10, 150, EPSG(7856))
-
-# # Define the polygon shape to search for (and auto-rotate)
-# xs = (1, 450)
-# ys = (1, 10)
-# search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
-
-# b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, search_plot, 5.0)
-
 """
-    polygon_to_lines(polygon::Union{
-        Vector{GI.Wrappers.WrapperGeometry{false, false}},
+    polygon_to_lines(
+        polygon::Union{Vector{GI.Wrappers.WrapperGeometry{false, false}},
         GI.Wrappers.Polygon,
         GI.Wrappers.MultiPolygon
-        })
+    })
 
 Extract the individual lines between vertices that make up the outline of a polygon.
 """
-function polygon_to_lines(polygon::Union{
-    Vector{GI.Wrappers.WrapperGeometry{false,false}},
+function polygon_to_lines(
+    polygon::Vector{GI.Wrappers.Polygon},
     GI.Wrappers.Polygon,
     GI.Wrappers.MultiPolygon
-})
-    poly_lines = [GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...))) for geometry in polygon.geom]
+)
+    poly_lines = [
+        GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...)))
+        for geometry in polygon.geom
+    ]
 
     return vcat(poly_lines...)
 end
 
 """
-    identify_closest_edge(
-        pixel::AG.IGeometry{AG.wkbPoint},
-        reef_lines::Vector{GeometryBasics.Line{2, Float64}}
-        )::Vector{Tuple{Float64, Float64}}
-
-Identify the closest reef edge to a `pixel` point from a set of lines that make up a reef outline.
-"""
-function identify_closest_edge(
-    pixel::AG.IGeometry{AG.wkbPoint},
-    reef_lines::Vector{GeometryBasics.Line{2,Float64}}
-)::Vector{Tuple{Float64,Float64}}
-    nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
-
-    return [tuple(x...) for x in nearest_edge]
-end
-
-"""
-    find_horiz(geom)
+    find_horizontal(geom)
 
 Find a horizontal line if one exists within a geometry.
 """
-function find_horiz(geom)
+function find_horizontal(geom)
     coords = collect(GI.coordinates(geom)...)
     first_coord = first(coords)
     second_coord = coords[

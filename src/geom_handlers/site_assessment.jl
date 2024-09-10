@@ -65,90 +65,156 @@ function assess_reef_site(rst, geom, ruleset; degree_step=15.0)
 end
 
 # Additional functions for reef-edge alignment processing.
+
+"""
+    meters_to_degrees(x, lat)
+"""
 function meters_to_degrees(x, lat)
     return x / (111.1*1000 * cosd(lat))
 end
 
-function from_zero(v)
+"""
+    from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64, Float64}}
+
+Translates Vector of points `v` to begin from (0, 0), retaining direction and length.
+"""
+function from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64, Float64}}
     max_coord = maximum(v)
     if first(v) == max_coord
         v = reverse(v)
     end
 
-    new_coords = [Vector{Union{Missing, Float64}}(missing, size(max_coord, 1)), Vector{Union{Missing, Float64}}(missing, size(max_coord, 1))]
+    new_coords = [
+        Vector{Union{Missing, Float64}}(missing, size(max_coord, 1)),
+        Vector{Union{Missing, Float64}}(missing, size(max_coord, 1))
+    ]
     for (j, coords) in enumerate(new_coords)
         for val in eachindex(coords)
             coords[val] = max_coord[val] - v[j][val]
         end
     end
 
-    return new_coords
+    return Tuple.(new_coords)
 end
 
-function angle_cust(a, b)
+"""
+    line_angle(a::T, b::T)::Float64 where {T <: Vector{Tuple{Float64,Float64}}}
+
+Calculate the angle between two lines.
+
+# Arguments
+- `a` : Line between point coordinates.
+- `b` : Line between point coordinates.
+
+# Returns
+Angle between the two lines.
+
+# Examples
+```julia
+line_angle([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
+line_angle([(0.0,5.0), (0.0,0.0)], [(1.0, 4.0), (7.0, 8.0)])
+```
+"""
+function line_angle(a::T, b::T)::Float64 where {T <: Vector{Tuple{Float64,Float64}}}
     return acosd(clamp(a⋅b / (norm(a) * norm(b)), -1, 1))
 end
 
-function identify_closest_edge(
-    pixel::AG.IGeometry{AG.wkbPoint},
-    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+"""
+    identify_closest_edge(
+        pixel::GeometryBasics.Point{2, Float64},
+        reef_lines::Vector{GeometryBasics.Line{2, Float64}}
     )::Vector{Tuple{Float64, Float64}}
+
+Find the nearest line in `reef_lines` to a point `pixel`.
+
+# Arguments
+- `pixel` : Target point geometry.
+- `reef_lines` : Vector containing lines for comparison.
+"""
+function identify_closest_edge(
+    pixel::GeometryBasics.Point{2, Float64},
+    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+)::Vector{Tuple{Float64, Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
 
     return [tuple(x...) for x in nearest_edge]
 end
 
 """
-    function initial_search_box(
-        lon::Float64,
-        lat::Float64,
+    initial_search_box(
+        (lon::Float64, lat::Float64),
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        res::Union{Int64, Float64},
-        t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-        gdf::DataFrame,
-        geometry_col::Symbol,
-        lines_col::Symbol
-        )::Tuple{GI.Wrappers.Polygon, Float64}
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        res::Float64
+    )::GI.Wrappers.Polygon
 
-Creates an initial search box at a location with `x_dist` length (L-R) and `y_dist` height (U-D).
-Identifies the closest reef edge to the target pixel and the initial angle of rotation needed
-to align with the reef edge.
+Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`,
+and is buffered by `res` distance.
+
+# Arguments
+- `(lon, lat)` : Longitude and latitude coordinates of the center target pixel.
+- `x_dist` : x (longitude) dimension length of initial search box.
+- `y_dist` : y (latitude) dimension length of initial search box.
+- `target_crs` : Target CRS of box to match input data types.
+- `res` : Buffer distance (resolution of input raster search data).
+
+# Returns
+- Initial search box geometry.
 """
 function initial_search_box(
-    lon::Float64,
-    lat::Float64,
+    (lon, lat),
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
-    res::Union{Int64, Float64},
-    t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-    gdf::DataFrame,
-    geometry_col::Symbol,
-    lines_col::Symbol
-)::Tuple{GI.Wrappers.Polygon, Float64}
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    res::Float64
+)::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist/2, lon + lon_dist/2)
     lat_dist = meters_to_degrees(y_dist, lat)
     ys = (lat - lat_dist/2, lat + lat_dist/2)
 
-    search_plot = create_poly(create_bbox(xs, ys), t_crs)
-    search_box_line = find_horiz(search_plot)
+    search_plot = create_poly(create_bbox(xs, ys), target_crs)
     geom_buff = GO.buffer(search_plot, res)
 
-    pixel = AG.createpoint()
-    pixel = AG.addpoint!(pixel, lon, lat)
-    reef_lines = gdf[GO.within.([pixel], gdf[:, geometry_col]), lines_col]
+    return geom_buff
+end
+
+"""
+    initial_search_rotation(
+        pixel::GeometryBasics.Point{2, Float64},
+        geom_buff::GI.Wrappers.Polygon,
+        gdf::DataFrame,
+        reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+    )::Float64
+
+Identifies the closest edge to the target `pixel`/'`geom_buff` and returns the initial rotation
+angle required to match the edge line.
+
+# Arguments
+- `pixel` : Target point at the center of the search polygon.
+- `geom_buff` : Initial search box with zero rotation.
+- `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
+- `reef_lines` : Line segments for the outlines of each reef in `gdf`.
+"""
+function initial_search_rotation(
+    pixel::GeometryBasics.Point{2, Float64},
+    geom_buff::GI.Wrappers.Polygon,
+    gdf::DataFrame,
+    reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+)::Float64
+    reef_lines = reef_lines[GO.within.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])]
     reef_lines = vcat(reef_lines...)
     edge_line = identify_closest_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
-    edge_bearing = angle_cust([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
-    rot_angle = angle_cust(from_zero(search_box_line), from_zero(edge_line))
+    edge_bearing = line_angle([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
+    rot_angle = line_angle(from_zero(find_horizontal(geom_buff)), from_zero(edge_line))
     if edge_bearing > 90
         rot_angle = -rot_angle
     end
 
-    return geom_buff, rot_angle
+    return rot_angle
 end
 
 function assess_reef_site(
@@ -197,14 +263,13 @@ end
         gdf::DataFrame,
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
-        geometry_col::Symbol=:geometry,
-        lines_col::Symbol=:lines,
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
         degree_step::Float64=15.0,
-        n_rot_p_side::Int64=2
+        n_rot_per_side::Int64=2
     )::DataFrame
 
-Identify the most suitable site polygons for each pixel in the `search_pixels` raster where
+Identify the most suitable site polygons for each pixel in the `indices_pixels` raster where
 `indices` denotes which pixels to check for suitability. `x_dist` and `y_dist` are x and y
 lengths of the search polygon. A buffer of `rst_stack` resolution is applied to the search box.
 And angle from a pixel to a reef edge is identified and used for searching with custom rotation
@@ -212,16 +277,15 @@ parameters.
 
 # Arguments
 - `rst_stack` : RasterStack containing environmental variables for assessment.
-- `search_pixels` : Raster that matches indices for lon/lat information.
+- `indices_pixels` : Raster that matches indices for lon/lat information.
 - `indices` : Vector of CartesianIndices noting pixels to assess sites.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box.
 - `y_dist` : Length of vertical side of search box.
-- `t_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
-- `geometry_col` : Column name containing target geometries for edge detection in gdf. Should be the same geometry column used to trim and mask the valid search pixels.
-- `lines_col` : Column name containing perimeter lines for edge detection in gdf.
+- `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
+- `reef_lines` : Vector containing reef outline segments for each reef in `gdf`.
 - `degree_step` : Degree to perform rotations around identified edge angle.
-- `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
+- `n_rot_per_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
@@ -233,11 +297,10 @@ function identify_potential_sites_edges(
     gdf::DataFrame,
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
-    t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
-    geometry_col::Symbol=:geometry,
-    lines_col::Symbol=:lines,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
     degree_step::Float64=15.0,
-    n_rot_p_side::Int64=2
+    n_rot_per_side::Int64=2
 )::DataFrame
     res = abs(step(dims(rst_stack, X)))
 
@@ -254,7 +317,10 @@ function identify_potential_sites_edges(
     @floop for (i, index) in enumerate(indices)
         lon = dims(indices_pixels, X)[index[1]]
         lat = dims(indices_pixels, Y)[index[2]]
-        geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_col, lines_col)
+        geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
+
+        pixel = GO.Point(lon, lat)
+        rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,
@@ -262,7 +328,7 @@ function identify_potential_sites_edges(
             ruleset;
             degree_step=degree_step,
             start_rot=rot_angle,
-            n_per_side=n_rot_p_side
+            n_per_side=n_rot_per_side
         )
 
         best_score[i] = b_score
