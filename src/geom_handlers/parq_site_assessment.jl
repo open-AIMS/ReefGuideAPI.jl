@@ -6,11 +6,11 @@ include("geom_ops.jl")
 
 # Additional functions for reef-edge alignment processing.
 function meters_to_degrees(x, lat)
-    return x / (111.1*1000 * cosd(lat))
+    return x / (111.1 * 1000 * cosd(lat))
 end
 
 function degrees_to_meters(x, lat)
-    return x * (111.1*1000 * cosd(lat))
+    return x * (111.1 * 1000 * cosd(lat))
 end
 
 function from_zero(v)
@@ -19,7 +19,7 @@ function from_zero(v)
         v = reverse(v)
     end
 
-    new_coords = [Vector{Union{Missing, Float64}}(missing, size(max_coord, 1)), Vector{Union{Missing, Float64}}(missing, size(max_coord, 1))]
+    new_coords = [Vector{Union{Missing,Float64}}(missing, size(max_coord, 1)), Vector{Union{Missing,Float64}}(missing, size(max_coord, 1))]
     for (j, coords) in enumerate(new_coords)
         for val in eachindex(coords)
             coords[val] = max_coord[val] - v[j][val]
@@ -30,7 +30,7 @@ function from_zero(v)
 end
 
 function angle_cust(a, b)
-    return acosd(clamp(a⋅b / (norm(a) * norm(b)), -1, 1))
+    return acosd(clamp(a ⋅ b / (norm(a) * norm(b)), -1, 1))
 end
 
 """
@@ -68,15 +68,15 @@ and is buffered by `res` distance.
 """
 function initial_search_box(
     (lon, lat),
-    x_dist::Union{Int64, Float64},
-    y_dist::Union{Int64, Float64},
+    x_dist::Union{Int64,Float64},
+    y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
     res::Float64
 )::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
-    xs = (lon - lon_dist/2, lon + lon_dist/2)
+    xs = (lon - lon_dist / 2, lon + lon_dist / 2)
     lat_dist = meters_to_degrees(y_dist, lat)
-    ys = (lat - lat_dist/2, lat + lat_dist/2)
+    ys = (lat - lat_dist / 2, lat + lat_dist / 2)
 
     search_plot = create_poly(create_bbox(xs, ys), target_crs)
     geom_buff = GO.buffer(search_plot, res)
@@ -97,9 +97,9 @@ Find the nearest line in `reef_lines` to a point `pixel`.
 - `reef_lines` : Vector containing lines for comparison.
 """
 function identify_closest_edge(
-    pixel::GeometryBasics.Point{2, Float64},
-    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
-)::Vector{Tuple{Float64, Float64}}
+    pixel::GeometryBasics.Point{2,Float64},
+    reef_lines::Vector{GeometryBasics.Line{2,Float64}}
+)::Vector{Tuple{Float64,Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
 
     return [tuple(x...) for x in nearest_edge]
@@ -123,10 +123,10 @@ angle required to match the edge line.
 - `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
 """
 function initial_search_rotation(
-    pixel::GeometryBasics.Point{2, Float64},
+    pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
     gdf::DataFrame,
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
 )::Float64
     reef_lines = reef_outlines[GO.within.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])]
     reef_lines = vcat(reef_lines...)
@@ -141,7 +141,7 @@ function initial_search_rotation(
     edge_line = identify_closest_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
-    edge_bearing = line_angle([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
+    edge_bearing = line_angle([(0.0, 5.0), (0.0, 0.0)], from_zero(edge_line))
     rot_angle = line_angle(from_zero(find_horizontal(geom_buff)), from_zero(edge_line))
     if edge_bearing > 90
         rot_angle = -rot_angle
@@ -158,7 +158,7 @@ function assess_reef_site(
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
     surr_threshold::Float64=0.33
-)::Tuple{Float64, Int64, GI.Wrappers.Polygon, Int64}
+)::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     rotations = (start_rot-(degree_step*n_per_side)):degree_step:(start_rot+(degree_step*n_per_side))
     n_rotations = length(rotations)
     score = zeros(n_rotations)
@@ -225,22 +225,22 @@ function identify_potential_sites_edges(
     indices_pixels::Raster,
     indices::Vector{CartesianIndex{2}},
     gdf::DataFrame,
-    x_dist::Union{Int64, Float64},
-    y_dist::Union{Int64, Float64},
+    x_dist::Union{Int64,Float64},
+    y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-    reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}},
+    reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
     reg::String;
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area .== reg]
-    gdf = gdf[gdf.management_area .== reg, :]
+    reef_lines = reef_lines[gdf.management_area.==reg]
+    gdf = gdf[gdf.management_area.==reg, :]
     res = abs(step(dims(indices_pixels, X)))
     max_count = (
         (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
-        ((y_dist + 2*degrees_to_meters(res, mean(indices_pixels.dims[2]))) /
-        degrees_to_meters(res, mean(indices_pixels.dims[2])))
+        ((y_dist + 2 * degrees_to_meters(res, mean(indices_pixels.dims[2]))) /
+         degrees_to_meters(res, mean(indices_pixels.dims[2])))
     )
 
     # Search each location to assess
@@ -257,18 +257,14 @@ function identify_potential_sites_edges(
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
         bounds = [
-            lon - meters_to_degrees(x_dist/2, lat),
-            lon + meters_to_degrees(x_dist/2, lat),
-            lat - meters_to_degrees(x_dist/2, lat),
-            lat + meters_to_degrees(x_dist/2, lat)
+            lon - meters_to_degrees(x_dist / 2, lat),
+            lon + meters_to_degrees(x_dist / 2, lat),
+            lat - meters_to_degrees(x_dist / 2, lat),
+            lat + meters_to_degrees(x_dist / 2, lat)
         ]
 
         rel_pix = parq_df[
-            (parq_df.lon .> bounds[1]) .&
-            (parq_df.lon .< bounds[2]) .&
-            (parq_df.lat .> bounds[3]) .&
-            (parq_df.lat .< bounds[4])
-        , :]
+            (parq_df.lon .> bounds[1]) .& (parq_df.lon .< bounds[2]) .& (parq_df.lat .> bounds[3]).&(parq_df.lat .< bounds[4]), :]
 
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
@@ -300,7 +296,7 @@ Identify and keep the highest scoring site polygon where site polygons are overl
 `identify_potential_sites()` or `identify_potential_sites_edges()`).
 """
 function filter_intersecting_sites(res_df::DataFrame)::DataFrame
-    res_df.row_ID = 1:size(res_df,1)
+    res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
     for (ind, row) in enumerate(eachrow(res_df))
@@ -313,10 +309,10 @@ function filter_intersecting_sites(res_df::DataFrame)::DataFrame
             continue
         end
 
-        if any(GO.intersects.([row.poly], res_df[:,:poly]))
-            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:,:poly])),:]
+        if any(GO.intersects.([row.poly], res_df[:, :poly]))
+            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
             if maximum(intersecting_polys.score) <= row.score
-                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID,:])
+                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
                     push!(ignore_list, x_row.row_ID)
                 end
             else
