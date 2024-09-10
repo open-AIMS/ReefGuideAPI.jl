@@ -6,6 +6,8 @@ using Statistics
 
 import ArchGDAL as AG
 import GeoInterface as GI
+import GeoInterface.Wrappers as GIWrap
+
 import GeometryOps as GO
 using Proj
 using LibGEOS
@@ -131,18 +133,14 @@ end
 
 """
     polygon_to_lines(
-        polygon::Union{Vector{GI.Wrappers.WrapperGeometry{false, false}},
-        GI.Wrappers.Polygon,
-        GI.Wrappers.MultiPolygon
-    })
+        polygon::Union{Vector{T},T,GIWrap.MultiPolygon}
+    ) where {T<:GIWrap.Polygon}
 
 Extract the individual lines between vertices that make up the outline of a polygon.
 """
 function polygon_to_lines(
-    polygon::Vector{GI.Wrappers.Polygon},
-    GI.Wrappers.Polygon,
-    GI.Wrappers.MultiPolygon
-)
+    polygon::Union{Vector{T},T,GIWrap.MultiPolygon}
+) where {T<:GIWrap.Polygon}
     poly_lines = [
         GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...)))
         for geometry in polygon.geom

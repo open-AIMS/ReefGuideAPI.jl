@@ -1,6 +1,7 @@
 """Geometry-based assessment methods."""
 
 using LinearAlgebra
+using FLoops
 
 include("geom_ops.jl")
 
@@ -290,6 +291,9 @@ Identify the most suitable site polygons for each pixel in the `indices_pixels` 
 lengths of the search polygon. A buffer of `rst_stack` resolution is applied to the search box.
 And angle from a pixel to a reef edge is identified and used for searching with custom rotation
 parameters.
+
+# Extra help
+Test
 
 # Arguments
 - `rst_stack` : RasterStack containing environmental variables for assessment.
