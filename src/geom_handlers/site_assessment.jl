@@ -142,7 +142,7 @@ end
 
 """
     initial_search_box(
-        (lon::Float64, lat::Float64),
+        (lon, lat)::Tuple{Float64,Float64},
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
         target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
@@ -160,10 +160,10 @@ and is buffered by `res` distance.
 - `res` : Buffer distance (resolution of input raster search data).
 
 # Returns
-- Initial search box geometry.
+Initial search box geometry.
 """
 function initial_search_box(
-    (lon, lat),
+    (lon, lat)::Tuple{Float64,Float64},
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
@@ -196,6 +196,9 @@ angle required to match the edge line.
 - `geom_buff` : Initial search box with zero rotation.
 - `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
 - `reef_lines` : Line segments for the outlines of each reef in `gdf`.
+
+# Returns
+Rotation angle of initial search polygon
 """
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
@@ -217,6 +220,18 @@ function initial_search_rotation(
     return rot_angle
 end
 
+"""
+    assess_reef_site(
+        rst::Union{Raster,RasterStack},
+        geom::GI.Wrappers.Polygon,
+        ruleset::Dict{Symbol,Function};
+        degree_step::Float64=15.0,
+        start_rot::Float64=0.0,
+        n_per_side::Int64=1
+    )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
+
+Assess given reef site.
+"""
 function assess_reef_site(
     rst::Union{Raster,RasterStack},
     geom::GI.Wrappers.Polygon,
@@ -225,7 +240,6 @@ function assess_reef_site(
     start_rot::Float64=0.0,
     n_per_side::Int64=1
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
-
     rotations = start_rot-(degree_step*n_per_side):degree_step:start_rot+(degree_step*n_per_side)
     n_rotations = length(rotations)
     score = zeros(n_rotations)
