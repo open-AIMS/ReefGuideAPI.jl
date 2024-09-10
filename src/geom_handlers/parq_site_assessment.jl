@@ -45,65 +45,109 @@ function filter_far_polygons(gdf, pixel, lat; geometry_col=:geometry)
 end
 
 """
-    function initial_search_box(
-        lon::Float64,
-        lat::Float64,
+    initial_search_box(
+        (lon::Float64, lat::Float64),
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        res::Union{Int64, Float64},
-        t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-        gdf::DataFrame,
-        geometry_col::Symbol,
-        lines_col::Symbol
-        )::Tuple{GI.Wrappers.Polygon, Float64}
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        res::Float64
+    )::GI.Wrappers.Polygon
 
-Creates an initial search box at a location with `x_dist` length (L-R) and `y_dist` height (U-D).
-Identifies the closest reef edge to the target pixel and the initial angle of rotation needed
-to align with the reef edge.
+Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`,
+and is buffered by `res` distance.
+
+# Arguments
+- `(lon, lat)` : Longitude and latitude coordinates of the center target pixel.
+- `x_dist` : x (longitude) dimension length of initial search box.
+- `y_dist` : y (latitude) dimension length of initial search box.
+- `target_crs` : Target CRS of box to match input data types.
+- `res` : Buffer distance (resolution of input raster search data).
+
+# Returns
+- Initial search box geometry.
 """
 function initial_search_box(
-    lon::Float64,
-    lat::Float64,
+    (lon, lat),
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
-    res::Union{Int64, Float64},
-    t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-    gdf::DataFrame,
-    geometry_col::Symbol,
-    lines_col::Symbol
-)::Tuple{GI.Wrappers.Polygon, Float64}
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    res::Float64
+)::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist/2, lon + lon_dist/2)
     lat_dist = meters_to_degrees(y_dist, lat)
     ys = (lat - lat_dist/2, lat + lat_dist/2)
 
-    search_plot = create_poly(create_bbox(xs, ys), t_crs)
-    search_box_line = find_horiz(search_plot)
+    search_plot = create_poly(create_bbox(xs, ys), target_crs)
     geom_buff = GO.buffer(search_plot, res)
 
-    pixel = AG.createpoint()
-    pixel = AG.addpoint!(pixel, lon, lat)
-    reefs = filter_far_polygons(gdf, pixel, lat)
-    reef_lines = reefs[GO.within.([pixel], reefs[:, geometry_col]), lines_col]
+    return geom_buff
+end
+
+"""
+    identify_closest_edge(
+        pixel::GeometryBasics.Point{2, Float64},
+        reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+    )::Vector{Tuple{Float64, Float64}}
+
+Find the nearest line in `reef_lines` to a point `pixel`.
+
+# Arguments
+- `pixel` : Target point geometry.
+- `reef_lines` : Vector containing lines for comparison.
+"""
+function identify_closest_edge(
+    pixel::GeometryBasics.Point{2, Float64},
+    reef_lines::Vector{GeometryBasics.Line{2, Float64}}
+)::Vector{Tuple{Float64, Float64}}
+    nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
+
+    return [tuple(x...) for x in nearest_edge]
+end
+
+"""
+    initial_search_rotation(
+        pixel::GeometryBasics.Point{2, Float64},
+        geom_buff::GI.Wrappers.Polygon,
+        gdf::DataFrame,
+        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+    )::Float64
+
+Identifies the closest edge to the target `pixel`/'`geom_buff` and returns the initial rotation
+angle required to match the edge line.
+
+# Arguments
+- `pixel` : Target point at the center of the search polygon.
+- `geom_buff` : Initial search box with zero rotation.
+- `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
+- `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
+"""
+function initial_search_rotation(
+    pixel::GeometryBasics.Point{2, Float64},
+    geom_buff::GI.Wrappers.Polygon,
+    gdf::DataFrame,
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+)::Float64
+    reef_lines = reef_outlines[GO.within.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.
     if isempty(reef_lines)
-        reef_distances = GO.distance.([pixel], gdf[:, geometry_col])
-        reef_lines = gdf[argmin(reef_distances), lines_col]
+        reef_distances = GO.distance.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])
+        reef_lines = reef_outlines[argmin(reef_distances)]
         reef_lines = vcat(reef_lines...)
     end
 
     edge_line = identify_closest_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
-    edge_bearing = angle_cust([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
-    rot_angle = angle_cust(from_zero(search_box_line), from_zero(edge_line))
+    edge_bearing = line_angle([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
+    rot_angle = line_angle(from_zero(find_horizontal(geom_buff)), from_zero(edge_line))
     if edge_bearing > 90
         rot_angle = -rot_angle
     end
 
-    return geom_buff, rot_angle
+    return rot_angle
 end
 
 function assess_reef_site(
@@ -183,14 +227,14 @@ function identify_potential_sites_edges(
     gdf::DataFrame,
     x_dist::Union{Int64, Float64},
     y_dist::Union{Int64, Float64},
-    t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}},
     reg::String;
-    geometry_col::Symbol=:geometry,
-    lines_col::Symbol=:lines,
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
+    reef_lines = reef_lines[gdf.management_area .== reg]
     gdf = gdf[gdf.management_area .== reg, :]
     res = abs(step(dims(indices_pixels, X)))
     max_count = (
@@ -207,7 +251,10 @@ function identify_potential_sites_edges(
     for (i, index) in enumerate(indices)
         lon = dims(indices_pixels, X)[index[1]]
         lat = dims(indices_pixels, Y)[index[2]]
-        geom_buff, rot_angle = initial_search_box(lon, lat, x_dist, y_dist, res, t_crs, gdf, geometry_col, lines_col)
+        geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
+
+        pixel = GO.Point(lon, lat)
+        rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
         bounds = [
             lon - meters_to_degrees(x_dist/2, lat),
