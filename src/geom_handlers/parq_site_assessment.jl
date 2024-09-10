@@ -5,43 +5,77 @@ using LinearAlgebra
 include("geom_ops.jl")
 
 # Additional functions for reef-edge alignment processing.
+"""
+    meters_to_degrees(x, lat)
+
+Convert meters to degrees.
+"""
 function meters_to_degrees(x, lat)
     return x / (111.1 * 1000 * cosd(lat))
 end
 
+"""
+    degrees_to_meters(x, lat)
+
+Convert degrees to meters.
+"""
 function degrees_to_meters(x, lat)
     return x * (111.1 * 1000 * cosd(lat))
 end
 
-function from_zero(v)
+"""
+    from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64, Float64}}
+
+Translates Vector of points `v` to begin from (0, 0), retaining direction and length.
+"""
+function from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64,Float64}}
     max_coord = maximum(v)
     if first(v) == max_coord
         v = reverse(v)
     end
 
-    new_coords = [Vector{Union{Missing,Float64}}(missing, size(max_coord, 1)), Vector{Union{Missing,Float64}}(missing, size(max_coord, 1))]
+    new_coords = [
+        Vector{Union{Missing,Float64}}(missing, size(max_coord, 1)),
+        Vector{Union{Missing,Float64}}(missing, size(max_coord, 1))
+    ]
     for (j, coords) in enumerate(new_coords)
         for val in eachindex(coords)
             coords[val] = max_coord[val] - v[j][val]
         end
     end
 
-    return new_coords
+    return Tuple.(new_coords)
 end
 
-function angle_cust(a, b)
+"""
+    line_angle(a::T, b::T)::Float64 where {T <: Vector{Tuple{Float64,Float64}}}
+
+Calculate the angle between two lines.
+
+# Arguments
+- `a` : Line between point coordinates.
+- `b` : Line between point coordinates.
+
+# Returns
+Angle between the two lines.
+
+# Examples
+```julia
+line_angle([(0.0,5.0), (0.0,0.0)], from_zero(edge_line))
+line_angle([(0.0,5.0), (0.0,0.0)], [(1.0, 4.0), (7.0, 8.0)])
+```
+"""
+function line_angle(a::T, b::T)::Float64 where {T<:Vector{Tuple{Float64,Float64}}}
     return acosd(clamp(a ⋅ b / (norm(a) * norm(b)), -1, 1))
 end
 
 """
-    filter_far_polygons(gdf, pixel, lat; geometry_col=:geometry)
+    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64)::BitVector
 
 Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
 """
-function filter_far_polygons(gdf, pixel, lat; geometry_col=:geometry)
-    return gdf[(
-        GO.distance.(GO.centroid.(gdf[:, geometry_col]), [pixel]) .< meters_to_degrees(10000, lat)
-    ), :]
+function filter_far_polygons(gdf::DataFrame, pixel::GeometryBasics.Point, lat::Float64)::BitVector
+    return (GO.distance.(GO.centroid.(gdf[:, first(GI.geometrycolumns(gdf))]), [pixel]) .< meters_to_degrees(10000, lat))
 end
 
 """
@@ -128,13 +162,21 @@ function initial_search_rotation(
     gdf::DataFrame,
     reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
 )::Float64
-    reef_lines = reef_outlines[GO.within.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])]
+    distance_indices = filter_far_polygons(gdf, pixel, pixel[2])
+    reef_lines = reef_outlines[distance_indices]
+    reef_lines = reef_lines[
+        GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
+    ]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.
     if isempty(reef_lines)
-        reef_distances = GO.distance.([pixel], gdf[:, first(GI.geometrycolumns(gdf))])
-        reef_lines = reef_outlines[argmin(reef_distances)]
+        reef_distances = GO.distance.(
+            [pixel],
+            gdf[distance_indices, first(GI.geometrycolumns(gdf))]
+        )
+        reef_lines = reef_outlines[distance_indices]
+        reef_lines = reef_lines[argmin(reef_distances)]
         reef_lines = vcat(reef_lines...)
     end
 
