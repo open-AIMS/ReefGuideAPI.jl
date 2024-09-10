@@ -156,7 +156,8 @@ export
 # Methods to assess/identify deployment "plots" of reef.
 export
     assess_reef_site,
-    identify_potential_sites
+    identify_potential_sites_edges,
+    filter_intersecting_sites
 
 # Geometry handling
 export

@@ -6,9 +6,12 @@ using Statistics
 
 import ArchGDAL as AG
 import GeoInterface as GI
+import GeoInterface.Wrappers as GIWrap
+
 import GeometryOps as GO
 using Proj
 using LibGEOS
+using GeometryBasics
 
 using CoordinateTransformations
 
@@ -94,7 +97,7 @@ function rotate_geom(geom, degrees::Float64)
     cx, cy = GO.centroid(geom)
 
     # Extract points
-    new_points = get_points(geom)
+    new_points = collect(GI.coordinates(geom)...)
 
     rotate_point(p) = begin
         x, y = p
@@ -128,22 +131,39 @@ function move_geom(geom, new_centroid::Tuple)
     return GO.transform(f, geom)
 end
 
+"""
+    polygon_to_lines(
+        polygon::Union{Vector{T},T,GIWrap.MultiPolygon}
+    ) where {T<:GIWrap.Polygon}
 
-# using GLMakie, GeoMakie
+Extract the individual lines between vertices that make up the outline of a polygon.
+"""
+function polygon_to_lines(
+    polygon::Union{Vector{T},T,GIWrap.MultiPolygon}
+) where {T<:GIWrap.Polygon}
+    poly_lines = [
+        GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...)))
+        for geometry in polygon.geom
+    ]
 
-# include("geom_handlers/site_assessment.jl")
+    return vcat(poly_lines...)
+end
 
+"""
+    find_horizontal(geom::GI.Wrappers.Polygon)::Vector{Tuple{Float64,Float64}, Tuple{Float64,Float64}}
 
-# rst = Raster("../outputs/MPA/_Cairns-Cooktown_suitable_flats_new.tif")
+Find a horizontal line if one exists within a geometry.
 
-# # Flip so that longs are along the X dimension, and lats are along the Y dimension
-# rst2 = resample(rst; crs=EPSG(7856))'
+# Returns
+Vector containing tuples of coordinates for a horizontal line found within geom.
+"""
+function find_horizontal(geom::GI.Wrappers.Polygon)::Vector{Tuple{Float64,Float64}, Tuple{Float64,Float64}}
+    coords = collect(GI.coordinates(geom)...)
+    first_coord = first(coords)
+    second_coord = coords[
+        (getindex.(coords, 2).∈first_coord[2]) .&&
+        (getindex.(coords, 1).∉first_coord[1])
+    ]
 
-# # b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, 10, 150, EPSG(7856))
-
-# # Define the polygon shape to search for (and auto-rotate)
-# xs = (1, 450)
-# ys = (1, 10)
-# search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
-
-# b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, search_plot, 5.0)
+    return [tuple(first_coord...), tuple(first(second_coord)...)]
+end
