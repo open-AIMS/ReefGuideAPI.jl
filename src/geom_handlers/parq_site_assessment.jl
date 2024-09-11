@@ -38,12 +38,11 @@ end
         indices_pixels::Raster,
         indices::Vector{CartesianIndex{2}},
         gdf::DataFrame,
-        x_dist::Union{Int64, Float64},
-        y_dist::Union{Int64, Float64},
-        t_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        x_dist::Union{Int64,Float64},
+        y_dist::Union{Int64,Float64},
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
         reg::String;
-        geometry_col::Symbol=:geometry,
-        lines_col::Symbol=:lines,
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2,
         surr_threshold::Float64=0.33
@@ -87,8 +86,8 @@ function identify_potential_sites_edges(
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area.==reg]
-    gdf = gdf[gdf.management_area.==reg, :]
+    reef_lines = reef_lines[gdf.management_area .== reg]
+    gdf = gdf[gdf.management_area .== reg, :]
     res = abs(step(dims(indices_pixels, X)))
     max_count = (
         (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
@@ -136,43 +135,4 @@ function identify_potential_sites_edges(
     end
 
     return DataFrame(score=best_score, orientation=best_rotation, qc_flag=quality_flag, poly=best_poly)
-end
-
-"""
-    filter_intersecting_sites(res_df::DataFrame)::DataFrame
-
-Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
-Identify and keep the highest scoring site polygon where site polygons are overlapping.
-
-# Arguments
-- `res_df` : Results DataFrame containing potential site polygons (output from
-`identify_potential_sites()` or `identify_potential_sites_edges()`).
-"""
-function filter_intersecting_sites(res_df::DataFrame)::DataFrame
-    res_df.row_ID = 1:size(res_df, 1)
-    ignore_list = []
-
-    for (ind, row) in enumerate(eachrow(res_df))
-        if row.row_ID ∈ ignore_list
-            continue
-        end
-
-        if row.qc_flag == 1
-            push!(ignore_list, row.row_ID)
-            continue
-        end
-
-        if any(GO.intersects.([row.poly], res_df[:, :poly]))
-            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
-            if maximum(intersecting_polys.score) <= row.score
-                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
-                    push!(ignore_list, x_row.row_ID)
-                end
-            else
-                push!(ignore_list, row.row_ID)
-            end
-        end
-    end
-
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:row_ID)]
 end

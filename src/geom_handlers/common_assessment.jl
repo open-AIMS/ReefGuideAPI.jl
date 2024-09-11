@@ -191,3 +191,42 @@ function initial_search_rotation(
 
     return rot_angle
 end
+
+"""
+    filter_intersecting_sites(res_df::DataFrame)::DataFrame
+
+Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
+Identify and keep the highest scoring site polygon where site polygons are overlapping.
+
+# Arguments
+- `res_df` : Results DataFrame containing potential site polygons (output from
+`identify_potential_sites()` or `identify_potential_sites_edges()`).
+"""
+function filter_intersecting_sites(res_df::DataFrame)::DataFrame
+    res_df.row_ID = 1:size(res_df, 1)
+    ignore_list = []
+
+    for (row) in eachrow(res_df)
+        if row.row_ID ∈ ignore_list
+            continue
+        end
+
+        if row.qc_flag == 1
+            push!(ignore_list, row.row_ID)
+            continue
+        end
+
+        if any(GO.intersects.([row.poly], res_df[:, :poly]))
+            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
+            if maximum(intersecting_polys.score) <= row.score
+                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
+                    push!(ignore_list, x_row.row_ID)
+                end
+            else
+                push!(ignore_list, row.row_ID)
+            end
+        end
+    end
+
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
+end
