@@ -34,7 +34,7 @@ end
 
 """
     identify_potential_sites_edges(
-        parq_df::DataFrame,
+        df::DataFrame,
         indices_pixels::Raster,
         indices::Vector{CartesianIndex{2}},
         gdf::DataFrame,
@@ -55,7 +55,7 @@ And angle from a pixel to a reef edge is identified and used for searching with 
 parameters. Method is currently opperating for CRS in degrees units.
 
 # Arguments
-- `parq_df` : DataFrame containing environmental variables for assessment.
+- `df` : DataFrame containing environmental variables for assessment.
 - `indices_pixels` : Raster that matches indices for lon/lat information.
 - `indices` : Vector of CartesianIndices noting pixels to assess sites.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
@@ -73,7 +73,7 @@ parameters. Method is currently opperating for CRS in degrees units.
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
 function identify_potential_sites_edges(
-    parq_df::DataFrame,
+    df::DataFrame,
     indices_pixels::Raster,
     indices::Vector{CartesianIndex{2}},
     gdf::DataFrame,
@@ -115,8 +115,8 @@ function identify_potential_sites_edges(
             lat + meters_to_degrees(x_dist / 2, lat)
         ]
 
-        rel_pix = parq_df[
-            (parq_df.lon .> bounds[1]) .& (parq_df.lon .< bounds[2]) .& (parq_df.lat .> bounds[3]).&(parq_df.lat .< bounds[4]), :]
+        rel_pix = df[
+            (df.lon .> bounds[1]) .& (df.lon .< bounds[2]) .& (df.lat .> bounds[3]).&(df.lat .< bounds[4]), :]
 
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
