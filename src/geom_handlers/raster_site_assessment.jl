@@ -110,7 +110,7 @@ function assess_reef_site(
         best_poly[j] = rot_geom
     end
 
-    return score[argmax(score)], argmax(score), best_poly[argmax(score)]
+    return score[argmax(score)], argmax(score)-(n_per_side+1), best_poly[argmax(score)]
 end
 
 """

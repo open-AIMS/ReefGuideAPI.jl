@@ -3,6 +3,22 @@
 include("geom_ops.jl")
 include("common_assessment.jl")
 
+"""
+    assess_reef_site(
+        rel_pix::DataFrame,
+        geom::GI.Wrappers.Polygon,
+        max_count::Float64;
+        degree_step::Float64=15.0,
+        start_rot::Float64=0.0,
+        n_per_side::Int64=2,
+        surr_threshold::Float64=0.33
+    )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
+
+Assesses the rotations of a search box `geom` for their pixel score. Returns the highest score,
+rotation step, polygon and a quality control flag for each assessment. Rotation steps are returned
+so that the `start_rot` angle is 0, rotations anti-clockwise are negative and rotations clockwise are
+positive.
+"""
 function assess_reef_site(
     rel_pix::DataFrame,
     geom::GI.Wrappers.Polygon,
@@ -29,7 +45,7 @@ function assess_reef_site(
         end
     end
 
-    return score[argmax(score)], argmax(score), best_poly[argmax(score)], maximum(qc_flag)
+    return score[argmax(score)], argmax(score)-(n_per_side+1), best_poly[argmax(score)], maximum(qc_flag)
 end
 
 """
