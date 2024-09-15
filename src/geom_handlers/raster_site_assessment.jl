@@ -122,6 +122,7 @@ end
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
         target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        region::String,
         reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
         degree_step::Float64=15.0,
         n_rot_per_side::Int64=2
@@ -141,7 +142,8 @@ parameters.
 - `x_dist` : Length of horizontal side of search box.
 - `y_dist` : Length of vertical side of search box.
 - `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
-- `reef_lines` : Vector containing reef outline segments for each reef in `gdf`.
+- `region` : Management region name in GBRMPA format - e.g. "Mackay/Capricorn Management Area"
+- `reef_lines` : Vector containing reef outline segments for each reef in `gdf.geometry` (Must be separate object to `gdf` rather than a column).
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_per_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 
@@ -156,10 +158,13 @@ function identify_potential_sites_edges(
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    region::String,
     reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
     degree_step::Float64=15.0,
     n_rot_per_side::Int64=2
 )::DataFrame
+    reef_lines = reef_lines[gdf.management_area .== region]
+    gdf = gdf[gdf.management_area .== region, :]
     res = abs(step(dims(rst_stack, X)))
 
     # # TODO: Dynamically build this ruleset

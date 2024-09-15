@@ -8,7 +8,7 @@ include("geom_ops.jl")
 """
     meters_to_degrees(x, lat)
 
-Convert meters to degrees.
+Convert meters to degrees at target latitude.
 """
 function meters_to_degrees(x, lat)
     return x / (111.1 * 1000 * cosd(lat))
@@ -17,7 +17,7 @@ end
 """
     degrees_to_meters(x, lat)
 
-Convert degrees to meters.
+Convert degrees to meters at target latitude.
 """
 function degrees_to_meters(x, lat)
     return x * (111.1 * 1000 * cosd(lat))
@@ -27,6 +27,9 @@ end
     from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64, Float64}}
 
 Translates Vector of points `v` to begin from (0, 0), retaining direction and length.
+
+# Argument
+- `v` : Vector of point coordinates (`Tuple{Float64, Float64}`).
 """
 function from_zero(v::Vector{Tuple{Float64,Float64}})::Vector{Tuple{Float64,Float64}}
     max_coord = maximum(v)

@@ -58,7 +58,7 @@ end
         y_dist::Union{Int64,Float64},
         target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
         reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
-        reg::String;
+        region::String;
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2,
         surr_threshold::Float64=0.33
@@ -77,10 +77,9 @@ parameters. Method is currently opperating for CRS in degrees units.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box (in meters).
 - `y_dist` : Length of vertical side of search box (in meters).
-- `t_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
-- `reg` : Management region name in GBRMPA format - e.g. "Mackay/Capricorn Management Area"
-- `geometry_col` : Column name containing target geometries for edge detection in gdf. Should be the same geometry column used to trim and mask the valid search pixels.
-- `lines_col` : Column name containing perimeter lines for edge detection in gdf.
+- `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
+- `reef_lines` : Vector containing reef outline segments created from polygons in `gdf.geometry` (Must be separate object to `gdf` rather than column).
+- `region` : Management region name in GBRMPA format - e.g. "Mackay/Capricorn Management Area"
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 - `surr_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
@@ -97,13 +96,13 @@ function identify_potential_sites_edges(
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
     reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
-    reg::String;
+    region::String;
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area .== reg]
-    gdf = gdf[gdf.management_area .== reg, :]
+    reef_lines = reef_lines[gdf.management_area .== region]
+    gdf = gdf[gdf.management_area .== region, :]
     res = abs(step(dims(indices_pixels, X)))
     max_count = (
         (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
