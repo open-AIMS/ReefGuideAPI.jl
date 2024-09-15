@@ -24,11 +24,14 @@ function _tile_to_lon_lat(z, x, y)
 end
 
 """
-    _lon_lat_to_tile(lon, lat, zoom)
+    _lon_lat_to_tile(zoom, lon, lat)
 
 Identify the corresponding tile coordinates for a given lon/lat.
+
+# Returns
+x and y tile coordinates
 """
-function _lon_lat_to_tile(lon, lat, zoom)
+function _lon_lat_to_tile(zoom, lon, lat)
     n = 2.0^zoom
     x = floor(Int64, (lon + 180.0) / 360.0 * n)
 
