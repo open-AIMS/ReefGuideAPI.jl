@@ -21,7 +21,9 @@ using
     Oxygen
 
 include("assessment/criteria.jl")
-include("geom_handlers/site_assessment.jl")
+include("geom_handlers/common_assessment.jl")
+include("geom_handlers/raster_site_assessment.jl")
+include("geom_handlers/parq_site_assessment.jl")
 include("assessment/query_thresholds.jl")
 
 
@@ -176,7 +178,9 @@ export
 export
     create_poly,
     create_bbox,
-    port_buffer_mask
+    port_buffer_mask,
+    meters_to_degrees,
+    polygon_to_lines
 
 # Raster->Index interactions (defunct?)
 export
@@ -184,5 +188,9 @@ export
     valid_slope_lat_inds,
     valid_flat_lon_inds,
     valid_flat_lat_inds
+
+# Ruleset thresholds
+export
+    within_thresholds
 
 end
