@@ -218,7 +218,6 @@ function setup_region_routes(config)
 
         # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
-        orig_rst_size = size(reg_assess_data[reg].stack)
         if any(size(mask_data) .> tile_size(config))
             if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
                 # Account for geographic positioning when zoomed out further than
