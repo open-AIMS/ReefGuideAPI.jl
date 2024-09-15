@@ -249,8 +249,8 @@ function make_threshold_mask(
     )
 
     # Extract data between lon/lats
-    view_of_data = view(res, X(lons[1] .. lons[2]), Y(lats[1] .. lats[2]))
-    return Raster(view_of_data; data=sparse(convert.(UInt8, view_of_data.data)))
+    view_of_data = view(res, X(lons[1] .. lons[2]), Y(lat1 .. lat2))
+    return rebuild(view_of_data, sparse(convert.(UInt8, view_of_data)))
 end
 
 """
