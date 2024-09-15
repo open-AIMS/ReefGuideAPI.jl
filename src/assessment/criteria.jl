@@ -172,7 +172,8 @@ function setup_region_routes(config)
         end
 
         # Otherwise, create the file
-        @debug "$(now()) : Assessing criteria"
+        thread_id = Threads.threadid()
+        @debug "Thread $(thread_id) - $(now()) : Assessing criteria"
         # Filtering time: 0.6 - 7.0 seconds
         reg = qp["region"]
         rtype = qp["rtype"]
@@ -190,11 +191,11 @@ function setup_region_routes(config)
         end
 
         # Calculate tile bounds
-        lon_min, lon_max, lat_min, lat_max = _tile_to_lon_lat(z, x, y)
-        @debug "$(now()) : Calculated bounds (lon bounds, lat bounds): ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
+        lon_min, lon_max, lat_max, lat_min = _tile_bounds(z, x, y)
+        @debug "Thread $(thread_id) - $(now()) : Calculated bounds (z/x/y, lon bounds, lat bounds): $z $x $y | $(_tile_to_lon_lat(z, x, y)) | ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
 
         # Extract relevant data based on tile coordinates
-        @debug "$(now()) : Extracting tile data"
+        @debug "Thread $(thread_id) - $(now()) : Extracting tile data"
         mask_data = make_threshold_mask(
             reg_assess_data[reg],
             Symbol(rtype),
@@ -203,22 +204,30 @@ function setup_region_routes(config)
             (lat_min, lat_max)
         )
 
-        if any(size(mask_data) .== 0)
-            @debug "No data for $reg ($rtype) at $z/$x/$y"
+        if any(size(mask_data) .== 0) || all(size(mask_data) .< tile_size(config))
+            @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
             save(mask_path, zeros(RGBA, tile_size(config)))
             return file(mask_path)
         end
 
-        @debug "Extracted data size: $(size(mask_data))"
+        @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
 
         # Working:
         # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
 
         # Using if block to avoid type instability
-        @debug "$(now()) : Creating PNG (with transparency)"
+        @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
+        orig_rst_size = size(reg_assess_data[reg].stack)
         if any(size(mask_data) .> tile_size(config))
-            resampled = fast_resample(mask_data, tile_size(config))
+            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
+                # Account for geographic positioning when zoomed out further than
+                # raster area
+                resampled = masked_nearest(mask_data, z, x, y, tile_size(config))
+            else
+                resampled = nearest(mask_data, tile_size(config))
+            end
+
             img = zeros(RGBA, size(resampled));
             img[resampled .== 1] .= RGBA(0,0,0,1);
         else
@@ -226,7 +235,7 @@ function setup_region_routes(config)
             img[mask_data .== 1] .= RGBA(0,0,0,1);
         end
 
-        @debug "$(now()) : Saving and serving file"
+        @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
         save(mask_path, img)
         file(mask_path)
     end
