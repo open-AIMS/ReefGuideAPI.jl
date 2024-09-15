@@ -106,6 +106,13 @@ The following processing is required before use:
 - Simplified reef polygons should be provided as vertex-vertex lines with `polygon_to_lines()`.
 - Require raster of target pixels to search, and their indices (currently a vector of `CartesianIndices` for identifying search pixels). Use `findall(bool_search_raster)` to return pixel indices.
 - Raster of search pixels should be masked by reef polygons or simplified reef polygons.
+- The target region name should be specified in GBRMPA format.
+  - E.g. "Townsville/Whitsunday Management Area" rather than "Townsville-Whitsunday".
+
+### Parquet assessment additional setup
+- A parquet GeoDataFrame must be loaded and filtered for unsuitable pixels based on user criteria thresholds using a Dict and `within_thresholds()`.
+- `lon` and `lat` columns (FLoat64) must be added to the GeoDataFrame.
+  - E.g. `valid_pixels.lon = first.(GI.coordinates.(valid_pixels.geometry))`
   The column used for masking should be the same as the column specified as geometry_col in
   `identify_potential_sites_edges` (default = `:geometry`).
 
