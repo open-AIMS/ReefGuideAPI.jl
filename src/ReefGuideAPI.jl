@@ -142,6 +142,8 @@ function start_server(config_path)
     config = TOML.parsefile(config_path)
     setup_region_routes(config)
 
+    setup_tile_routes()
+
     if Threads.nthreads() > 1
         serveparallel(port=8000)
     else
