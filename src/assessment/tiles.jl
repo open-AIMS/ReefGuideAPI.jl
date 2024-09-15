@@ -3,15 +3,31 @@ Helper methods to support tiling
 """
 
 """
-    _tile_to_lon_lat(z, x, y)
+    _tile_to_lon_lat(z::T, x::T, y::T) where {T<:Int64}
+
+Obtain lon/lat of top-left corner of a requested tile.
+
+# Returns
+lon, lat
+"""
+function _tile_to_lon_lat(z::T, x::T, y::T) where {T<:Int64}
+    n = 2.0^z
+    lon = x / n * 360.0 - 180.0
+    lat_rad = atan(sinh(π * (1 - 2 * y / n)))
+    lat = rad2deg(lat_rad)
+
+    return (lon, lat)
+end
+
+"""
+    _tile_bounds(z::T, x::T, y::T) where {T<:Int64}
 
 Obtain lon/lat bounds of a requested tile.
 
-Note: Zoom levels are capped to 14
+# Returns
+West, East, North South (min lon, max lon, lat max, lat min)
 """
-function _tile_to_lon_lat(z, x, y)
-    z = min(14, z)  # Cap zoom level to something reasonable
-
+function _tile_bounds(z::T, x::T, y::T) where {T<:Int64}
     # Calculate the boundaries of the tile
     n = 2.0^z
     lat_min = atan(sinh(π * (1 - 2 * (y + 1) / n))) * 180.0 / π
@@ -20,7 +36,7 @@ function _tile_to_lon_lat(z, x, y)
     lon_max = (x + 1) / n * 360.0 - 180.0
 
     # West, East, North, South
-    return lon_min, lon_max, lat_min, lat_max
+    return lon_min, lon_max, lat_max, lat_min
 end
 
 """
