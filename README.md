@@ -110,6 +110,7 @@ The following processing is required before use:
   - E.g. "Townsville/Whitsunday Management Area" rather than "Townsville-Whitsunday".
 
 ### Parquet assessment additional setup
+
 - A parquet GeoDataFrame must be loaded and filtered for unsuitable pixels based on user criteria thresholds using a Dict and `within_thresholds()`.
 - `lon` and `lat` columns (FLoat64) must be added to the GeoDataFrame.
   - E.g. `valid_pixels.lon = first.(GI.coordinates.(valid_pixels.geometry))`
