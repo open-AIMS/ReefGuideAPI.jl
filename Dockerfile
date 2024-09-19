@@ -111,7 +111,7 @@ EXPOSE 8000
 
 # Run Julia commands by default as the container launches.
 # Derived applications should override the command.
-ENTRYPOINT ["julia", "--project=@reefguide", "-t", "1,auto", "-e", "\"using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")\""]
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "1,auto", "-e", "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
 
 # Julia remains the entry point - this should open up the
 # CMD ["-t 1,auto", "-e \"using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")\""]
