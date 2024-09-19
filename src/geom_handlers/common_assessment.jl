@@ -77,8 +77,8 @@ end
 
 Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
 """
-function filter_far_polygons(gdf::DataFrame, pixel::GeometryBasics.Point, lat::Float64)::BitVector
-    return (GO.distance.(GO.centroid.(gdf[:, first(GI.geometrycolumns(gdf))]), [pixel]) .< meters_to_degrees(10000, lat))
+function filter_far_polygons(gdf::DataFrame, pixel::GeometryBasics.Point, lat::Float64, dist::Int64)::BitVector
+    return (GO.distance.(GO.centroid.(gdf[:, first(GI.geometrycolumns(gdf))]), [pixel]) .< meters_to_degrees(dist, lat))
 end
 
 """
@@ -165,7 +165,7 @@ function initial_search_rotation(
     gdf::DataFrame,
     reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
 )::Float64
-    distance_indices = filter_far_polygons(gdf, pixel, pixel[2])
+    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], 20000)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
         GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
@@ -205,7 +205,7 @@ Identify and keep the highest scoring site polygon where site polygons are overl
 - `res_df` : Results DataFrame containing potential site polygons (output from
 `identify_potential_sites()` or `identify_potential_sites_edges()`).
 """
-function filter_intersecting_sites(res_df::DataFrame)::DataFrame
+function filter_intersecting_sites(res_df::DataFrame, region::String, output_dir::String)::Nothing
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
@@ -231,5 +231,27 @@ function filter_intersecting_sites(res_df::DataFrame)::DataFrame
         end
     end
 
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
+    rename!(res_df, :poly => :geometry)
+
+    GDF.write(
+        joinpath(output_dir, "output_sites_$(region)_$(today()).geojson"),
+        res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)];
+        crs=crs(res_df.geometry[1])
+    )
+
+    return nothing
+end
+
+target_crs = EPSG(7844)
+
+"""
+"""
+function get_crs_unit(target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat)::String
+    crs_string = GeoFormatTypes.val(convert(WellKnownText, target_crs))
+    crs_type = split(crs_string, ",")[1] |> occursin()
+    if occursin("degree", unit_str[1])
+        return "degree"
+    elseif occursin("m", unit_str[1])
+        return "m"
+    end
 end
