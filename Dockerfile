@@ -94,6 +94,9 @@ FROM internal-base AS reefguide-src
 ENV REEFGUIDE_ENV_DIR="${JULIA_DEPOT_PATH}/environments/reefguide" \
     REEFGUIDE_SRC_DIR="/usr/local/src/reefguide"
 
+# Try to coerce Julia to build across multiple targets
+ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
+
 # Install the versioned .toml file(s) into the shared reefguide environment and use
 # those to set up the ReefGuideAPI source code as a development package in the
 # shared @reefguide environment, pre-installing and precompiling dependencies.
