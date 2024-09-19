@@ -241,17 +241,3 @@ function filter_intersecting_sites(res_df::DataFrame, region::String, output_dir
 
     return nothing
 end
-
-target_crs = EPSG(7844)
-
-"""
-"""
-function get_crs_unit(target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat)::String
-    crs_string = GeoFormatTypes.val(convert(WellKnownText, target_crs))
-    crs_type = split(crs_string, ",")[1] |> occursin()
-    if occursin("degree", unit_str[1])
-        return "degree"
-    elseif occursin("m", unit_str[1])
-        return "m"
-    end
-end
