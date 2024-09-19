@@ -196,16 +196,17 @@ function initial_search_rotation(
 end
 
 """
-    filter_intersecting_sites(res_df::DataFrame)::DataFrame
+    filter_sites_and_output(res_df::DataFrame, region::String, output_dir::String)::Nothing
 
 Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
 Identify and keep the highest scoring site polygon where site polygons are overlapping.
 
 # Arguments
-- `res_df` : Results DataFrame containing potential site polygons (output from
-`identify_potential_sites()` or `identify_potential_sites_edges()`).
+- `res_df` : Results DataFrame containing potential site polygons (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
+- `region` : Region name to attach to output files.
+- `output_dir` : Folder path to write `.geojson` files to.
 """
-function filter_intersecting_sites(res_df::DataFrame, region::String, output_dir::String)::Nothing
+function filter_sites_and_output(res_df::DataFrame, region::String, output_dir::String)::Nothing
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
