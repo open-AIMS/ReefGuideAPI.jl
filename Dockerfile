@@ -48,14 +48,14 @@ ENTRYPOINT ["julia", "--project=@reefguide"]
 
 
 #------------------------------------------------------------------------------
-# reefguide-base build target: ReefGuideApi.jl preinstalled as a non-dev package.
+# reefguide-base build target: ReefGuideAPI.jl preinstalled as a non-dev package.
 # Use `--target=reefguide-base` on your `docker build command to build *just* this.
 #------------------------------------------------------------------------------
 FROM internal-base AS reefguide-base
 
-# What version of ReefGuideApi.jl from package registry to install in reefguide-base
+# What version of ReefGuideAPI.jl from package registry to install in reefguide-base
 # TODO this doesn't make sense yet
-ARG REEFGUIDE_VERSION="0.11.0"
+ARG REEFGUIDE_VERSION="0.1.0"
 
 # Which julia package registry version to install
 ENV REEFGUIDE_VERSION=$REEFGUIDE_VERSION
@@ -63,16 +63,21 @@ ENV REEFGUIDE_VERSION=$REEFGUIDE_VERSION
 # Try to coerce Julia to build across multiple targets
 ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 
-# Install ReefGuideApi.jl into the @reefguide shared environment as an unregistered package.
+# Install ReefGuideAPI.jl into the @reefguide shared environment as an unregistered package.
 # - Allow the package source and version to be overridden at build-time.
-# - Include citation information for ReefGuideApi.jl in the image labels.
+# - Include citation information for ReefGuideAPI.jl in the image labels.
 RUN mkdir -p "${JULIA_DEPOT_PATH}" && \
     chmod 0755 "${JULIA_DEPOT_PATH}" && \
-    julia --project=@reefguide -e "using Pkg; Pkg.add(name=\"ReefGuideApi\", version=\"${REEFGUIDE_VERSION}\"); Pkg.instantiate(); Pkg.precompile(); using ReefGuideApi;"
-LABEL au.gov.aims.reefguideapi.source="https://github.com/open-AIMS/ReefGuideApi.jl/releases/tag/v${REEFGUIDE_VERSION}" \
+    julia --project=@reefguide -e "using Pkg; Pkg.add(name=\"ReefGuideAPI\", version=\"${REEFGUIDE_VERSION}\"); Pkg.instantiate(); Pkg.precompile(); using ReefGuideAPI;"
+LABEL au.gov.aims.reefguideapi.source="https://github.com/open-AIMS/ReefGuideAPI.jl/releases/tag/v${REEFGUIDE_VERSION}" \
     au.gov.aims.reefguideapi.version="${REEFGUIDE_VERSION}" \
     au.gov.aims.reefguideapi.vendor="Australian Institute of Marine Science" \
     au.gov.aims.reefguideapi.licenses=MIT
+
+
+# Expect to include the prepped data at /data/reefguide and the config at
+# /data/.config.toml
+VOLUME ["/data/reefguide", "/data/.config.toml"]
 
 #------------------------------------------------------------------------------
 # reefguide-dev build target: installs directly from source files in this repo.
@@ -83,21 +88,30 @@ ENV REEFGUIDE_ENV_DIR="${JULIA_DEPOT_PATH}/environments/reefguide" \
     REEFGUIDE_SRC_DIR="/usr/local/src/reefguide"
 
 # Install the versioned .toml file(s) into the shared reefguide environment and use
-# those to set up the ReefGuideApi source code as a development package in the
+# those to set up the ReefGuideAPI source code as a development package in the
 # shared @reefguide environment, pre-installing and precompiling dependencies.
-# This should *hugely* speeds up the build when other ReefGuideApi files have changed,
-# as this very slow step won't need to be run again.
-
 WORKDIR "${REEFGUIDE_SRC_DIR}"
 COPY ./Project.toml ./Project.toml
-# TODO include Manifest.toml
 COPY ./Manifest.toml ./Manifest.toml
 RUN julia --project=@reefguide -e 'using Pkg;  Pkg.instantiate(verbose=true)'
 
-# Install the ReefGuideApi source code and configure it as a development
+# Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
 # Should be v speedy if the .toml file is unchanged, because all the
 # dependencies *should* already be installed.
-COPY . .
+COPY ./src src
 RUN julia --project=@reefguide \
-    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.precompile(); using ReefGuideApi;'
+    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.precompile(); using ReefGuideAPI;'
+
+# Expect to include the prepped data at /data/reefguide and the config at
+# /data/.config.toml
+VOLUME ["/data/reefguide"]
+
+EXPOSE 8000
+
+# Run Julia commands by default as the container launches.
+# Derived applications should override the command.
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "1,auto", "-e", "\"using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")\""]
+
+# Julia remains the entry point - this should open up the
+# CMD ["-t 1,auto", "-e \"using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")\""]

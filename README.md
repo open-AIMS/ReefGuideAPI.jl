@@ -106,3 +106,28 @@ The following processing is required before use:
 - Raster of search pixels should be masked by reef polygons or simplified reef polygons.
 The column used for masking should be the same as the column specified as geometry_col in
 `identify_potential_sites_edges` (default = `:geometry`).
+
+## Docker
+
+### To build from src files
+
+
+### To run with mounted files (launch server)
+
+Ensure you have `config.toml` in `./data/config.toml` along with other ReefGuide data files.
+
+```
+docker run -p 8000:8000 -v ./data:/data/reefguide reefguide
+```
+
+### To run with mounted files (interactive shell)
+
+```
+docker run --rm --interactive --entrypoint="julia -e \"@reefguide\"" --tty -v ./data:/data/reefguide reefguide
+```
+
+### Working 
+
+```
+docker run -p 8000:8000 --rm --interactive --entrypoint='julia' --tty -v ./data:/data/reefguide reefguide2 --project=@reefguide2 -t 1,auto -e "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"
+```

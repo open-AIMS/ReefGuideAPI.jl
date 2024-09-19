@@ -3,3 +3,6 @@ output/
 .git*
 assets/
 docs/
+.config.toml
+Dockerfile
+.gitignore

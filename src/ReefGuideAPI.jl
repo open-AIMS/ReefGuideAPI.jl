@@ -145,9 +145,9 @@ function start_server(config_path)
     setup_tile_routes()
 
     if Threads.nthreads() > 1
-        serveparallel(port=8000)
+        serveparallel(host="0.0.0.0", port=8000)
     else
-        serve(port=8000)
+        serve(host="0.0.0.0", port=8000)
     end
 end
 
