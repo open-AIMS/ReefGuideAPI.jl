@@ -1,0 +1,28 @@
+---
+#-------------------------------------------------
+# Docker compose for ReefGuideAPI.jl docker image
+#--------------------------------------------------
+version: "3.8"
+
+services:
+  # TODO enable and update this once the release version is ready
+  # reefguide-base:
+  #   build:
+  #     args:
+  #       # TODO when versioning is setup improve this
+  #       REEFGUIDE_VERSION: "v0.1.0"
+  #       JULIA_VERSION: "1.10.4"
+  #     context: .
+  #     target: reefguide-base
+  #   image: ReefGuideAPI.jl/reefguide-base:latest
+  #   volumes:
+  #     - ./data:/data/reefguide
+  reefguide-src:
+    build:
+      context: .
+      target: reefguide-src
+    image: ReefGuideAPI.jl/reefguide-base:latest
+    volumes:
+      - ./data:/data/reefguide
+    ports:
+      - 8000:8000
