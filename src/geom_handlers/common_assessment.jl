@@ -196,17 +196,15 @@ function initial_search_rotation(
 end
 
 """
-    filter_sites_and_output(res_df::DataFrame, region::String, output_dir::String)::Nothing
+    filter_sites(res_df::DataFrame)::DataFrame
 
 Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
 Identify and keep the highest scoring site polygon where site polygons are overlapping.
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
-- `region` : Region name to attach to output files.
-- `output_dir` : Folder path to write `.geojson` files to.
 """
-function filter_sites_and_output(res_df::DataFrame, region::String, output_dir::String)::Nothing
+function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
@@ -234,10 +232,28 @@ function filter_sites_and_output(res_df::DataFrame, region::String, output_dir::
 
     rename!(res_df, :poly => :geometry)
 
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)]
+end
+
+"""
+    output_geojson(df::DataFrame, region::String, output_dir::String)::Nothing
+
+Writes out GeoJSON file to a target directory. Output file will be located at location:
+"`output_dir`/output_dir_`region`_`current_date_time`.geojson"
+
+# Arguments
+- `df` : DataFrame intended for writing to geojson file.
+- `region` : Region name for labelling output file.
+- `output_dir` : Directory to write geojson file to.
+"""
+function output_geojson(df::DataFrame, region::String, output_dir::String)::Nothing
     GDF.write(
-        joinpath(output_dir, "output_sites_$(region)_$(today()).geojson"),
-        res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)];
-        crs=crs(res_df.geometry[1])
+        joinpath(
+            output_dir,
+            "output_sites_$(region)_$(Dates.format(now(), "Y-mm-dd_THH-MM")).geojson"
+        ),
+        df;
+        crs=crs(df.geometry[1])
     )
 
     return nothing
