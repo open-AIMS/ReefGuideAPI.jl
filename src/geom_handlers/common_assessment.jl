@@ -1,6 +1,6 @@
 """ Functions common to both site_assessment methods. """
 
-using LinearAlgebra
+using LinearAlgebra, Dates
 
 include("geom_ops.jl")
 
@@ -236,7 +236,12 @@ function filter_sites(res_df::DataFrame)::DataFrame
 end
 
 """
-    output_geojson(df::DataFrame, region::String, output_dir::String)::Nothing
+    output_geojson(
+        df::DataFrame,
+        region::String,
+        output_dir::String,
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+    )::Nothing
 
 Writes out GeoJSON file to a target directory. Output file will be located at location:
 "`output_dir`/output_dir_`region`_`current_date_time`.geojson"
@@ -245,15 +250,21 @@ Writes out GeoJSON file to a target directory. Output file will be located at lo
 - `df` : DataFrame intended for writing to geojson file.
 - `region` : Region name for labelling output file.
 - `output_dir` : Directory to write geojson file to.
+- `target_crs` : Coordinate Reference System of output polygons (matches input raster file).
 """
-function output_geojson(df::DataFrame, region::String, output_dir::String)::Nothing
+function output_geojson(
+    df::DataFrame,
+    region::String,
+    output_dir::String,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+)::Nothing
     GDF.write(
         joinpath(
             output_dir,
             "output_sites_$(region)_$(Dates.format(now(), "Y-mm-dd_THH-MM")).geojson"
         ),
         df;
-        crs=crs(df.geometry[1])
+        crs=target_crs
     )
 
     return nothing
