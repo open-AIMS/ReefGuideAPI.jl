@@ -13,8 +13,6 @@ on:
   push:
     branches:
       - main
-      # TODO Remove before merge
-      - dockerisation
   release:
     types: [published]
 
