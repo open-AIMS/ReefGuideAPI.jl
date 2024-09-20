@@ -239,8 +239,7 @@ end
     output_geojson(
         df::DataFrame,
         region::String,
-        output_dir::String,
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+        output_dir::String
     )::Nothing
 
 Writes out GeoJSON file to a target directory. Output file will be located at location:
@@ -250,13 +249,11 @@ Writes out GeoJSON file to a target directory. Output file will be located at lo
 - `df` : DataFrame intended for writing to geojson file.
 - `region` : Region name for labelling output file.
 - `output_dir` : Directory to write geojson file to.
-- `target_crs` : Coordinate Reference System of output polygons (matches input raster file).
 """
 function output_geojson(
     df::DataFrame,
     region::String,
-    output_dir::String,
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+    output_dir::String
 )::Nothing
     GDF.write(
         joinpath(
@@ -264,7 +261,7 @@ function output_geojson(
             "output_sites_$(region)_$(Dates.format(now(), "Y-mm-dd_THH-MM")).geojson"
         ),
         df;
-        crs=target_crs
+        crs=GI.crs(first(df.geometry))
     )
 
     return nothing

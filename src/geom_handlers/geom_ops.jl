@@ -87,7 +87,11 @@ function get_points(geom)
     end
 end
 
-function rotate_geom(geom, degrees::Float64)
+function rotate_geom(
+    geom,
+    degrees::Float64,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+)
     degrees == 0.0 && return geom
 
     theta = deg2rad(degrees)
@@ -113,7 +117,7 @@ function rotate_geom(geom, degrees::Float64)
         new_points[i] = rotate_point(new_points[i])
     end
 
-    return create_poly(new_points, GI.crs(geom))
+    return create_poly(new_points, target_crs)
 end
 
 """

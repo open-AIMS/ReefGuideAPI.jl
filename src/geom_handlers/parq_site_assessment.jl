@@ -7,7 +7,8 @@ include("common_assessment.jl")
     assess_reef_site(
         rel_pix::DataFrame,
         geom::GI.Wrappers.Polygon,
-        max_count::Float64;
+        max_count::Float64,
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
@@ -22,7 +23,8 @@ positive.
 function assess_reef_site(
     rel_pix::DataFrame,
     geom::GI.Wrappers.Polygon,
-    max_count::Float64;
+    max_count::Float64,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
@@ -35,7 +37,7 @@ function assess_reef_site(
     qc_flag = zeros(Int64, n_rotations)
 
     for (j, r) in enumerate(rotations)
-        rot_geom = rotate_geom(geom, r)
+        rot_geom = rotate_geom(geom, r, target_crs)
         score[j] = size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
         best_poly[j] = rot_geom
 
@@ -136,7 +138,8 @@ function identify_potential_sites_edges(
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
             geom_buff,
-            max_count;
+            max_count,
+            target_crs;
             degree_step=degree_step,
             start_rot=rot_angle,
             n_per_side=n_rot_p_side,
