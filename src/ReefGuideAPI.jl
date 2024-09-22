@@ -104,13 +104,18 @@ function setup_regional_data(reef_data_path::String)
     return REGIONAL_DATA
 end
 
-function _cache_location(config)
+"""
+    _cache_location(config::Dict)::String
+
+Retrieve cache location for geotiffs.
+"""
+function _cache_location(config::Dict)::String
     cache_loc = try
         in_debug = "DEBUG_MODE" in config["server_config"]
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
             mktempdir()
         else
-            config["server_config"]["CACHE_DIR"]
+            config["server_config"]["TIFF_CACHE_DIR"]
         end
     catch
         mktempdir()
@@ -119,7 +124,12 @@ function _cache_location(config)
     return cache_loc
 end
 
-function n_gdal_threads(config)::String
+"""
+    n_gdal_threads(config::Dict)::String
+
+Retrieve the configured number of threads to use when writing COGs with GDAL.
+"""
+function n_gdal_threads(config::Dict)::String
     n_cog_threads = try
         config["server_config"]["COG_THREADS"]
     catch
@@ -129,7 +139,12 @@ function n_gdal_threads(config)::String
     return n_cog_threads
 end
 
-function tile_size(config)::Tuple
+"""
+    tile_size(config::Dict)::Tuple
+
+Retrieve the configured size of map tiles in pixels (width and height / lon and lat).
+"""
+function tile_size(config::Dict)::Tuple
     tile_dims = try
         res = parse(Int, config["server_config"]["TILE_SIZE"])
         (res, res)
