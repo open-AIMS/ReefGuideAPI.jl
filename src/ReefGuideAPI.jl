@@ -96,7 +96,8 @@ function setup_regional_data(config::Dict)
                 elseif occursin("flat", string(dp))
                     flat_table = GeoParquet.read(parq_file)
                 else
-                    error("Unknown lookup found: $(parq_file)")
+                    msg = "Unknown lookup found: $(parq_file). Must be 'slope' or 'flat'"
+                    throw(ArgumentError(msg))
                 end
             end
         end
