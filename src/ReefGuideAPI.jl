@@ -155,6 +155,16 @@ function tile_size(config::Dict)::Tuple
     return tile_dims
 end
 
+"""
+    warmup_cache(config_path::String)
+
+Invokes warm up of regional data cache to reduce later spin up times.
+"""
+function warmup_cache(config_path::String)
+    config = TOML.parsefile(config_path)
+    setup_regional_data(config)
+end
+
 function start_server(config_path)
     @info "Launching server... please wait"
 
