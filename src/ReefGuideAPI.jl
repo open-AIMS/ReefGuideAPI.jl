@@ -39,17 +39,37 @@ function get_regions()
     return regions
 end
 
+"""
+    setup_regional_data(config::Dict)
+
+Load regional data to act as an in-memory cache.
+
+# Arguments
+- `config` : Configuration settings, typically loaded from a TOML file.
+- `reef_data_path` : Path to pre-prepared reef data
+
+# Returns
+OrderedDict of `RegionalCriteria` for each region.
+"""
 function setup_regional_data(config::Dict)
-    return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
-end
-function setup_regional_data(reef_data_path::String)
     if @isdefined(REGIONAL_DATA)
         @debug "Using previously generated regional data store."
         sleep(1)  # Pause so message is noticeably visible
         return REGIONAL_DATA
     end
 
+    # Check disk-based store
+    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
+    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
+    if isfile(reg_cache_fn)
+        @debug "Loading regional data cache from disk"
+        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+        return REGIONAL_DATA
+    end
+
     @debug "Setting up regional data store..."
+
+    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
 
     regional_assessment_data = OrderedDict{String, RegionalCriteria}()
     for reg in get_regions()
@@ -97,6 +117,10 @@ function setup_regional_data(reef_data_path::String)
             flat_table
         )
     end
+
+    # Store cache on disk to avoid excessive cold startup times
+    @debug "Saving regional data cache to disk"
+    serialize(reg_cache_fn, regional_assessment_data)
 
     # Remember, `@eval` runs in global scope.
     @eval const REGIONAL_DATA = $(regional_assessment_data)
