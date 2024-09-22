@@ -5,6 +5,8 @@ using
     Glob,
     TOML
 
+using Serialization
+
 using DataFrames
 using OrderedCollections
 using Memoization
