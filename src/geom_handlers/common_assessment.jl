@@ -1,6 +1,7 @@
 """ Functions common to both site_assessment methods."""
 
-using LinearAlgebra, Dates
+using Dates
+using LinearAlgebra
 
 include("geom_ops.jl")
 
@@ -250,7 +251,7 @@ end
     )::Nothing
 
 Writes out GeoJSON file to a target directory. Output file will be located at location:
-"`output_dir`/output_dir_`region`_`current_date_time`.geojson"
+"`output_dir`/output_sites_`region`.geojson"
 
 # Arguments
 - `df` : DataFrame intended for writing to geojson file.
@@ -265,7 +266,7 @@ function output_geojson(
     GDF.write(
         joinpath(
             output_dir,
-            "output_sites_$(region)_$(Dates.format(now(), "Y-mm-dd_THH-MM")).geojson"
+            "output_sites_$(region).geojson"
         ),
         df;
         crs=GI.crs(first(df.geometry))
