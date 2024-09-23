@@ -86,6 +86,28 @@ Note that the server now caches the initially loaded spatial data in between ser
 launches to reduce downtime. It will be necessary to restart the Julia session to reload
 spatial data.
 
+## JWT Auth configuration
+
+The API can be configured to expect a valid JWT in the `Authorization: Bearer <token>` header format.
+
+Add the following to your `.config.toml`:
+
+```toml
+[jwt_auth]
+# Enable JWT auth : bool true/false
+JWT_ENABLED = true
+# Which iss to validate for the JWTs?
+JWT_ISS = "https://issuer.com"
+# WKT JWKS endpoint where public key can be retrieved
+WKT_ENDPOINT = "https://https://issuer.com/api/.well-known/jwks.json"
+```
+
+Pay attention to the issuer and wkt endpoints. The first should exactly match the expected JWT issuer claim. The second should be web-resolvable and return a WKT JSON which provides the public key.
+
+### Auth TODOs
+
+- ensure health check route is not authorised
+
 ## Performance notes
 
 The config setting `COG_THREADS` controls how many threads should be requested when writing
