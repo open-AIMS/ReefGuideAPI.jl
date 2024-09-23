@@ -2,7 +2,7 @@
 
 julia_version = "1.10.5"
 manifest_format = "2.0"
-project_hash = "6fede307373f6765f57e6b40013604858deb6683"
+project_hash = "48f1ba78006810a194af55c2e924360a96020ee3"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -539,9 +539,9 @@ version = "0.1.10"
 
 [[deps.DiskArrays]]
 deps = ["LRUCache", "OffsetArrays"]
-git-tree-sha1 = "4a89568befbeaa7f5e35fdaeebc7695e939aaa2a"
+git-tree-sha1 = "ef25c513cad08d7ebbed158c91768ae32f308336"
 uuid = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
-version = "0.4.4"
+version = "0.3.23"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
@@ -829,9 +829,9 @@ version = "6.2.1+6"
 
 [[deps.GeoDataFrames]]
 deps = ["ArchGDAL", "DataAPI", "DataFrames", "GeoFormatTypes", "GeoInterface", "Pkg", "Tables"]
-git-tree-sha1 = "30ca2a4765bfa26ee2fc54e0f8fbe9bb390532c1"
+git-tree-sha1 = "64129e8eb34af7eccaa8b9dbeae3f0a902eb54fb"
 uuid = "62cb38b5-d8d2-4862-a48e-6a340996859f"
-version = "0.3.9"
+version = "0.3.10"
 
 [[deps.GeoFormatTypes]]
 git-tree-sha1 = "59107c179a586f0fe667024c5eb7033e81333271"
@@ -891,10 +891,10 @@ uuid = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 version = "0.4.11"
 
 [[deps.GeometryOps]]
-deps = ["CoordinateTransformations", "DelaunayTriangulation", "ExactPredicates", "GeoInterface", "GeometryBasics", "InteractiveUtils", "LinearAlgebra", "SortTileRecursiveTree", "Statistics", "Tables"]
-git-tree-sha1 = "d7c052fb90795e72569dc4bc5d57bb3a490a69cb"
+deps = ["CoordinateTransformations", "DataAPI", "DelaunayTriangulation", "ExactPredicates", "GeoInterface", "GeometryBasics", "InteractiveUtils", "LinearAlgebra", "SortTileRecursiveTree", "Statistics", "Tables"]
+git-tree-sha1 = "54a1777d49f40dccd749b6df98b8cbe178dee0b9"
 uuid = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
-version = "0.1.11"
+version = "0.1.12"
 
     [deps.GeometryOps.extensions]
     GeometryOpsFlexiJoinsExt = "FlexiJoins"
@@ -1216,9 +1216,9 @@ weakdeps = ["Random", "RecipesBase", "Statistics"]
     IntervalSetsStatisticsExt = "Statistics"
 
 [[deps.InverseFunctions]]
-git-tree-sha1 = "2787db24f4e03daf859c6509ff87764e4182f7d1"
+git-tree-sha1 = "a779299d77cd080bf77b97535acecd73e1c5e5cb"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.16"
+version = "0.1.17"
 weakdeps = ["Dates", "Test"]
 
     [deps.InverseFunctions.extensions]
@@ -1705,15 +1705,15 @@ version = "0.1.0"
 
 [[deps.NearestNeighbors]]
 deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "91a67b4d73842da90b526011fa85c5c4c9343fe0"
+git-tree-sha1 = "3cebfc94a0754cc329ebc3bab1e6c89621e791ad"
 uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.18"
+version = "0.4.20"
 
 [[deps.NetCDF]]
 deps = ["DiskArrays", "NetCDF_jll"]
-git-tree-sha1 = "243a8a229daaa040d3966f2e3e076c25ce142289"
+git-tree-sha1 = "c8ec10c6b72e35f7020b83330f8054908ba454eb"
 uuid = "30363a11-5582-574a-97bb-aa9a979735b9"
-version = "0.12.0"
+version = "0.11.8"
 
 [[deps.NetCDF_jll]]
 deps = ["Artifacts", "Blosc_jll", "Bzip2_jll", "HDF5_jll", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenMPI_jll", "XML2_jll", "Zlib_jll", "Zstd_jll", "libzip_jll"]
@@ -1811,9 +1811,9 @@ version = "1.4.3"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "1b35263570443fdd9e76c76b7062116e2f374ab8"
+git-tree-sha1 = "7493f61f55a6cce7325f197443aa80d32554ba10"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "3.0.15+0"
+version = "3.0.15+1"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -2062,9 +2062,9 @@ version = "0.3.2"
 
 [[deps.Rasters]]
 deps = ["Adapt", "ColorTypes", "CommonDataModel", "ConstructionBase", "Dates", "DimensionalData", "DiskArrays", "Extents", "FillArrays", "Flatten", "GeoFormatTypes", "GeoInterface", "Missings", "Mmap", "OffsetArrays", "ProgressMeter", "RecipesBase", "Reexport", "Setfield"]
-git-tree-sha1 = "4e0c4ba20d6084c9a3c7783863198d0a0155ef93"
+git-tree-sha1 = "67c3309d0250aedecf1c17be364402595da9c373"
 uuid = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-version = "0.11.7"
+version = "0.11.8"
 
     [deps.Rasters.extensions]
     RastersArchGDALExt = "ArchGDAL"
@@ -2233,9 +2233,9 @@ uuid = "73760f76-fbc4-59ce-8f25-708e95d2df96"
 version = "0.4.0"
 
 [[deps.SimpleBufferStream]]
-git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
+git-tree-sha1 = "f305871d2f381d21527c770d4788c06c097c9bc1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
-version = "1.1.0"
+version = "1.2.0"
 
 [[deps.SimpleTraits]]
 deps = ["InteractiveUtils", "MacroTools"]
@@ -2714,16 +2714,34 @@ uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.5.0+0"
 
 [[deps.YAXArrayBase]]
-deps = ["DataStructures", "Dates", "Downloads", "Requires"]
-git-tree-sha1 = "0fc9884f4d1c6de7fe3c5733fed84ef8f2235933"
+deps = ["DataStructures", "Dates", "Downloads"]
+git-tree-sha1 = "cce7074ee9f270b113154213037f43279bcfa6f2"
 uuid = "90b8fcef-0c2d-428d-9c56-5f86629e9d14"
-version = "0.6.1"
+version = "0.7.3"
+
+    [deps.YAXArrayBase.extensions]
+    ArchGDALExt = "ArchGDAL"
+    AxisArraysExt = "AxisArrays"
+    AxisKeysExt = "AxisKeys"
+    DimensionalDataExt = "DimensionalData"
+    NamedDimsExt = "NamedDims"
+    NetCDFExt = "NetCDF"
+    ZarrExt = "Zarr"
+
+    [deps.YAXArrayBase.weakdeps]
+    ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
+    AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
+    AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
+    DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+    NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
+    NetCDF = "30363a11-5582-574a-97bb-aa9a979735b9"
+    Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
 
 [[deps.YAXArrays]]
 deps = ["CFTime", "DataStructures", "Dates", "DimensionalData", "DiskArrayTools", "DiskArrays", "Distributed", "DocStringExtensions", "Glob", "Interpolations", "IntervalSets", "IterTools", "Markdown", "OffsetArrays", "OnlineStats", "Optim", "OrderedCollections", "ParallelUtilities", "ProgressMeter", "Reexport", "Requires", "Statistics", "StatsBase", "Tables", "WeightedOnlineStats", "YAXArrayBase"]
-git-tree-sha1 = "300651c9ada5f4ad21f73b3a4ae95ed4e0f1e84a"
+git-tree-sha1 = "09cd01df4817c4d5f6eda845c4d75cc2855cf0b3"
 uuid = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
-version = "0.5.10"
+version = "0.5.11"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
