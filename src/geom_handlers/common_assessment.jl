@@ -156,7 +156,8 @@ end
         pixel::GeometryBasics.Point{2, Float64},
         geom_buff::GI.Wrappers.Polygon,
         gdf::DataFrame,
-        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
+        search_buffer::Union{Int64,Float64}=20000.0
     )::Float64
 
 Identifies the closest edge to the target `pixel`/'`geom_buff` and returns the initial rotation
@@ -172,9 +173,10 @@ function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
     gdf::DataFrame,
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
+    search_buffer::Union{Int64,Float64}=20000.0
 )::Float64
-    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], 20000)
+    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
         GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
