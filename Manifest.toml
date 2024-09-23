@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.5"
+julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "d0ffae0ac62d29f3001ef8e43624c0daaa93de19"
+project_hash = "0ba1e1e2a2d920acbf433442679b34b551a9f509"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1280,6 +1280,12 @@ version = "1.14.0"
 
     [deps.JSON3.weakdeps]
     ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
+
+[[deps.JSONWebTokens]]
+deps = ["Base64", "JSON", "MbedTLS", "Random", "SHA"]
+git-tree-sha1 = "0fc1200c36d1050a3acfecb05ee1a718859ff836"
+uuid = "9b8beb19-0777-58c6-920b-28f749fee4d3"
+version = "1.1.1"
 
 [[deps.JpegTurbo]]
 deps = ["CEnum", "FileIO", "ImageCore", "JpegTurbo_jll", "TOML"]
@@ -2763,7 +2769,7 @@ version = "0.15.2+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.11.0+0"
+version = "5.8.0+1"
 
 [[deps.libdecor_jll]]
 deps = ["Artifacts", "Dbus_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pango_jll", "Wayland_jll", "xkbcommon_jll"]

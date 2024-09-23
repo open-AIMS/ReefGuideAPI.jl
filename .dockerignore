@@ -6,3 +6,4 @@ docs/
 .config.toml
 Dockerfile
 .gitignore
+data

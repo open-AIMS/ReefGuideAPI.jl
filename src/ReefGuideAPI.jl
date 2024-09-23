@@ -23,6 +23,7 @@ using
 include("assessment/criteria.jl")
 include("geom_handlers/site_assessment.jl")
 include("assessment/query_thresholds.jl")
+# include("Middleware.jl")
 
 
 function get_regions()
@@ -138,12 +139,23 @@ function tile_size(config)::Tuple
     return tile_dims
 end
 
+function get_middleware(config :: Dict) 
+    # Setup auth middleware - depends on config.toml
+    jwt_middleware = setup_jwt_middleware(config)
+    return [jwt_middleware]
+end
+
 function start_server(config_path)
     println("Launching server...please wait") 
 
     println("Parsing configuration from $(config_path)...") 
     config = TOML.parsefile(config_path)
     println("Successfully parsed configuration.") 
+
+    # setting up middleware
+    println("Setting up middleware.") 
+    middleware = get_middleware(config)
+    println("Done.") 
 
     println("Setting up region routes...")
     setup_region_routes(config)
@@ -156,9 +168,9 @@ function start_server(config_path)
     println("Initialisation complete, starting server on port 8000.") 
     println("Starting with $(Threads.nthreads()) threads...") 
     if Threads.nthreads() > 1
-        serveparallel(host="0.0.0.0", port=8000)
+        serveparallel(middleware=middleware, host="0.0.0.0", port=8000)
     else
-        serve(host="0.0.0.0", port=8000)
+        serve(middleware=middleware, host="0.0.0.0", port=8000)
     end
 end
 
