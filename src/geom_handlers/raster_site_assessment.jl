@@ -2,8 +2,6 @@
 
 using FLoops
 
-include("geom_ops.jl")
-include("common_assessment.jl")
 
 function identify_potential_sites(rst_stack, scan_locs, threshold, geom)
     res = abs(step(dims(rst_stack, X)))

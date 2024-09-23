@@ -1,7 +1,5 @@
 """Geometry-based assessment methods."""
 
-include("geom_ops.jl")
-include("common_assessment.jl")
 
 """
     assess_reef_site(
