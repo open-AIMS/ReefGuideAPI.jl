@@ -139,10 +139,10 @@ function tile_size(config)::Tuple
     return tile_dims
 end
 
-function get_middleware(config :: Dict) 
-    # Setup auth middleware - depends on config.toml
-    jwt_middleware = setup_jwt_middleware(config)
-    return [jwt_middleware]
+function get_auth_middleware(config :: Dict) 
+    # Setup auth middleware - depends on config.toml - can return identity func
+    auth = setup_jwt_middleware(config)
+    return [auth]
 end
 
 function start_server(config_path)
@@ -154,23 +154,23 @@ function start_server(config_path)
 
     # setting up middleware
     println("Setting up middleware.") 
-    middleware = get_middleware(config)
+    auth = get_middleware(config)
     println("Done.") 
 
     println("Setting up region routes...")
-    setup_region_routes(config)
+    setup_region_routes(config, auth)
     println("Completed region routes setup.")
 
     println("Setting up tile routes...")
-    setup_tile_routes()
+    setup_tile_routes(auth)
     println("Completed tile routes setup.")
 
     println("Initialisation complete, starting server on port 8000.") 
     println("Starting with $(Threads.nthreads()) threads...") 
     if Threads.nthreads() > 1
-        serveparallel(middleware=middleware, host="0.0.0.0", port=8000)
+        serveparallel(host="0.0.0.0", port=8000)
     else
-        serve(middleware=middleware, host="0.0.0.0", port=8000)
+        serve(host="0.0.0.0", port=8000)
     end
 end
 

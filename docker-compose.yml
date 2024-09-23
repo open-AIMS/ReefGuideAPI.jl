@@ -35,7 +35,5 @@ services:
     volumes:
       - ./data:/data/reefguide
       - ./src:/usr/local/src/reefguide/src
-      - ./Manifest.toml:/usr/local/src/reefguide/Manifest.toml
-      - ./Project.toml:/usr/local/src/reefguide/Project.toml
     ports:
       - 8000:8000
