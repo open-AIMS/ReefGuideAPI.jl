@@ -1,10 +1,10 @@
-""" Functions common to both site_assessment methods. """
+""" Functions common to both site_assessment methods."""
 
+using Dates
 using LinearAlgebra
 
 include("geom_ops.jl")
 
-# Additional functions for reef-edge alignment processing.
 """
     meters_to_degrees(x, lat)
 
@@ -73,12 +73,18 @@ function line_angle(a::T, b::T)::Float64 where {T<:Vector{Tuple{Float64,Float64}
 end
 
 """
-    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64)::BitVector
+    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
 Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
 """
-function filter_far_polygons(gdf::DataFrame, pixel::GeometryBasics.Point, lat::Float64)::BitVector
-    return (GO.distance.(GO.centroid.(gdf[:, first(GI.geometrycolumns(gdf))]), [pixel]) .< meters_to_degrees(10000, lat))
+function filter_far_polygons(
+    gdf::DataFrame,
+    pixel::GeometryBasics.Point,
+    lat::Float64,
+    dist::Union{Int64,Float64}
+)::BitVector
+    geoms = gdf[:, first(GI.geometrycolumns(gdf))]
+    return (GO.distance.(GO.centroid.(geoms), [pixel]) .< meters_to_degrees(dist, lat))
 end
 
 """
@@ -101,7 +107,7 @@ and is buffered by `res` distance.
 - `res` : Buffer distance (resolution of input raster search data).
 
 # Returns
-- Initial search box geometry.
+Initial search box geometry.
 """
 function initial_search_box(
     (lon, lat),
@@ -122,7 +128,7 @@ function initial_search_box(
 end
 
 """
-    identify_closest_edge(
+    closest_reef_edge(
         pixel::GeometryBasics.Point{2, Float64},
         reef_lines::Vector{GeometryBasics.Line{2, Float64}}
     )::Vector{Tuple{Float64, Float64}}
@@ -132,8 +138,11 @@ Find the nearest line in `reef_lines` to a point `pixel`.
 # Arguments
 - `pixel` : Target point geometry.
 - `reef_lines` : Vector containing lines for comparison.
+
+# Returns
+Coordinates of the reef edge line that is closest to the target `pixel`. Returned in Tuples.
 """
-function identify_closest_edge(
+function closest_reef_edge(
     pixel::GeometryBasics.Point{2,Float64},
     reef_lines::Vector{GeometryBasics.Line{2,Float64}}
 )::Vector{Tuple{Float64,Float64}}
@@ -147,7 +156,8 @@ end
         pixel::GeometryBasics.Point{2, Float64},
         geom_buff::GI.Wrappers.Polygon,
         gdf::DataFrame,
-        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}}
+        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
+        search_buffer::Union{Int64,Float64}=20000.0
     )::Float64
 
 Identifies the closest edge to the target `pixel`/'`geom_buff` and returns the initial rotation
@@ -163,9 +173,10 @@ function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
     gdf::DataFrame,
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
+    search_buffer::Union{Int64,Float64}=20000.0
 )::Float64
-    distance_indices = filter_far_polygons(gdf, pixel, pixel[2])
+    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
         GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
@@ -183,7 +194,7 @@ function initial_search_rotation(
         reef_lines = vcat(reef_lines...)
     end
 
-    edge_line = identify_closest_edge(pixel, reef_lines)
+    edge_line = closest_reef_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
     edge_bearing = line_angle([(0.0, 5.0), (0.0, 0.0)], from_zero(edge_line))
@@ -196,16 +207,21 @@ function initial_search_rotation(
 end
 
 """
-    filter_intersecting_sites(res_df::DataFrame)::DataFrame
+    filter_sites(res_df::DataFrame)::DataFrame
 
 Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
 Identify and keep the highest scoring site polygon where site polygons are overlapping.
 
 # Arguments
-- `res_df` : Results DataFrame containing potential site polygons (output from
-`identify_potential_sites()` or `identify_potential_sites_edges()`).
+- `res_df` : Results DataFrame containing potential site polygons
+             (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
+
+# Returns
+DataFrame containing only the highest scoring sites where site polygons intersect, and
+containing only sites with scores greater than the `surr_threshold` specified in
+`identify_potential_sites_edges()` (default=0.33).
 """
-function filter_intersecting_sites(res_df::DataFrame)::DataFrame
+function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = []
 
@@ -231,5 +247,65 @@ function filter_intersecting_sites(res_df::DataFrame)::DataFrame
         end
     end
 
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
+    rename!(res_df, :poly => :geometry)
+
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)]
+end
+
+"""
+    output_geojson(
+        df::DataFrame,
+        region::String,
+        output_dir::String
+    )::Nothing
+
+Writes out GeoJSON file to a target directory. Output file will be located at location:
+"`output_dir`/output_sites_`region`.geojson"
+
+# Arguments
+- `df` : DataFrame intended for writing to geojson file.
+- `region` : Region name for labelling output file.
+- `output_dir` : Directory to write geojson file to.
+"""
+function output_geojson(
+    df::DataFrame,
+    region::String,
+    output_dir::String
+)::Nothing
+    GDF.write(
+        joinpath(
+            output_dir,
+            "output_sites_$(region).geojson"
+        ),
+        df;
+        crs=GI.crs(first(df.geometry))
+    )
+
+    return nothing
+end
+
+"""
+    identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
+
+Identifies all pixels in an input raster that return true for the function `criteria_function`.
+
+# Arguments
+- `input_raster` : Raster containing pixels for the target region.
+- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`. Pixels that return true will be targetted in analysis.
+
+# Returns
+DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
+"""
+function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
+    pixels = trim(criteria_function(scan_locs))
+    indices = findall(pixels)
+    indices_lon = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
+    indices_lat = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
+
+    for (j, index) in enumerate(indices)
+        indices_lon[j] = dims(pixels, X)[index[1]]
+        indices_lat[j] = dims(pixels, Y)[index[2]]
+    end
+
+    return DataFrame(indices = indices, lon = indices_lon, lat = indices_lat)
 end

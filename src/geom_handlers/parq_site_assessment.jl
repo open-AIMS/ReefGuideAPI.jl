@@ -7,22 +7,38 @@ include("common_assessment.jl")
     assess_reef_site(
         rel_pix::DataFrame,
         geom::GI.Wrappers.Polygon,
-        max_count::Float64;
+        max_count::Float64,
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
         surr_threshold::Float64=0.33
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
 
-Assesses the rotations of a search box `geom` for their pixel score. Returns the highest score,
-rotation step, polygon and a quality control flag for each assessment. Rotation steps are returned
-so that the `start_rot` angle is 0, rotations anti-clockwise are negative and rotations clockwise are
+Assesses the rotations of a search box `geom` for their suitability score (calculated as the
+proportion of pixels that meet all specified criteria thresholds). Search box rotation steps
+are returned so that the `start_rot` angle is 0, rotations anti-clockwise are negative and
+rotations clockwise are
 positive.
+
+# Arguments
+- `rel_pix` : DataFrame containing the point data for pixels that are within maxmimum user search box dimensions from a pixel.
+- `geom` : Starting search box for assessment.
+- `max_count` : The maximum number of pixels that can intersect the search box (used to standardise scores between 0 and 1).
+- `target_crs` : Coordinate Reference System used for analysis vector and raster data.
+- `degree_step` : Step to vary the search box rotations.
+- `start_rot` : Starting angle rotation that aligns the box with the closest reef edge.
+- `n_per_side` : Number of rotations to perform around the starting search box angle.
+- `surr_threshold` : Suitability threshold, below which sites are excluded from result sets.
+
+# Returns
+Returns the highest score, rotation step, polygon and a quality control flag for each assessment.
 """
 function assess_reef_site(
     rel_pix::DataFrame,
     geom::GI.Wrappers.Polygon,
-    max_count::Float64;
+    max_count::Float64,
+    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
@@ -35,7 +51,7 @@ function assess_reef_site(
     qc_flag = zeros(Int64, n_rotations)
 
     for (j, r) in enumerate(rotations)
-        rot_geom = rotate_geom(geom, r)
+        rot_geom = rotate_geom(geom, r, target_crs)
         score[j] = size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
         best_poly[j] = rot_geom
 
@@ -51,8 +67,8 @@ end
 """
     identify_potential_sites_edges(
         df::DataFrame,
-        indices_pixels::Raster,
-        indices::Vector{CartesianIndex{2}},
+        search_pixels::DataFrame,
+        res::Float64,
         gdf::DataFrame,
         x_dist::Union{Int64,Float64},
         y_dist::Union{Int64,Float64},
@@ -64,16 +80,16 @@ end
         surr_threshold::Float64=0.33
     )::DataFrame
 
-Identify the most suitable site polygons for each pixel in the `search_pixels` raster where
-`indices` denotes which pixels to check for suitability. `x_dist` and `y_dist` are x and y
-lengths of the search polygon in meters. A buffer of `rst_stack` resolution is applied to the search box.
-And angle from a pixel to a reef edge is identified and used for searching with custom rotation
-parameters. Method is currently opperating for CRS in degrees units.
+Identify the most suitable site polygons for each pixel in the `search_pixels` DataFrame.
+`x_dist` and `y_dist` are x and y lengths of the search polygon in meters. A buffer of the
+raster files' resolution is applied to the search box. And angle from a pixel to a reef edge
+is identified and used for searching with custom rotation parameters.
+Method is currently opperating for CRS in degrees units.
 
 # Arguments
 - `df` : DataFrame containing environmental variables for assessment.
-- `indices_pixels` : Raster that matches indices for lon/lat information.
-- `indices` : Vector of CartesianIndices noting pixels to assess sites.
+- `search_pixels` : DataFrame containing lon and lat columns for each pixel that is intended for analysis.
+- `res` : Resolution of the original raster pixels. Can by found via `abs(step(dims(raster, X)))`.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box (in meters).
 - `y_dist` : Length of vertical side of search box (in meters).
@@ -89,8 +105,8 @@ DataFrame containing highest score, rotation and polygon for each assessment at 
 """
 function identify_potential_sites_edges(
     df::DataFrame,
-    indices_pixels::Raster,
-    indices::Vector{CartesianIndex{2}},
+    search_pixels::DataFrame,
+    res::Float64,
     gdf::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
@@ -103,7 +119,6 @@ function identify_potential_sites_edges(
 )::DataFrame
     reef_lines = reef_lines[gdf.management_area .== region]
     gdf = gdf[gdf.management_area .== region, :]
-    res = abs(step(dims(indices_pixels, X)))
     max_count = (
         (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
         ((y_dist + 2 * degrees_to_meters(res, mean(indices_pixels.dims[2]))) /
@@ -111,13 +126,13 @@ function identify_potential_sites_edges(
     )
 
     # Search each location to assess
-    best_score = zeros(length(indices))
-    best_poly = Vector(undef, length(indices))
-    best_rotation = zeros(Int64, length(indices))
-    quality_flag = zeros(Int64, length(indices))
-    for (i, index) in enumerate(indices)
-        lon = dims(indices_pixels, X)[index[1]]
-        lat = dims(indices_pixels, Y)[index[2]]
+    best_score = zeros(length(search_pixels.lon))
+    best_poly = Vector(undef, length(search_pixels.lon))
+    best_rotation = zeros(Int64, length(search_pixels.lon))
+    quality_flag = zeros(Int64, length(search_pixels.lon))
+    for (i, index) in enumerate(eachrow(search_pixels))
+        lon = index.lon
+        lat = index.lat
         geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
 
         pixel = GO.Point(lon, lat)
@@ -136,7 +151,8 @@ function identify_potential_sites_edges(
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
             geom_buff,
-            max_count;
+            max_count,
+            target_crs;
             degree_step=degree_step,
             start_rot=rot_angle,
             n_per_side=n_rot_p_side,

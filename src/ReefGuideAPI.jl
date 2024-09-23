@@ -244,7 +244,8 @@ export
 export
     assess_reef_site,
     identify_potential_sites_edges,
-    filter_intersecting_sites
+    filter_sites,
+    output_geojson
 
 # Geometry handling
 export
