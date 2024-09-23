@@ -1,0 +1,37 @@
+@baseUrl = {{$dotenv API_BASE_URL}}
+@webBaseUrl = {{$dotenv REST_API_BASE_URL}}
+@authToken = {{$dotenv TOKEN}}
+@contentType = application/json
+
+### Login to rest API
+
+### Register a new user
+# @name register
+POST {{webBaseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+    "email": "testuser@example.com",
+    "password": "securepassword123"
+}
+
+### Login with the registered user
+# @name login
+POST {{webBaseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "testuser@example.com",
+    "password": "securepassword123"
+}
+
+### Hello world (authorised)
+# @name loadEnv
+GET {{baseUrl}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+### Hello world (no auth)
+# @name loadEnv
+GET {{baseUrl}}
+Content-Type: {{contentType}}

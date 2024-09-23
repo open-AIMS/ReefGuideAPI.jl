@@ -24,3 +24,4 @@ sandbox/
 /.config.toml
 
 data
+.env

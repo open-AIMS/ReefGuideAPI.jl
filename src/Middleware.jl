@@ -4,13 +4,13 @@ using Dates
 using JSON
 
 function setup_jwt_middleware(config::Dict)
-    if !get(config["server_config"], "JWT_ENABLED", false)
+    if !get(config["jwt_auth"], "JWT_ENABLED", false)
         return identity  # Return a pass-through middleware if JWT is not enabled
     end
 
-    jwt_iss = config["server_config"]["JWT_ISS"]
+    jwt_iss = config["jwt_auth"]["JWT_ISS"]
     # WKT endpoint for rest API
-    public_key_url = "$jwt_iss/api/.well-known/jwks.json"
+    public_key_url = config["jwt_auth"]["WKT_ENDPOINT"]
 
     # Fetch the public key
     response = HTTP.get(public_key_url)

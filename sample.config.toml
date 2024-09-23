@@ -1,0 +1,16 @@
+[prepped_data]
+PREPPED_DATA_DIR = "/data"
+
+[server_config]
+CACHE_DIR = "./cache"
+DEBUG_MODE = "false" 
+COG_THREADS = "2"  # Optional, Number of threads to use when creating COGs (defaults to 1)
+TILE_SIZE = "256"  # Optional, tile block size to use (defaults to 256)
+
+[jwt_auth]
+# Enable JWT auth : bool true/false
+JWT_ENABLED = false
+# Which iss to validate for the JWTs?
+JWT_ISS = "https://issuer.com" 
+# WKT JWKS endpoint where public key can be retrieved
+WKT_ENDPOINT = "https://issuer.com/.well-known/jwks.json" 
