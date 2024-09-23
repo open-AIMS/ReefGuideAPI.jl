@@ -23,7 +23,7 @@ using
 include("assessment/criteria.jl")
 include("geom_handlers/site_assessment.jl")
 include("assessment/query_thresholds.jl")
-# include("Middleware.jl")
+include("Middleware.jl")
 
 
 function get_regions()

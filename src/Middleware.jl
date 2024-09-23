@@ -1,6 +1,7 @@
 using JSONWebTokens
 using HTTP
 using Dates
+using JSON
 
 function setup_jwt_middleware(config::Dict)
     if !get(config["server_config"], "JWT_ENABLED", false)
