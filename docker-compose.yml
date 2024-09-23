@@ -26,3 +26,14 @@ services:
       - ./data:/data/reefguide
     ports:
       - 8000:8000
+  reefguide-dev:
+    build:
+      context: .
+      target: reefguide-src
+    image: ReefGuideAPI.jl/reefguide-base:latest
+    entrypoint: julia
+    volumes:
+      - ./data:/data/reefguide
+      - ./src:/usr/local/src/reefguide/src
+    ports:
+      - 8000:8000
