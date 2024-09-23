@@ -168,9 +168,9 @@ function start_server(config_path)
     println("Initialisation complete, starting server on port 8000.") 
     println("Starting with $(Threads.nthreads()) threads...") 
     if Threads.nthreads() > 1
-        serveparallel(host="0.0.0.0", port=8000)
+        serveparallel(middleware=[CorsMiddleware], host="0.0.0.0", port=8000)
     else
-        serve(host="0.0.0.0", port=8000)
+        serve(middleware=[CorsMiddleware], host="0.0.0.0", port=8000)
     end
 end
 

@@ -3,6 +3,26 @@ using HTTP
 using Dates
 using JSON
 
+const CORS_HEADERS = [
+    "Access-Control-Allow-Origin" => "*",
+    "Access-Control-Allow-Headers" => "*",
+    "Access-Control-Allow-Methods" => "POST, GET, OPTIONS"
+]
+
+# https://juliaweb.github.io/HTTP.jl/stable/examples/#Cors-Server
+function CorsMiddleware(handler)
+    return function(req::HTTP.Request)
+        @debug "CORS middleware"
+        # determine if this is a pre-flight request from the browser
+        if HTTP.method(req)=="OPTIONS"
+            return HTTP.Response(200, CORS_HEADERS)  
+        else 
+            return handler(req) # passes the request to the AuthMiddleware
+        end
+    end
+end
+
+
 function setup_jwt_middleware(config::Dict)
     if !get(config["jwt_auth"], "JWT_ENABLED", false)
         return identity  # Return a pass-through middleware if JWT is not enabled
