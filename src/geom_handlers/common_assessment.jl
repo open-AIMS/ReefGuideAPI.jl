@@ -1,10 +1,9 @@
-""" Functions common to both site_assessment methods. """
+""" Functions common to both site_assessment methods."""
 
 using LinearAlgebra, Dates
 
 include("geom_ops.jl")
 
-# Additional functions for reef-edge alignment processing.
 """
     meters_to_degrees(x, lat)
 
@@ -101,7 +100,7 @@ and is buffered by `res` distance.
 - `res` : Buffer distance (resolution of input raster search data).
 
 # Returns
-- Initial search box geometry.
+Initial search box geometry.
 """
 function initial_search_box(
     (lon, lat),
@@ -122,7 +121,7 @@ function initial_search_box(
 end
 
 """
-    identify_closest_edge(
+    closest_reef_edge(
         pixel::GeometryBasics.Point{2, Float64},
         reef_lines::Vector{GeometryBasics.Line{2, Float64}}
     )::Vector{Tuple{Float64, Float64}}
@@ -132,8 +131,11 @@ Find the nearest line in `reef_lines` to a point `pixel`.
 # Arguments
 - `pixel` : Target point geometry.
 - `reef_lines` : Vector containing lines for comparison.
+
+# Returns
+Coordinates of the reef edge line that is closest to the target `pixel`. Returned in Tuples.
 """
-function identify_closest_edge(
+function closest_reef_edge(
     pixel::GeometryBasics.Point{2,Float64},
     reef_lines::Vector{GeometryBasics.Line{2,Float64}}
 )::Vector{Tuple{Float64,Float64}}
@@ -183,7 +185,7 @@ function initial_search_rotation(
         reef_lines = vcat(reef_lines...)
     end
 
-    edge_line = identify_closest_edge(pixel, reef_lines)
+    edge_line = closest_reef_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
     edge_bearing = line_angle([(0.0, 5.0), (0.0, 0.0)], from_zero(edge_line))
@@ -203,6 +205,11 @@ Identify and keep the highest scoring site polygon where site polygons are overl
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
+
+# Returns
+DataFrame containing only the highest scoring sites where site polygons intersect, and
+containing only sites with scores greater than the `surr_threshold` specified in
+`identify_potential_sites_edges()` (default=0.33).
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
@@ -265,4 +272,30 @@ function output_geojson(
     )
 
     return nothing
+end
+
+"""
+    identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
+
+Identifies all pixels in an input raster that return true for the function `criteria_function`.
+
+# Arguments
+- `input_raster` : Raster containing pixels for the target region.
+- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`. Pixels that return true will be targetted in analysis.
+
+# Returns
+DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
+"""
+function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
+    pixels = trim(criteria_function(scan_locs))
+    indices = findall(pixels)
+    indices_lon = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
+    indices_lat = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
+
+    for (j, index) in enumerate(indices)
+        indices_lon[j] = dims(pixels, X)[index[1]]
+        indices_lat[j] = dims(pixels, Y)[index[2]]
+    end
+
+    return DataFrame(indices = indices, lon = indices_lon, lat = indices_lat)
 end
