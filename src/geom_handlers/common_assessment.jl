@@ -168,6 +168,7 @@ angle required to match the edge line.
 - `geom_buff` : Initial search box with zero rotation.
 - `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
 - `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
+- `search_buffer` : Distance to search from pixel to find closest reef.
 """
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
