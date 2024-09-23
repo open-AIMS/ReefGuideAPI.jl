@@ -139,7 +139,7 @@ function tile_size(config)::Tuple
     return tile_dims
 end
 
-function get_auth_middleware(config :: Dict) 
+function get_auth_middleware(config :: Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
     auth = setup_jwt_middleware(config)
     return [auth]

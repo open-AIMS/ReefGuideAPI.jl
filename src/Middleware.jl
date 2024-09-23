@@ -16,8 +16,8 @@ function CorsMiddleware(handler)
         @debug "CORS middleware"
         # determine if this is a pre-flight request from the browser
         if HTTP.method(req)=="OPTIONS"
-            return HTTP.Response(200, CORS_HEADERS)  
-        else 
+            return HTTP.Response(200, CORS_HEADERS)
+        else
             return handler(req) # passes the request to the AuthMiddleware
         end
     end
@@ -51,7 +51,7 @@ function setup_jwt_middleware(config::Dict)
 
             try
                 payload = JSONWebTokens.decode(rsa_public, token)
-                
+
                 # Check if the token is expired
                 exp = get(payload, "exp", nothing)
                 if exp !== nothing && exp < time()
