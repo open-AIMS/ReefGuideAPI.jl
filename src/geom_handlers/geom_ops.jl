@@ -157,7 +157,7 @@ Find a horizontal line if one exists within a geometry.
 # Returns
 Vector containing tuples of coordinates for a horizontal line found within geom.
 """
-function find_horizontal(geom::GI.Wrappers.Polygon)::Vector{Tuple{Float64,Float64}, Tuple{Float64,Float64}}
+function find_horizontal(geom::GIWrap.Polygon)::Vector{Tuple{Float64,Float64}}
     coords = collect(GI.coordinates(geom)...)
     first_coord = first(coords)
     second_coord = coords[
