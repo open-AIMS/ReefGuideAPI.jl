@@ -73,12 +73,18 @@ function line_angle(a::T, b::T)::Float64 where {T<:Vector{Tuple{Float64,Float64}
 end
 
 """
-    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64)::BitVector
+    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
 Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
 """
-function filter_far_polygons(gdf::DataFrame, pixel::GeometryBasics.Point, lat::Float64, dist::Int64)::BitVector
-    return (GO.distance.(GO.centroid.(gdf[:, first(GI.geometrycolumns(gdf))]), [pixel]) .< meters_to_degrees(dist, lat))
+function filter_far_polygons(
+    gdf::DataFrame,
+    pixel::GeometryBasics.Point,
+    lat::Float64,
+    dist::Union{Int64,Float64}
+)::BitVector
+    geoms = gdf[:, first(GI.geometrycolumns(gdf))]
+    return (GO.distance.(GO.centroid.(geoms), [pixel]) .< meters_to_degrees(dist, lat))
 end
 
 """
@@ -205,7 +211,8 @@ Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in
 Identify and keep the highest scoring site polygon where site polygons are overlapping.
 
 # Arguments
-- `res_df` : Results DataFrame containing potential site polygons (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
+- `res_df` : Results DataFrame containing potential site polygons
+             (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
 
 # Returns
 DataFrame containing only the highest scoring sites where site polygons intersect, and
