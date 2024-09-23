@@ -5,6 +5,8 @@ using
     Glob,
     TOML
 
+using Serialization
+
 using DataFrames
 using OrderedCollections
 using Memoization
@@ -37,17 +39,37 @@ function get_regions()
     return regions
 end
 
+"""
+    setup_regional_data(config::Dict)
+
+Load regional data to act as an in-memory cache.
+
+# Arguments
+- `config` : Configuration settings, typically loaded from a TOML file.
+- `reef_data_path` : Path to pre-prepared reef data
+
+# Returns
+OrderedDict of `RegionalCriteria` for each region.
+"""
 function setup_regional_data(config::Dict)
-    return setup_regional_data(config["prepped_data"]["PREPPED_DATA_DIR"])
-end
-function setup_regional_data(reef_data_path::String)
     if @isdefined(REGIONAL_DATA)
         @debug "Using previously generated regional data store."
         sleep(1)  # Pause so message is noticeably visible
         return REGIONAL_DATA
     end
 
+    # Check disk-based store
+    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
+    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
+    if isfile(reg_cache_fn)
+        @debug "Loading regional data cache from disk"
+        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+        return REGIONAL_DATA
+    end
+
     @debug "Setting up regional data store..."
+
+    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
 
     regional_assessment_data = OrderedDict{String, RegionalCriteria}()
     for reg in get_regions()
@@ -74,7 +96,8 @@ function setup_regional_data(reef_data_path::String)
                 elseif occursin("flat", string(dp))
                     flat_table = GeoParquet.read(parq_file)
                 else
-                    error("Unknown lookup found: $(parq_file)")
+                    msg = "Unknown lookup found: $(parq_file). Must be 'slope' or 'flat'"
+                    throw(ArgumentError(msg))
                 end
             end
         end
@@ -96,19 +119,28 @@ function setup_regional_data(reef_data_path::String)
         )
     end
 
+    # Store cache on disk to avoid excessive cold startup times
+    @debug "Saving regional data cache to disk"
+    serialize(reg_cache_fn, regional_assessment_data)
+
     # Remember, `@eval` runs in global scope.
     @eval const REGIONAL_DATA = $(regional_assessment_data)
 
     return REGIONAL_DATA
 end
 
-function _cache_location(config)
+"""
+    _cache_location(config::Dict)::String
+
+Retrieve cache location for geotiffs.
+"""
+function _cache_location(config::Dict)::String
     cache_loc = try
         in_debug = "DEBUG_MODE" in config["server_config"]
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
             mktempdir()
         else
-            config["server_config"]["CACHE_DIR"]
+            config["server_config"]["TIFF_CACHE_DIR"]
         end
     catch
         mktempdir()
@@ -117,7 +149,12 @@ function _cache_location(config)
     return cache_loc
 end
 
-function n_gdal_threads(config)::String
+"""
+    n_gdal_threads(config::Dict)::String
+
+Retrieve the configured number of threads to use when writing COGs with GDAL.
+"""
+function n_gdal_threads(config::Dict)::String
     n_cog_threads = try
         config["server_config"]["COG_THREADS"]
     catch
@@ -127,7 +164,12 @@ function n_gdal_threads(config)::String
     return n_cog_threads
 end
 
-function tile_size(config)::Tuple
+"""
+    tile_size(config::Dict)::Tuple
+
+Retrieve the configured size of map tiles in pixels (width and height / lon and lat).
+"""
+function tile_size(config::Dict)::Tuple
     tile_dims = try
         res = parse(Int, config["server_config"]["TILE_SIZE"])
         (res, res)
@@ -138,23 +180,33 @@ function tile_size(config)::Tuple
     return tile_dims
 end
 
-function start_server(config_path)
-    println("Launching server...please wait") 
+"""
+    warmup_cache(config_path::String)
 
-    println("Parsing configuration from $(config_path)...") 
+Invokes warm up of regional data cache to reduce later spin up times.
+"""
+function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
-    println("Successfully parsed configuration.") 
+    setup_regional_data(config)
+end
 
-    println("Setting up region routes...")
+function start_server(config_path)
+    @info "Launching server... please wait"
+
+    @info "Parsing configuration from $(config_path)..."
+    config = TOML.parsefile(config_path)
+    @info "Successfully parsed configuration."
+
+    @info "Setting up region routes..."
     setup_region_routes(config)
-    println("Completed region routes setup.")
+    @info "Completed region routes setup."
 
-    println("Setting up tile routes...")
+    @info "Setting up tile routes..."
     setup_tile_routes()
-    println("Completed tile routes setup.")
+    @info "Completed tile routes setup."
 
-    println("Initialisation complete, starting server on port 8000.") 
-    println("Starting with $(Threads.nthreads()) threads...") 
+    @info "Initialisation complete, starting server on port 8000."
+    @info "Starting with $(Threads.nthreads()) threads..."
     if Threads.nthreads() > 1
         serveparallel(host="0.0.0.0", port=8000)
     else
