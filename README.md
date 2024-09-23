@@ -18,7 +18,8 @@ These are currently the files/data created in Step/Script 1a in https://github.c
 PREPPED_DATA_DIR = "C:/some_path_to_data/MPA/"
 
 [server_config]
-CACHE_DIR = "<some location to cache geotiffs>"
+TIFF_CACHE_DIR = "<some location to cache geotiffs>"
+REGIONAL_CACHE_DIR = "<some location to cache regional datasets>"
 DEBUG_MODE = "false"  # Optional, disables file caching and displays debug logs
 COG_THREADS = "2"  # Optional, Number of threads to use when creating COGs (defaults to 1)
 TILE_SIZE = "256"  # Optional, tile block size to use (defaults to 256)
