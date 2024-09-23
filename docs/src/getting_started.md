@@ -1,6 +1,5 @@
 # Getting Started
 
-
 ## Setup
 
 Initialize the project the usual way:

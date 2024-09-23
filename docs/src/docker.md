@@ -1,6 +1,9 @@
 # Docker build and run
 
-The ReefGuideAPI.jl package has an associated `Dockerfile` and build/publish process. This means you can run an instance of the ReefGuideAPI.jl package without needing to compile/build it with a local `Julia` installation. You will be able to view the latest published versions of the Docker image on the repository packages page.
+The ReefGuideAPI.jl package has an associated `Dockerfile` and build/publish process. This
+means you can run an instance of the ReefGuideAPI.jl package without needing to
+compile/build it with a local `Julia` installation. You will be able to view the latest
+published versions of the Docker image on the repository packages page.
 
 ## Mounting files and required data
 
