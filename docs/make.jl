@@ -30,7 +30,7 @@ Logging.disable_logging(Logging.BelowMinLevel)
 deploydocs(;
     repo="github.com/open-AIMS/ReefGuideAPI.jl.git",
     target="build", # this is where Vitepress stores its output
-    branch = "gh-pages",
+    branch="gh-pages",
     devbranch="main",
-    push_preview=false
+    push_preview=true
 )
