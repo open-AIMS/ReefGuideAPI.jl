@@ -116,28 +116,25 @@ end
 """
     identify_potential_sites_edges(
         rst_stack::RasterStack,
-        indices_pixels::Raster,
-        indices::Vector{CartesianIndex{2}},
+        search_pixels::DataFrame,
         gdf::DataFrame,
-        x_dist::Union{Int64, Float64},
-        y_dist::Union{Int64, Float64},
+        x_dist::Union{Int64,Float64},
+        y_dist::Union{Int64,Float64},
         target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
         region::String,
-        reef_lines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
+        reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
         degree_step::Float64=15.0,
         n_rot_per_side::Int64=2
     )::DataFrame
 
-Identify the most suitable site polygons for each pixel in the `indices_pixels` raster where
-`indices` denotes which pixels to check for suitability. `x_dist` and `y_dist` are x and y
-lengths of the search polygon. A buffer of `rst_stack` resolution is applied to the search box.
-And angle from a pixel to a reef edge is identified and used for searching with custom rotation
-parameters.
+Identify the most suitable site polygons for each pixel in the `search_pixels` DataFrame.
+`x_dist` and `y_dist` are x and y lengths of the search polygon. A buffer of `rst_stack`
+resolution is applied to the search box. And angle from a pixel to a reef edge is identified
+and used for searching with custom rotation parameters.
 
 # Arguments
 - `rst_stack` : RasterStack containing environmental variables for assessment.
-- `indices_pixels` : Raster that matches indices for lon/lat information.
-- `indices` : Vector of CartesianIndices noting pixels to assess sites.
+- `search_pixels` : DataFrame containing lon and lat values for each pixel intended for
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box.
 - `y_dist` : Length of vertical side of search box.
@@ -152,8 +149,7 @@ DataFrame containing highest score, rotation and polygon for each assessment at 
 """
 function identify_potential_sites_edges(
     rst_stack::RasterStack,
-    indices_pixels::Raster,
-    indices::Vector{CartesianIndex{2}},
+    search_pixels::DataFrame,
     gdf::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
@@ -174,12 +170,12 @@ function identify_potential_sites_edges(
     )
 
     # Search each location to assess
-    best_score = zeros(length(indices))
-    best_poly = Vector(undef, length(indices))
-    best_rotation = zeros(Int64, length(indices))
-    @floop for (i, index) in enumerate(indices)
-        lon = dims(indices_pixels, X)[index[1]]
-        lat = dims(indices_pixels, Y)[index[2]]
+    best_score = zeros(length(search_pixels.lon))
+    best_poly = Vector(undef, length(search_pixels.lon))
+    best_rotation = zeros(Int64, length(search_pixels.lon))
+    @floop for (i, index) in enumerate(eachrow(search_pixels))
+        lon = index.lon
+        lat = index.lat
         geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
 
         pixel = GO.Point(lon, lat)
