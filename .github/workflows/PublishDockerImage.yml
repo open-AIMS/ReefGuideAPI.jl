@@ -10,10 +10,11 @@
 name: Build and Publish ReefGuideAPI.jl Docker Image
 
 on:
-  push:
-    branches:
-      - main
-      - jwt-auth
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #     - jwt-auth
   release:
     types: [published]
 
