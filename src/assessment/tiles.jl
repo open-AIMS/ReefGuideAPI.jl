@@ -157,13 +157,13 @@ function masked_nearest(
 end
 
 function setup_tile_routes(auth)
-    @get("/to-tile/{zoom}/{lon}/{lat}", middleware=[auth])
+    @get auth("/to-tile/{zoom}/{lon}/{lat}")
     function (req::Request, zoom::Int64, lon::Float64, lat::Float64)
         x, y = _lon_lat_to_tile(zoom, lon, lat)
         return json(Dict(:x=>x, :y=>y))
     end
 
-    @get("/to-lonlat/{zoom}/{x}/{y}", middleware=[auth])
+    @get auth("/to-lonlat/{zoom}/{x}/{y}")
     function (req::Request, zoom::Int64, x::Int64, y::Int64)
         lon_min, lon_max, lat_max, lat_min = _tile_bounds(zoom, x, y)
         return json(

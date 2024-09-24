@@ -99,7 +99,7 @@ end
 function setup_region_routes(config, auth)
     reg_assess_data = setup_regional_data(config)
 
-    @get("/assess/{reg}/{rtype}", middleware=[auth])
+    @get auth("/assess/{reg}/{rtype}")
     function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
         file_id = string(hash(qp))
@@ -155,14 +155,14 @@ function setup_region_routes(config, auth)
         return file(mask_path)
     end
 
-    @get("/bounds/{reg}", middleware=[auth])
+    @get auth("/bounds/{reg}")
     function (req::Request, reg::String)
         rst_stack = reg_assess_data[reg].stack
 
         return json(Rasters.bounds(rst_stack))
     end
 
-    @get("/tile/{z}/{x}/{y}",middleware=[auth])
+    @get auth("/tile/{z}/{x}/{y}")
     function (req::Request, z::Int64, x::Int64, y::Int64)
         # http://127.0.0.1:8000/tile/10/10/10?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
         qp = queryparams(req)
@@ -262,7 +262,7 @@ function setup_region_routes(config, auth)
     end
 
     # Parse the form data and return it
-    @post("/form", middleware=[auth])
+    @post auth("/form")
     function(req)
         data = formdata(req)
         return data

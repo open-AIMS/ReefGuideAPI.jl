@@ -183,10 +183,10 @@ function tile_size(config::Dict)::Tuple
     return tile_dims
 end
 
-function get_auth_middleware(config :: Dict)
+function get_auth_router(config :: Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
     auth = setup_jwt_middleware(config)
-    return [auth]
+    return router(""; middleware=[auth])
 end
 
 """
@@ -209,7 +209,7 @@ function start_server(config_path)
 
     # setting up middleware
     @info "Setting up middleware."
-    auth = get_middleware(config)
+    auth = get_auth_router(config)
     @info "Done."
 
     @info "Setting up region routes..."
@@ -218,14 +218,6 @@ function start_server(config_path)
 
     @info "Setting up tile routes..."
     setup_tile_routes(auth)
-
-    @info "Setting up region routes..."
-    setup_region_routes(config)
-    @info "Completed region routes setup."
-
-    @info "Setting up tile routes..."
-    setup_tile_routes()
-    @info "Completed tile routes setup."
 
     @info "Initialisation complete, starting server on port 8000."
     @info "Starting with $(Threads.nthreads()) threads..."
