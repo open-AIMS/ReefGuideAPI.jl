@@ -40,7 +40,7 @@ function setup_jwt_middleware(config::Dict)
     public_key = jwks_json["keys"][1]["n"]
     rsa_public = JSONWebTokens.RS256(public_key)
 
-    function jwt_auth_middleware(handler)
+    return function jwt_auth_middleware(handler)
         return function(req::HTTP.Request)
             auth_header = HTTP.header(req, "Authorization", "")
             if !startswith(auth_header, "Bearer ")

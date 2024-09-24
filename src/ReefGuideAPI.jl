@@ -183,10 +183,10 @@ function tile_size(config::Dict)::Tuple
     return tile_dims
 end
 
-function get_auth_middleware(config :: Dict)
+function get_auth_router(config::Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
     auth = setup_jwt_middleware(config)
-    return [auth]
+    return router(""; middleware=[auth])
 end
 
 """
@@ -205,35 +205,25 @@ function start_server(config_path)
 
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
-    @info "Successfully parsed configuration."
 
-    # setting up middleware
-    @info "Setting up middleware."
-    auth = get_middleware(config)
-    @info "Done."
+    @info "Setting up auth middleware and router."
+    auth = get_auth_router(config)
 
     @info "Setting up region routes..."
     setup_region_routes(config, auth)
-    @info "Completed region routes setup."
 
     @info "Setting up tile routes..."
     setup_tile_routes(auth)
 
-    @info "Setting up region routes..."
-    setup_region_routes(config)
-    @info "Completed region routes setup."
+    port = 8000
+    @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."
 
-    @info "Setting up tile routes..."
-    setup_tile_routes()
-    @info "Completed tile routes setup."
-
-    @info "Initialisation complete, starting server on port 8000."
-    @info "Starting with $(Threads.nthreads()) threads..."
-    if Threads.nthreads() > 1
-        serveparallel(middleware=[CorsMiddleware], host="0.0.0.0", port=8000)
-    else
-        serve(middleware=[CorsMiddleware], host="0.0.0.0", port=8000)
-    end
+    serve(
+        middleware=[CorsMiddleware],
+        host="0.0.0.0",
+        port=port,
+        parallel=Threads.nthreads() > 1
+    )
 end
 
 export

@@ -2,7 +2,8 @@
 PREPPED_DATA_DIR = "/data"
 
 [server_config]
-CACHE_DIR = "./cache"
+TIFF_CACHE_DIR = "<some location to cache geotiffs>"
+REGIONAL_CACHE_DIR = "<some location to cache regional datasets>"
 DEBUG_MODE = "false"
 COG_THREADS = "2"  # Optional, Number of threads to use when creating COGs (defaults to 1)
 TILE_SIZE = "256"  # Optional, tile block size to use (defaults to 256)
