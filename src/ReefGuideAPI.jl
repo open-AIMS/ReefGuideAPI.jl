@@ -22,11 +22,11 @@ using
     HTTP,
     Oxygen
 
-include("assessment/criteria.jl")
-include("geom_handlers/common_assessment.jl")
-include("geom_handlers/raster_site_assessment.jl")
-include("geom_handlers/parq_site_assessment.jl")
-include("assessment/query_thresholds.jl")
+include("criteria_assessment/criteria.jl")
+include("site_assessment/common_assessment.jl")
+include("site_assessment/raster_site_assessment.jl")
+include("site_assessment/parq_site_assessment.jl")
+include("criteria_assessment/query_thresholds.jl")
 include("Middleware.jl")
 
 
