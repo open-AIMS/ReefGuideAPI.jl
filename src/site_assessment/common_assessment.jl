@@ -79,7 +79,7 @@ end
 Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
 """
 function filter_far_polygons(
-    gdf::GeoDataFrames.DataFrame,
+    gdf::DataFrame,
     pixel::GeometryBasics.Point,
     lat::Float64,
     dist::Union{Int64,Float64}
