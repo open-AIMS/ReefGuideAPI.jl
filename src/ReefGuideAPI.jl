@@ -213,7 +213,7 @@ function start_server(config_path)
     setup_region_routes(config, auth)
 
     @info "Setting up tile routes..."
-    setup_tile_routes(auth)
+    setup_tile_routes(config, auth)
 
     port = 8000
     @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."

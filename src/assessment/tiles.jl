@@ -158,7 +158,7 @@ function masked_nearest(
     return tile
 end
 
-function setup_tile_routes(auth)
+function setup_tile_routes(config, auth)
     @get auth("/to-tile/{zoom}/{lon}/{lat}") function (req::Request, zoom::Int64, lon::Float64, lat::Float64)
         x, y = _lon_lat_to_tile(zoom, lon, lat)
         return json(Dict(:x=>x, :y=>y))
@@ -174,6 +174,76 @@ function setup_tile_routes(auth)
                 :lat_min=>lat_min
             )
         )
+    end
+
+    reg_assess_data = setup_regional_data(config)
+    @get auth("/tile/{z}/{x}/{y}") function (req::Request, z::Int64, x::Int64, y::Int64)
+        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+        qp = queryparams(req)
+        file_id = string(hash(qp))
+        mask_temp_path = _cache_location(config)
+        mask_path = joinpath(mask_temp_path, file_id*".png")
+
+        if isfile(mask_path)
+            return file(mask_path)
+        end
+
+        # Otherwise, create the file
+        thread_id = Threads.threadid()
+        @debug "Thread $(thread_id) - $(now()) : Assessing criteria"
+        # Filtering time: 0.6 - 7.0 seconds
+        reg = qp["region"]
+        rtype = qp["rtype"]
+
+        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
+
+        # Calculate tile bounds
+        lon_min, lon_max, lat_max, lat_min = _tile_bounds(z, x, y)
+        @debug "Thread $(thread_id) - $(now()) : Calculated bounds (z/x/y, lon bounds, lat bounds): $z $x $y | $(_tile_to_lon_lat(z, x, y)) | ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
+
+        # Extract relevant data based on tile coordinates
+        @debug "Thread $(thread_id) - $(now()) : Extracting tile data"
+        mask_data = make_threshold_mask(
+            reg_assess_data[reg],
+            Symbol(rtype),
+            CriteriaBounds.(criteria_names, lbs, ubs),
+            (lon_min, lon_max),
+            (lat_min, lat_max)
+        )
+
+        if any(size(mask_data) .== 0) || all(size(mask_data) .< tile_size(config))
+            @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
+            save(mask_path, zeros(RGBA, tile_size(config)))
+            return file(mask_path)
+        end
+
+        @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
+
+        # Working:
+        # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+
+        # Using if block to avoid type instability
+        @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
+        if any(size(mask_data) .> tile_size(config))
+            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
+                # Account for geographic positioning when zoomed out further than
+                # raster area
+                resampled = masked_nearest(mask_data, z, x, y, tile_size(config))
+            else
+                resampled = nearest(mask_data, tile_size(config))
+            end
+
+            img = zeros(RGBA, size(resampled));
+            img[resampled .== 1] .= RGBA(0,0,0,1);
+        else
+            img = zeros(RGBA, size(mask_data));
+            img[mask_data .== 1] .= RGBA(0,0,0,1);
+        end
+
+        @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
+        save(mask_path, img)
+        file(mask_path)
     end
 
 end

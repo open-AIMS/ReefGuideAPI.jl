@@ -111,22 +111,10 @@ function setup_region_routes(config, auth)
             return file(mask_path)
         end
 
+        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
+
         # Otherwise, create the file
         @debug "$(now()) : Assessing criteria"
-        # Filtering time: 0.6 - 7.0 seconds
-        criteria_names = string.(split(qp["criteria_names"], ","))
-        lbs = string.(split(qp["lb"], ","))
-        ubs = string.(split(qp["ub"], ","))
-
-        if !contains(reg, "Townsville")
-            # Remove rugosity layer from consideration as it doesn't exist for regions
-            # outside of Townsville.
-            pos = findfirst(lowercase.(criteria_names) .== "rugosity")
-            criteria_names = [cname for (i, cname) in enumerate(criteria_names) if i != pos]
-            lbs = [lb for (i, lb) in enumerate(lbs) if i != pos]
-            ubs = [ub for (i, ub) in enumerate(ubs) if i != pos]
-        end
-
         assess = reg_assess_data[reg]
         mask_data = make_threshold_mask(
             assess,
@@ -160,85 +148,6 @@ function setup_region_routes(config, auth)
         rst_stack = reg_assess_data[reg].stack
 
         return json(Rasters.bounds(rst_stack))
-    end
-
-    @get auth("/tile/{z}/{x}/{y}") function (req::Request, z::Int64, x::Int64, y::Int64)
-        # http://127.0.0.1:8000/tile/10/10/10?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
-        qp = queryparams(req)
-        file_id = string(hash(qp))
-        mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id*".png")
-
-        if isfile(mask_path)
-            return file(mask_path)
-        end
-
-        # Otherwise, create the file
-        thread_id = Threads.threadid()
-        @debug "Thread $(thread_id) - $(now()) : Assessing criteria"
-        # Filtering time: 0.6 - 7.0 seconds
-        reg = qp["region"]
-        rtype = qp["rtype"]
-        criteria_names = string.(split(qp["criteria_names"], ","))
-        lbs = string.(split(qp["lb"], ","))
-        ubs = string.(split(qp["ub"], ","))
-
-        if !contains(reg, "Townsville")
-            # Remove rugosity layer from consideration as it doesn't exist for regions
-            # outside of Townsville.
-            pos = findfirst(lowercase.(criteria_names) .== "rugosity")
-            criteria_names = [cname for (i, cname) in enumerate(criteria_names) if i != pos]
-            lbs = [lb for (i, lb) in enumerate(lbs) if i != pos]
-            ubs = [ub for (i, ub) in enumerate(ubs) if i != pos]
-        end
-
-        # Calculate tile bounds
-        lon_min, lon_max, lat_max, lat_min = _tile_bounds(z, x, y)
-        @debug "Thread $(thread_id) - $(now()) : Calculated bounds (z/x/y, lon bounds, lat bounds): $z $x $y | $(_tile_to_lon_lat(z, x, y)) | ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
-
-        # Extract relevant data based on tile coordinates
-        @debug "Thread $(thread_id) - $(now()) : Extracting tile data"
-        mask_data = make_threshold_mask(
-            reg_assess_data[reg],
-            Symbol(rtype),
-            CriteriaBounds.(criteria_names, lbs, ubs),
-            (lon_min, lon_max),
-            (lat_min, lat_max)
-        )
-
-        if any(size(mask_data) .== 0) || all(size(mask_data) .< tile_size(config))
-            @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
-            save(mask_path, zeros(RGBA, tile_size(config)))
-            return file(mask_path)
-        end
-
-        @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
-
-        # Working:
-        # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
-        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
-
-        # Using if block to avoid type instability
-        @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
-        if any(size(mask_data) .> tile_size(config))
-            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
-                # Account for geographic positioning when zoomed out further than
-                # raster area
-                resampled = masked_nearest(mask_data, z, x, y, tile_size(config))
-            else
-                resampled = nearest(mask_data, tile_size(config))
-            end
-
-            img = zeros(RGBA, size(resampled));
-            img[resampled .== 1] .= RGBA(0,0,0,1);
-        else
-            img = zeros(RGBA, size(mask_data));
-            img[mask_data .== 1] .= RGBA(0,0,0,1);
-        end
-
-        @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
-        save(mask_path, img)
-        file(mask_path)
     end
 
     # Form for testing/dev
