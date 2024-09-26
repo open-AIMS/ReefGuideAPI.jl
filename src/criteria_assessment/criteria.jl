@@ -8,6 +8,7 @@ using Oxygen: json
 
 include("query_parser.jl")
 include("tiles.jl")
+include("site_identification.jl")
 
 const REEF_TYPE = [:slopes, :flats]
 
