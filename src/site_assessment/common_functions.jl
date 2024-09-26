@@ -1,7 +1,7 @@
 """ Functions common to both site_assessment methods."""
 
-using Dates
 using LinearAlgebra
+using GeoDataFrames
 
 include("geom_ops.jl")
 
@@ -298,7 +298,7 @@ Identifies all pixels in an input raster that return true for the function `crit
 DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
 """
 function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = trim(criteria_function(scan_locs))
+    pixels = trim(criteria_function(input_raster))
     indices = findall(pixels)
     indices_lon = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
     indices_lat = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
