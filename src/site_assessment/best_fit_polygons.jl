@@ -278,7 +278,7 @@ function identify_potential_sites_edges(
     best_score = zeros(length(search_pixels.lon))
     best_poly = Vector(undef, length(search_pixels.lon))
     best_rotation = zeros(Int64, length(search_pixels.lon))
-    @floop for (i, index) in enumerate(eachrow(search_pixels))
+    for (i, index) in enumerate(eachrow(search_pixels))
         lon = index.lon
         lat = index.lat
         geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
