@@ -1,6 +1,5 @@
 """ Functions common to both site_assessment methods."""
 
-using Dates
 using LinearAlgebra
 using GeoDataFrames
 
