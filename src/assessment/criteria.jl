@@ -7,6 +7,7 @@ import Rasters: Between
 using CairoMakie, ImageIO, Images
 using Oxygen: json
 
+include("query_parser.jl")
 include("tiles.jl")
 
 const REEF_TYPE = [:slopes, :flats]

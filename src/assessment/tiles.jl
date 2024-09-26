@@ -2,6 +2,8 @@
 Helper methods to support tiling
 """
 
+using CairoMakie, ImageIO, Images
+
 """
     _tile_to_lon_lat(z::T, x::T, y::T) where {T<:Int64}
 
