@@ -46,7 +46,7 @@ In its current state, the main page displays a simple form for dev/testing purpo
 Example URL:
 
 ```code
-http://127.0.0.1:8000/assess/Cairns-Cooktown/slopes?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40.0
+http://127.0.0.1:8000/assess/Cairns-Cooktown/slopes?Depth=-9.0:0.0&Slope=0.0:40.0
 ```
 
 ## Simple Slippy Tiles
@@ -54,7 +54,7 @@ http://127.0.0.1:8000/assess/Cairns-Cooktown/slopes?criteria_names=Depth,Slope&l
 Example URL:
 
 ```code
-http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&criteria_names=Depth,Slope,Rugosity&lb=-9.0,0.0,0.0&ub=-2.0,40.0,0.0
+http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
 ```
 
 ## Development setup
