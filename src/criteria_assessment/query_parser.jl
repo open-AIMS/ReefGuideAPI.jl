@@ -13,15 +13,18 @@ Queries should take the form of:
 Tuple of criteria names, lower bounds, upper bounds
 """
 function parse_criteria_query(qp::Dict)::Tuple
-    criteria_names = keys(criteria_data_map())
-    lbs = []
-    ubs = []
-    for k in criteria_names
+    criteria = string.(keys(criteria_data_map()))
+    criteria_names = String[]
+    lbs = String[]
+    ubs = String[]
+
+    for k in criteria
         if k ∉ keys(qp)
             continue
         end
 
         lb, ub = string.(split(qp[k], ":"))
+        push!(criteria_names, k)
         push!(lbs, lb)
         push!(ubs, ub)
     end
