@@ -148,6 +148,15 @@ function setup_region_routes(config, auth)
         return file(mask_path; headers=COG_HEADERS)
     end
 
+    @get auth("/suitability/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
+        # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
+        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+
+        qp = queryparams(req)
+        @debug "In region assessment route"
+        return assess_region(reg_assess_data, reg, qp, rtype, config)
+    end
+
     @get auth("/bounds/{reg}") function (req::Request, reg::String)
         rst_stack = reg_assess_data[reg].stack
 
