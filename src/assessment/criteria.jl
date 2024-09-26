@@ -4,7 +4,6 @@ using Dates
 using StructTypes
 
 import Rasters: Between
-using CairoMakie, ImageIO, Images
 using Oxygen: json
 
 include("query_parser.jl")
@@ -175,17 +174,3 @@ function setup_region_routes(config, auth)
         return data
     end
 end
-
-
-# function setup_criteria_routes()
-#     crit_list = criteria_data_map()
-
-#     for (c, data_pattern) in crit_list
-#         @get "{region}/$c" function (req, region::S, lb::T, ub::T) where {S,T}
-#             return Image(make_threshold_mask(region::String, c::Symbol, crit_map::Dict))
-
-#             loaded_data = retrieve_data(PREPPED_DATA_DIR, data_pattern)
-#             return lb .<= loaded_data .<= ub
-#         end
-#     end
-# end
