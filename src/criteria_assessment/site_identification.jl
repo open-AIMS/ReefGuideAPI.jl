@@ -127,12 +127,8 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     assessed_tmp_path = _cache_location(config)
     assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
 
-    file_id = string(hash(qp))
-    assessed_tmp_path = _cache_location(config)
-    assessed_path_geojson = joinpath(assessed_tmp_path, file_id*"_potential_sites.geojson")
-
-    if isfile(assessed_path_geojson)
-        return file(assessed_path_geojson)
+    if isfile(assessed_path_tif)
+        return file(assessed_path_tif)
     end
 
     # Make mask of suitable locations
@@ -143,32 +139,64 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     suitability_scores = proportion_suitable(mask_data.data)
 
     @debug "$(now()) : Running on thread $(threadid())"
-    # @debug "Writing to $(assessed_path)"
-    # Rasters.write(
-    #     assessed_path,
-    #     rebuild(mask_data, suitability_scores);
-    #     ext=".tiff",
-    #     source="gdal",
-    #     driver="COG",
-    #     options=Dict{String,String}(
-    #         "COMPRESS"=>"DEFLATE",
-    #         "SPARSE_OK"=>"TRUE",
-    #         "OVERVIEW_COUNT"=>"5",
-    #         "BLOCKSIZE"=>"256",
-    #         "NUM_THREADS"=>n_gdal_threads(config)
-    #     ),
-    #     force=true
-    # )
+    @debug "Writing to $(assessed_path)"
+    Rasters.write(
+        assessed_path,
+        rebuild(mask_data, suitability_scores);
+        ext=".tiff",
+        source="gdal",
+        driver="COG",
+        options=Dict{String,String}(
+            "COMPRESS"=>"DEFLATE",
+            "SPARSE_OK"=>"TRUE",
+            "OVERVIEW_COUNT"=>"5",
+            "BLOCKSIZE"=>"256",
+            "NUM_THREADS"=>n_gdal_threads(config)
+        ),
+        force=true
+    )
 
-    #return file(assessed_path)
+    return file(assessed_path)
+end
+
+function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config)
+    @debug "Assessing region's suitability score"
+
+    file_id = string(hash(assessment_qp))
+    assessed_tmp_path = _cache_location(config)
+    assessed_path_geojson = joinpath(assessed_tmp_path, file_id*"_potential_sites.geojson")
+
+    if isfile(assessed_path_geojson)
+        return file(assessed_path_geojson)
+    end
+
+    file_id = string(hash(criteria_qp))
+    assessed_tmp_path = _cache_location(config)
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
+
+    if isfile(assessed_path_tif)
+        scan_locs = Raster(assessed_path_tif)
+    else
+        # Make mask of suitable locations
+        mask_data = _temp_assess_region(reg_assess_data, reg, criteria_qp, rtype, config)
+
+        # Assess remaining pixels for their suitability
+        @debug "Calculating proportional suitability score"
+        suitability_scores = proportion_suitable(mask_data.data)
+
+        # Need rebuild(mask_data, suitability_scores) as input to identify_potential_sites_edges
+        scan_locs = rebuild(mask_data, suitability_scores)
+    end
 
     # Need dataframe of valid_lookup pixels
-    crit_pixels = _temp_filter_lookup(reg_assess_data, reg, qp, rtype, config)
+    @debug "Pre-processing assessment inputs."
+    #Main.@infiltrate
+    crit_pixels = _temp_filter_lookup(reg_assess_data, reg, criteria_qp, rtype, config)
 
-    # Need rebuild(mask_data, suitability_scores) as input to identify_potential_sites_edges
-    scan_locs = rebuild(mask_data, suitability_scores)
     res = abs(step(dims(scan_locs, X)))
     target_crs = convert(EPSG, crs(scan_locs))
+
+    suitability_threshold = parse(Int64, (assessment_qp["SuitabilityThreshold"]))
     scan_locs = identify_search_pixels(scan_locs, x -> x .> suitability_threshold)
 
     # Need reef outlines
@@ -176,8 +204,10 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     reef_outlines = buffer_simplify(gdf)
     reef_outlines = polygon_to_lines.(reef_outlines)
 
-    x_dist, y_dist
+    x_dist = parse(Int64, assessment_qp["xdist"])
+    y_dist = parse(Int64, assessment_qp["ydist"])
 
+    @debug "Performing polygon site assessment."
     initial_polygons = identify_potential_sites_edges(
         crit_pixels,
         scan_locs,
@@ -189,14 +219,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
         reef_outlines,
         REGIONAL_DATA["region_long_names"][reg]
     )
-    output_geojson(filter_sites(test_results), assessed_path_geojson)
+    output_geojson(filter_sites(initial_polygons), assessed_path_geojson)
 
-    # Apply rotation-based polygon search
-    # assess_reef_site()
-
-    # Filter overlapping polygons.
-
-    # Return geojson of suitable deployment "plots"
-    # output_geojson()
     return file(assessed_path_geojson)
 end
