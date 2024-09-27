@@ -288,6 +288,22 @@ function output_geojson(
 end
 
 """
+    output_geojson(df::DataFrame, destination_path::String)::Nothing
+
+Writes out GeoJSON file to a target directory. Output file will be located at location:
+`destination_path`.
+
+# Arguments
+- `df` : DataFrame intended for writing to geojson file.
+- `destination_path` : File path to write geojson file to.
+"""
+function output_geojson(df::DataFrame, destination_path::String)::Nothing
+    GDF.write(destination_path, df; crs=GI.crs(first(df.geometry)))
+
+    return nothing
+end
+
+"""
     identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
 
 Identifies all pixels in an input raster that return true for the function `criteria_function`.
@@ -311,4 +327,39 @@ function identify_search_pixels(input_raster::Raster, criteria_function)::DataFr
     end
 
     return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
+end
+
+"""
+    buffer_simplify(
+        gdf::DataFrame;
+        number_verts::Int64=30,
+        buffer_dist_m::Int64=40
+    )::Vector{GeoInterface.Wrappers.WrapperGeometry}
+
+Simplify and buffer the polygons in a GeoDataFrame to account for uncertainty and inaccuracies
+in the reef outlines.
+
+# Arguments
+- `gdf` : GeoDataFrame containing the reef polygons in `gdf.geometry`.
+- `number_verts` : Number of vertices to simplify the reefs to. Default is 30 vertices.
+- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 40m.
+
+# Returns
+Vector containing buffered and simplified reef polygons
+"""
+function buffer_simplify(
+    gdf::DataFrame;
+    number_verts::Int64=30,
+    buffer_dist_m::Int64=40
+)::Vector{GeoInterface.Wrappers.WrapperGeometry}
+    reef_buffer = GO.simplify(gdf.geometry; number=number_verts)
+    for row in eachrow(reef_buffer)
+        lat = GO.centroid(row)[2]
+        row = GO.simplify(
+            GO.buffer(row, meters_to_degrees(buffer_dist_m, lat));
+            number=number_verts
+        )
+    end
+
+    return reef_buffer
 end
