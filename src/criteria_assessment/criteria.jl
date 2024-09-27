@@ -151,11 +151,35 @@ function setup_region_routes(config, auth)
 
     @get auth("/suitability/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
         # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
-        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
 
         qp = queryparams(req)
         @debug "In region assessment route"
         return assess_region(reg_assess_data, reg, qp, rtype, config)
+    end
+
+    @get auth("/suitability/site-suitability/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
+        # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
+
+        qp = queryparams(req)
+        criteria_names = [
+            "Depth",
+            "Benthic",
+            "Geomorphic",
+            "Slope",
+            "Turbidity",
+            "WavesHs",
+            "WavesTp",
+            "Rugosity",
+            "PortDistSlopes",
+            "PortDistFlats"
+        ]
+        criteria_qp = filter(k -> string(k.first) ∈ criteria_names, qp)
+
+        assessment_qp = filter(k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp)
+
+        @debug "In site assessment"
+        return site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config)
     end
 
     @get auth("/bounds/{reg}") function (req::Request, reg::String)
