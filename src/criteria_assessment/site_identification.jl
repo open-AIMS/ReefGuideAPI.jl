@@ -3,23 +3,26 @@
 using FLoops, ThreadsX
 
 """
-    proportion_suitable(subsection::BitMatrix)::Matrix{Int16}
+    proportion_suitable(subsection::BitMatrix, window::Tuple=(-4,5))::Matrix{Int16}
 
 Calculate the the proportion of the subsection that is suitable for deployments.
 Subsection is the surrounding a rough hectare area centred on each cell of a raster marked
 as being suitable according to user-selected criteria.
+
+# Arguments
+- `x` : Matrix of boolean pixels after filtering with user criteria.
+- `window` : Window size to assess. Default window (-4,5) assesses a square hectare around each target pixel where the resolution of pixels is 10m.
 """
-function proportion_suitable(x::BitMatrix)::Matrix{Int16}
-    x_len, y_len = size(x)
+function proportion_suitable(x::BitMatrix, window::Tuple=(-4,5))::Matrix{Int16}
     x′ = zeros(Int16, size(x))
 
     @floop for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
-        x_left = max(col - 4, 1)
-        x_right = min(col + 4, x_len)
+        x_left = max(col + window[1], 1)
+        x_right = min(col + window[2], size(x, 1))
 
-        y_top = max(row - 4, 1)
-        y_bottom = min(row + 4, y_len)
+        y_top = max(row + window[1], 1)
+        y_bottom = min(row + window[2], size(x, 2))
 
         x′[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
@@ -102,15 +105,34 @@ function _temp_assess_region(reg_assess_data, reg, qp, rtype, config)
     return mask_data
 end
 
+function _temp_filter_lookup(reg_assess_data, reg, qp, rtype, config)
+    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
+
+    # Otherwise, create the file
+    @debug "$(now()) : Assessing criteria table"
+    assess = reg_assess_data[reg]
+    crit_lookup = apply_criteria_lookup(
+        assess,
+        Symbol(rtype),
+        CriteriaBounds.(criteria_names, lbs, ubs)
+    )
+
+    return crit_lookup
+end
+
 function assess_region(reg_assess_data, reg, qp, rtype, config)
     @debug "Assessing region's suitability score"
 
     file_id = string(hash(qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
 
-    if isfile(assessed_path)
-        return file(assessed_path)
+    file_id = string(hash(qp))
+    assessed_tmp_path = _cache_location(config)
+    assessed_path_geojson = joinpath(assessed_tmp_path, file_id*"_potential_sites.geojson")
+
+    if isfile(assessed_path_geojson)
+        return file(assessed_path_geojson)
     end
 
     # Make mask of suitable locations
@@ -121,25 +143,53 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     suitability_scores = proportion_suitable(mask_data.data)
 
     @debug "$(now()) : Running on thread $(threadid())"
-    @debug "Writing to $(assessed_path)"
-    Rasters.write(
-        assessed_path,
-        rebuild(mask_data, suitability_scores);
-        ext=".tiff",
-        source="gdal",
-        driver="COG",
-        options=Dict{String,String}(
-            "COMPRESS"=>"DEFLATE",
-            "SPARSE_OK"=>"TRUE",
-            "OVERVIEW_COUNT"=>"5",
-            "BLOCKSIZE"=>"256",
-            "NUM_THREADS"=>n_gdal_threads(config)
-        ),
-        force=true
+    # @debug "Writing to $(assessed_path)"
+    # Rasters.write(
+    #     assessed_path,
+    #     rebuild(mask_data, suitability_scores);
+    #     ext=".tiff",
+    #     source="gdal",
+    #     driver="COG",
+    #     options=Dict{String,String}(
+    #         "COMPRESS"=>"DEFLATE",
+    #         "SPARSE_OK"=>"TRUE",
+    #         "OVERVIEW_COUNT"=>"5",
+    #         "BLOCKSIZE"=>"256",
+    #         "NUM_THREADS"=>n_gdal_threads(config)
+    #     ),
+    #     force=true
+    # )
+
+    #return file(assessed_path)
+
+    # Need dataframe of valid_lookup pixels
+    crit_pixels = _temp_filter_lookup(reg_assess_data, reg, qp, rtype, config)
+
+    # Need rebuild(mask_data, suitability_scores) as input to identify_potential_sites_edges
+    scan_locs = rebuild(mask_data, suitability_scores)
+    res = abs(step(dims(scan_locs, X)))
+    target_crs = convert(EPSG, crs(scan_locs))
+    scan_locs = identify_search_pixels(scan_locs, x -> x .> suitability_threshold)
+
+    # Need reef outlines
+    gdf = REGIONAL_DATA["reef_outlines"]
+    reef_outlines = buffer_simplify(gdf)
+    reef_outlines = polygon_to_lines.(reef_outlines)
+
+    x_dist, y_dist
+
+    initial_polygons = identify_potential_sites_edges(
+        crit_pixels,
+        scan_locs,
+        res,
+        gdf,
+        x_dist,
+        y_dist,
+        target_crs,
+        reef_outlines,
+        REGIONAL_DATA["region_long_names"][reg]
     )
-
-    return file(assessed_path)
-
+    output_geojson(filter_sites(test_results), assessed_path_geojson)
 
     # Apply rotation-based polygon search
     # assess_reef_site()
@@ -148,4 +198,5 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
 
     # Return geojson of suitable deployment "plots"
     # output_geojson()
+    return file(assessed_path_geojson)
 end
