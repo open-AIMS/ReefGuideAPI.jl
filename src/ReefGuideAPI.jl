@@ -55,26 +55,46 @@ Load regional data to act as an in-memory cache.
 OrderedDict of `RegionalCriteria` for each region.
 """
 function setup_regional_data(config::Dict)
+    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
+
     if @isdefined(REGIONAL_DATA)
         @debug "Using previously generated regional data store."
         sleep(1)  # Pause so message is noticeably visible
+
+        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
+        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+
+        REGIONAL_DATA["region_long_names"] = Dict(
+            "FarNorthern" => "Far Northern Management Area",
+            "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
+            "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
+            "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
+        )
         return REGIONAL_DATA
     end
 
-    # Check disk-based store
+    # # Check disk-based store
     reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
     reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
     if isfile(reg_cache_fn)
         @debug "Loading regional data cache from disk"
         @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+
+        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
+        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+
+        REGIONAL_DATA["region_long_names"] = Dict(
+            "FarNorthern" => "Far Northern Management Area",
+            "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
+            "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
+            "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
+        )
         return REGIONAL_DATA
     end
 
     @debug "Setting up regional data store..."
 
-    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
-
-    regional_assessment_data = OrderedDict{String,RegionalCriteria}()
+    regional_assessment_data = OrderedDict{String, Any}()
     for reg in get_regions()
         data_paths = String[]
         data_names = String[]
@@ -122,12 +142,25 @@ function setup_regional_data(config::Dict)
         )
     end
 
+    regional_assessment_data["reef_outlines"] = ""
+    regional_assessment_data["region_long_names"] = ""
+
     # Store cache on disk to avoid excessive cold startup times
     @debug "Saving regional data cache to disk"
     serialize(reg_cache_fn, regional_assessment_data)
 
     # Remember, `@eval` runs in global scope.
     @eval const REGIONAL_DATA = $(regional_assessment_data)
+
+    reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
+    REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+
+    REGIONAL_DATA["region_long_names"] = Dict(
+        "FarNorthern" => "Far Northern Management Area",
+        "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
+        "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
+        "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
+    )
 
     return REGIONAL_DATA
 end
