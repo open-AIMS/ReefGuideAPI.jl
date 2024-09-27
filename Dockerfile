@@ -1,5 +1,5 @@
 # See https://hub.docker.com/_/julia for valid versions.
-ARG JULIA_VERSION="1.10.4"
+ARG JULIA_VERSION="1.10.5"
 
 #------------------------------------------------------------------------------
 # internal-base build target: julia with OS updates and an empty @reefguide
@@ -54,17 +54,17 @@ ENTRYPOINT ["julia", "--project=@reefguide"]
 
 # TODO enable and update this once the package is available from registry
 #    FROM internal-base AS reefguide-base
-#    
+#
 #    # What version of ReefGuideAPI.jl from package registry to install in reefguide-base
 #    # TODO this doesn't make sense yet
 #    ARG REEFGUIDE_VERSION="0.1.0"
-#    
+#
 #    # Which julia package registry version to install
 #    ENV REEFGUIDE_VERSION=$REEFGUIDE_VERSION
-#    
+#
 #    # Try to coerce Julia to build across multiple targets
 #    ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
-#    
+#
 #    # Install ReefGuideAPI.jl into the @reefguide shared environment as an unregistered package.
 #    # - Allow the package source and version to be overridden at build-time.
 #    # - Include citation information for ReefGuideAPI.jl in the image labels.
@@ -75,13 +75,13 @@ ENTRYPOINT ["julia", "--project=@reefguide"]
 #        au.gov.aims.reefguideapi.version="${REEFGUIDE_VERSION}" \
 #        au.gov.aims.reefguideapi.vendor="Australian Institute of Marine Science" \
 #        au.gov.aims.reefguideapi.licenses=MIT
-#    
+#
 #    # Expect to include the prepped data at /data/reefguide and the config at
 #    # /data/.config.toml
 #    VOLUME ["/data/reefguide"]
-#    
+#
 #    EXPOSE 8000
-#    
+#
 #    # Run Julia commands by default as the container launches.
 #    # Derived applications should override the command.
 #    ENTRYPOINT ["julia", "--project=@reefguide", "-t", "1,auto", "-e", "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
@@ -121,4 +121,4 @@ EXPOSE 8000
 
 # Run Julia commands by default as the container launches.
 # Derived applications should override the command.
-ENTRYPOINT ["julia", "--project=@reefguide", "-t", "1,auto", "-e", "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-e", "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
