@@ -193,6 +193,42 @@ function apply_criteria_thresholds(
 end
 
 """
+    apply_criteria_lookup(
+        reg_criteria,
+        rtype::Symbol,
+        ruleset::Vector{CriteriaBounds{Function}}
+    )
+
+Filter valid_lookup table by applying user defined `ruleset` criteria.
+
+# Arguments
+- `reg_criteria` : RegionalCriteria containing valid_rtype lookup table for filtering.
+- `rtype` : Flats or slope category for assessment.
+- `ruleset` : User defined ruleset for upper and lower bounds.
+
+# Returns
+Filtered lookup table containing points that meet all criteria in `ruleset`.
+"""
+function apply_criteria_lookup(
+    reg_criteria::RegionalCriteria,
+    rtype::Symbol,
+    ruleset::Vector{CriteriaBounds{Function}}
+)
+    lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
+    lookup.all_crit .= 1
+
+    for threshold in ruleset
+        lookup.all_crit = lookup.all_crit .& threshold.rule(lookup.name)
+    end
+
+    lookup = lookup[lookup.all_crit, :]
+    lookup.lon = first.(GI.coordinates.(lookup.geometry))
+    lookup.lat = last.(GI.coordinates.(lookup.geometry))
+
+    return lookup
+end
+
+"""
     make_threshold_mask(reg::String, rtype::Symbol, crit_map)
 
 Generate mask for a given region and reef type (slopes or flats) according to thresholds
