@@ -351,7 +351,7 @@ function buffer_simplify(
     gdf::DataFrame;
     number_verts::Int64=30,
     buffer_dist_m::Int64=40
-)::Vector{GeoInterface.Wrappers.WrapperGeometry}
+)::Vector{GIWrap.WrapperGeometry}
     reef_buffer = GO.simplify(gdf.geometry; number=number_verts)
     for row in eachrow(reef_buffer)
         lat = GO.centroid(row)[2]

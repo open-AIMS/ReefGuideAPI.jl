@@ -212,16 +212,16 @@ Filtered lookup table containing points that meet all criteria in `ruleset`.
 function apply_criteria_lookup(
     reg_criteria::RegionalCriteria,
     rtype::Symbol,
-    ruleset::Vector{CriteriaBounds{Function}}
+    ruleset
 )
     lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     lookup.all_crit .= 1
 
     for threshold in ruleset
-        lookup.all_crit = lookup.all_crit .& threshold.rule(lookup.name)
+        lookup.all_crit = lookup.all_crit .& threshold.rule(lookup[!, threshold.name])
     end
 
-    lookup = lookup[lookup.all_crit, :]
+    lookup = lookup[BitVector(lookup.all_crit), :]
     lookup.lon = first.(GI.coordinates.(lookup.geometry))
     lookup.lat = last.(GI.coordinates.(lookup.geometry))
 
