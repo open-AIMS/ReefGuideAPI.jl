@@ -2,6 +2,8 @@
 
 API for supporting reef suitability assessments.
 
+[![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://open-aims.github.io/ReefModEngine.jl/dev/)
+
 ## Setup
 
 Initialize the project the usual way:
@@ -26,6 +28,28 @@ TILE_SIZE = "256"  # Optional, tile block size to use (defaults to 256)
 ```
 
 By convention, this file is named `.config.toml` (note the leading `.`).
+
+## JWT Auth configuration
+
+The API can be additionally configured to expect a valid JWT in the `Authorization: Bearer <token>` header format.
+
+Add the following to `.config.toml`:
+
+```toml
+[jwt_auth]
+# Enable JWT auth : bool true/false
+JWT_ENABLED = true
+# Which iss to validate for the JWTs?
+JWT_ISS = "https://issuer.com"
+# WKT JWKS endpoint where public key can be retrieved
+WKT_ENDPOINT = "https://https://issuer.com/api/.well-known/jwks.json"
+```
+
+Pay attention to the issuer and wkt endpoints. The first should exactly match the expected JWT issuer claim. The second should be web-resolvable and return a WKT JSON which provides the public key.
+
+### Auth TODOs
+
+- ensure health check route is not authorised
 
 ## Quickstart
 
@@ -87,28 +111,6 @@ Note that the server now caches the initially loaded spatial data in between ser
 launches to reduce downtime. It will be necessary to restart the Julia session to reload
 spatial data.
 
-## JWT Auth configuration
-
-The API can be configured to expect a valid JWT in the `Authorization: Bearer <token>` header format.
-
-Add the following to your `.config.toml`:
-
-```toml
-[jwt_auth]
-# Enable JWT auth : bool true/false
-JWT_ENABLED = true
-# Which iss to validate for the JWTs?
-JWT_ISS = "https://issuer.com"
-# WKT JWKS endpoint where public key can be retrieved
-WKT_ENDPOINT = "https://https://issuer.com/api/.well-known/jwks.json"
-```
-
-Pay attention to the issuer and wkt endpoints. The first should exactly match the expected JWT issuer claim. The second should be web-resolvable and return a WKT JSON which provides the public key.
-
-### Auth TODOs
-
-- ensure health check route is not authorised
-
 ## Performance notes
 
 The config setting `COG_THREADS` controls how many threads should be requested when writing
@@ -159,25 +161,25 @@ When running the below commands, it is assumed you have `data` available locally
 
 ### To build from src files using Docker
 
-```
+```bash
 docker build . --target reefguide-src -t reefguide
 ```
 
 ### To build from src files using Docker Compose
 
-```
+```bash
 docker compose up --build reefguide-src
 ```
 
 ### To run with mounted files (launch server) using Docker
 
-```
+```bash
 docker run -p 8000:8000 -v ./data:/data/reefguide reefguide
 ```
 
 ### To run with mounted files (launch server) using Docker Compose
 
-```
+```bash
 docker compose up reefguide-src
 ```
 
@@ -185,11 +187,11 @@ docker compose up reefguide-src
 
 This will start a Julia shell where `ReefGuideAPI` is compiled and ready for use e.g.
 
-```
+```julia
 using ReefGuideAPI
 ReefGuideAPI.start_server("/data/reefguide/config.toml")
 ```
 
-```
+```julia
 docker run --rm --interactive --entrypoint="julia" --tty -v ./data:/data/reefguide reefguide
 ```
