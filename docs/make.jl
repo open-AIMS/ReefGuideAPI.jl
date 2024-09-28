@@ -2,6 +2,7 @@ using
     Documenter,
     DocumenterVitepress,
     DocumenterTools
+
 using Logging
 
 using ReefGuideAPI
