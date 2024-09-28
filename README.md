@@ -2,7 +2,7 @@
 
 API for supporting reef suitability assessments.
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://open-aims.github.io/ReefModEngine.jl/dev/)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://open-aims.github.io/ReefGuideAPI.jl/dev/)
 
 ## Setup
 
