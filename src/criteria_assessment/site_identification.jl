@@ -120,6 +120,22 @@ function _temp_filter_lookup(reg_assess_data, reg, qp, rtype, config)
     return crit_lookup
 end
 
+"""
+    assess_region(reg_assess_data, reg, qp, rtype, config)
+
+Perform raster suitability assessment based on user defined criteria.
+
+# Arguments
+- `reg_assess_data` : Dictionary containing the regional data paths, reef outlines and full region names.
+- `reg` : Name of the region being assessed (format `Cairns-Cooktown` rather than `Cairns/Cooktown Management Area`).
+- `qp` : Dict containing bounds for each variable being filtered.
+- `rtype` : Type of zone to assess (flats or slopes).
+- `config` : Information from `.config.toml` file.
+
+# Returns
+GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
+by a user.
+"""
 function assess_region(reg_assess_data, reg, qp, rtype, config)
     @debug "Assessing region's suitability score"
 
@@ -159,6 +175,23 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     return file(assessed_path)
 end
 
+"""
+    site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config)
+
+Perform site suitability assessment using polygon searches with user defined criteria.
+
+# Arguments
+- `reg_assess_data` : Dictionary containing the regional data paths, reef outlines and full region names.
+- `reg` : Name of the region being assessed (format `Cairns-Cooktown` rather than `Cairns/Cooktown Management Area`).
+- `criteria_qp` : Dict containing bounds for each variable being filtered.
+- `assessment_qp` : Dict containing the dimensions of the search polygon (`xdist`, `ydist`) and the `SuitabilityThreshold` to identify search pixels.
+- `rtype` : Type of zone to assess (flats or slopes).
+- `config` : Information from `.config.toml` file.
+
+# Returns
+GeoJSON file containing result site polygons after filtering out polygons < 0.33 score and
+keeping the highest scoring polygon where intersecting polygons occur.
+"""
 function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config)
     @debug "Assessing region's suitability score"
 
@@ -200,7 +233,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
     scan_locs = identify_search_pixels(scan_locs, x -> x .> suitability_threshold)
 
     # Need reef outlines
-    gdf = REGIONAL_DATA["reef_outlines"]
+    gdf = reg_assess_data["reef_outlines"]
     reef_outlines = buffer_simplify(gdf)
     reef_outlines = polygon_to_lines.(reef_outlines)
 
@@ -217,7 +250,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
         y_dist,
         target_crs,
         reef_outlines,
-        REGIONAL_DATA["region_long_names"][reg]
+        reg_assess_data["region_long_names"][reg]
     )
     output_geojson(filter_sites(initial_polygons), assessed_path_geojson)
 
