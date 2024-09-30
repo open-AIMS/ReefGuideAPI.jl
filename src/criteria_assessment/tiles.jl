@@ -78,7 +78,7 @@ large_raster = Raster(rand(UInt8, 14756, 14838); dims=(X(1:1:14756), Y(1:1:14838
 small_matrix = nearest(large_raster, (256, 256))
 ```
 """
-function nearest(rst::Raster, tile_size::Tuple{Int, Int})::Matrix
+function nearest(rst::Raster, tile_size::Tuple{Int,Int})::Matrix
     old_size = size(rst)
 
     # Important: must flip axes!
@@ -150,8 +150,14 @@ function masked_nearest(
     in_lats = aoi_lat_min .<= lats .<= aoi_lat_max
 
     # Sample data that is within area of interest
-    data_x = round.(Int, (lons[in_lons] .- aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * size(rst, 1))
-    data_y = round.(Int, (aoi_lat_max .- lats[in_lats]) / (aoi_lat_max - aoi_lat_min) * size(rst, 2))
+    data_x =
+        round.(
+            Int, (lons[in_lons] .- aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * size(rst, 1)
+        )
+    data_y =
+        round.(
+            Int, (aoi_lat_max .- lats[in_lats]) / (aoi_lat_max - aoi_lat_min) * size(rst, 2)
+        )
 
     tile[in_lats, in_lons] .= rst[data_x, data_y]'
 
@@ -159,19 +165,23 @@ function masked_nearest(
 end
 
 function setup_tile_routes(config, auth)
-    @get auth("/to-tile/{zoom}/{lon}/{lat}") function (req::Request, zoom::Int64, lon::Float64, lat::Float64)
+    @get auth("/to-tile/{zoom}/{lon}/{lat}") function (
+        req::Request, zoom::Int64, lon::Float64, lat::Float64
+    )
         x, y = _lon_lat_to_tile(zoom, lon, lat)
-        return json(Dict(:x=>x, :y=>y))
+        return json(Dict(:x => x, :y => y))
     end
 
-    @get auth("/to-lonlat/{zoom}/{x}/{y}") function (req::Request, zoom::Int64, x::Int64, y::Int64)
+    @get auth("/to-lonlat/{zoom}/{x}/{y}") function (
+        req::Request, zoom::Int64, x::Int64, y::Int64
+    )
         lon_min, lon_max, lat_max, lat_min = _tile_bounds(zoom, x, y)
         return json(
-                Dict(
-                :lon_min=>lon_min,
-                :lon_max=>lon_max,
-                :lat_max=>lat_max,
-                :lat_min=>lat_min
+            Dict(
+                :lon_min => lon_min,
+                :lon_max => lon_max,
+                :lat_max => lat_max,
+                :lat_min => lat_min
             )
         )
     end
@@ -182,7 +192,7 @@ function setup_tile_routes(config, auth)
         qp = queryparams(req)
         file_id = string(hash(qp))
         mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id*".png")
+        mask_path = joinpath(mask_temp_path, file_id * ".png")
 
         if isfile(mask_path)
             return file(mask_path)
@@ -234,16 +244,15 @@ function setup_tile_routes(config, auth)
                 resampled = nearest(mask_data, tile_size(config))
             end
 
-            img = zeros(RGBA, size(resampled));
-            img[resampled .== 1] .= RGBA(0,0,0,1);
+            img = zeros(RGBA, size(resampled))
+            img[resampled .== 1] .= RGBA(0, 0, 0, 1)
         else
-            img = zeros(RGBA, size(mask_data));
-            img[mask_data .== 1] .= RGBA(0,0,0,1);
+            img = zeros(RGBA, size(mask_data))
+            img[mask_data .== 1] .= RGBA(0, 0, 0, 1)
         end
 
         @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
         save(mask_path, img)
-        file(mask_path)
+        return file(mask_path)
     end
-
 end

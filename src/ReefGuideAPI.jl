@@ -30,7 +30,6 @@ include("site_assessment/best_fit_polygons.jl")
 
 include("Middleware.jl")
 
-
 function get_regions()
     # TODO: Comes from config?
     regions = String[
@@ -75,7 +74,7 @@ function setup_regional_data(config::Dict)
 
     reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
 
-    regional_assessment_data = OrderedDict{String, RegionalCriteria}()
+    regional_assessment_data = OrderedDict{String,RegionalCriteria}()
     for reg in get_regions()
         data_paths = String[]
         data_names = String[]
@@ -93,7 +92,7 @@ function setup_regional_data(config::Dict)
             push!(data_names, string(k))
             if occursin("valid", string(dp))
                 # Load up Parquet files
-                parq_file = replace(first(g), ".tif"=>"_lookup.parq")
+                parq_file = replace(first(g), ".tif" => "_lookup.parq")
 
                 if occursin("slope", string(dp))
                     slope_table = GeoParquet.read(parq_file)
@@ -197,9 +196,8 @@ Invokes warm up of regional data cache to reduce later spin up times.
 """
 function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
-    setup_regional_data(config)
+    return setup_regional_data(config)
 end
-
 
 function start_server(config_path)
     @info "Launching server... please wait"
@@ -219,7 +217,7 @@ function start_server(config_path)
     port = 8000
     @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."
 
-    serve(
+    return serve(;
         middleware=[CorsMiddleware],
         host="0.0.0.0",
         port=port,

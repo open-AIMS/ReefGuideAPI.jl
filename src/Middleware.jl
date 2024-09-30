@@ -12,17 +12,16 @@ const CORS_HEADERS = [
 
 # https://juliaweb.github.io/HTTP.jl/stable/examples/#Cors-Server
 function CorsMiddleware(handler)
-    return function(req::HTTP.Request)
+    return function (req::HTTP.Request)
         @debug "CORS middleware"
         # determine if this is a pre-flight request from the browser
-        if HTTP.method(req)=="OPTIONS"
+        if HTTP.method(req) == "OPTIONS"
             return HTTP.Response(200, CORS_HEADERS)
         else
             return handler(req) # passes the request to the AuthMiddleware
         end
     end
 end
-
 
 function setup_jwt_middleware(config::Dict)
     if !get(config["jwt_auth"], "JWT_ENABLED", false)
@@ -41,10 +40,12 @@ function setup_jwt_middleware(config::Dict)
     rsa_public = JSONWebTokens.RS256(public_key)
 
     return function jwt_auth_middleware(handler)
-        return function(req::HTTP.Request)
+        return function (req::HTTP.Request)
             auth_header = HTTP.header(req, "Authorization", "")
             if !startswith(auth_header, "Bearer ")
-                return HTTP.Response(401, "Unauthorized: Missing or invalid Authorization header.")
+                return HTTP.Response(
+                    401, "Unauthorized: Missing or invalid Authorization header."
+                )
             end
 
             token = strip(auth_header[8:end])  # Remove "Bearer " prefix
@@ -72,7 +73,9 @@ function setup_jwt_middleware(config::Dict)
                     return HTTP.Response(401, "Unauthorized: Invalid token format")
                 else
                     # Log the error for debugging
-                    @error "Unexpected error during JWT validation" exception=(e, catch_backtrace())
+                    @error "Unexpected error during JWT validation" exception = (
+                        e, catch_backtrace()
+                    )
                     return HTTP.Response(500, "Internal Server Error")
                 end
             end

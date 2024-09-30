@@ -14,10 +14,10 @@ makedocs(;
     modules=[ReefGuideAPI],
     clean=true,
     doctest=true,
-    format=DocumenterVitepress.MarkdownVitepress(
+    format=DocumenterVitepress.MarkdownVitepress(;
         repo="github.com/open-AIMS/ReefGuideAPI.jl",
         devbranch="main",
-        devurl = "dev"
+        devurl="dev"
     ),
     draft=false,
     source="src",

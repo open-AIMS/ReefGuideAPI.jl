@@ -272,7 +272,12 @@ applied to a set of criteria.
 # Returns
 Nothing
 """
-function generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::Nothing
+function generate_criteria_mask!(
+    fn::String,
+    rst_stack::RasterStack,
+    lookup::DataFrame,
+    ruleset::Vector{CriteriaBounds{Function}}
+)::Nothing
     # Create the geotiff
     res = spzeros(size(rst_stack))
     tmp_rst = Raster(
@@ -291,14 +296,14 @@ function generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::Dat
 
     write(
         fn,
-        UInt8.(tmp_rst),
+        UInt8.(tmp_rst);
         ext=".tiff",
         source="gdal",
         driver="COG",  # GTiff
         options=Dict{String,String}(
-            "COMPRESS"=>"LZW",
-            "SPARSE_OK"=>"TRUE",
-            "OVERVIEW_COUNT"=>"5"
+            "COMPRESS" => "LZW",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5"
         )
     )
 

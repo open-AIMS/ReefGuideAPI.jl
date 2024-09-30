@@ -18,7 +18,6 @@ using CoordinateTransformations
 using Rasters
 using StaticArrays
 
-
 function create_poly(verts, crs)
     sel_lines = GI.LineString(GI.Point.(verts))
     ring = GI.LinearRing(GI.getpoint(sel_lines))
@@ -165,9 +164,8 @@ function find_horizontal(geom::GIWrap.Polygon)::Vector{Tuple{Float64,Float64}}
     coords = collect(GI.coordinates(geom)...)
     first_coord = first(coords)
     second_coord = coords[
-        (getindex.(coords, 2).∈first_coord[2]) .&&
-        (getindex.(coords, 1).∉first_coord[1])
-    ]
+    (getindex.(coords, 2) .∈ first_coord[2]) .&& (getindex.(coords, 1) .∉ first_coord[1])
+]
 
     return [tuple(first_coord...), tuple(first(second_coord)...)]
 end
