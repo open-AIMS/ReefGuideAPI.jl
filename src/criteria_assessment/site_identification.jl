@@ -157,7 +157,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     @debug "$(now()) : Running on thread $(threadid())"
     @debug "Writing to $(assessed_path)"
     Rasters.write(
-        assessed_path,
+        assessed_path_tif,
         rebuild(mask_data, suitability_scores);
         ext=".tiff",
         source="gdal",
@@ -172,7 +172,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
         force=true
     )
 
-    return file(assessed_path)
+    return file(assessed_path_tif)
 end
 
 """
