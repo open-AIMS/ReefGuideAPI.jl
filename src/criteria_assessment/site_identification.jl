@@ -155,7 +155,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     suitability_scores = proportion_suitable(mask_data.data)
 
     @debug "$(now()) : Running on thread $(threadid())"
-    @debug "Writing to $(assessed_path)"
+    @debug "Writing to $(assessed_path_tif)"
     Rasters.write(
         assessed_path_tif,
         rebuild(mask_data, suitability_scores);
