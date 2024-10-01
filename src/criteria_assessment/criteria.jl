@@ -11,6 +11,12 @@ include("tiles.jl")
 
 const REEF_TYPE = [:slopes, :flats]
 
+# HTTP response headers for COG files
+const COG_HEADERS = [
+    "Cache-Control" => "max-age=86400, no-transform"
+]
+
+
 function criteria_data_map()
     # TODO: Load from config?
     return OrderedDict(
@@ -107,7 +113,7 @@ function setup_region_routes(config, auth)
         mask_path = joinpath(mask_temp_path, file_id*".tiff")
 
         if isfile(mask_path)
-            return file(mask_path)
+            return file(mask_path, headers=COG_HEADERS)
         end
 
         criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
@@ -140,7 +146,7 @@ function setup_region_routes(config, auth)
             force=true
         )
 
-        return file(mask_path)
+        return file(mask_path, headers=COG_HEADERS)
     end
 
     @get auth("/bounds/{reg}") function (req::Request, reg::String)
