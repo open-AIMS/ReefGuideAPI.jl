@@ -48,11 +48,12 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", z::RegionalCriteria)
     # TODO: Include the extent
-    return println("""
-           Criteria: $(names(z.stack))
-           Number of valid slope locations: $(nrow(z.valid_slopes))
-           Number of valid flat locations: $(nrow(z.valid_flats))
-           """)
+    println("""
+    Criteria: $(names(z.stack))
+    Number of valid slope locations: $(nrow(z.valid_slopes))
+    Number of valid flat locations: $(nrow(z.valid_flats))
+    """)
+    return nothing
 end
 
 struct CriteriaBounds{F<:Function}
