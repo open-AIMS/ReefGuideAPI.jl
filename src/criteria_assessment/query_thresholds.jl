@@ -206,8 +206,8 @@ applied to a set of criteria.
 - `reg_criteria` : RegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
-- `lons` : Longitudinal extent (min and max)
-- `lats` : Latitudinal extent (min and max)
+- `lons` : Longitudinal extent (min and max, required when generating masks for tiles)
+- `lats` : Latitudinal extent (min and max, required when generating masks for tiles)
 
 # Returns
 True/false mask indicating locations within desired thresholds.
