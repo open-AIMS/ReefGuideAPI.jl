@@ -4,6 +4,11 @@ Helper methods to support tiling
 
 using ImageIO, Images
 
+# HTTP response headers for tile images
+const TILE_HEADERS = [
+    "Cache-Control" => "max-age=86400, no-transform"
+]
+
 """
     _tile_to_lon_lat(z::T, x::T, y::T) where {T<:Int64}
 
@@ -195,7 +200,7 @@ function setup_tile_routes(config, auth)
         mask_path = joinpath(mask_temp_path, file_id * ".png")
 
         if isfile(mask_path)
-            return file(mask_path)
+            return file(mask_path; headers=TILE_HEADERS)
         end
 
         # Otherwise, create the file
@@ -224,7 +229,7 @@ function setup_tile_routes(config, auth)
         if any(size(mask_data) .== 0) || all(size(mask_data) .< tile_size(config))
             @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
             save(mask_path, zeros(RGBA, tile_size(config)))
-            return file(mask_path)
+            return file(mask_path; headers=TILE_HEADERS)
         end
 
         @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
@@ -253,6 +258,6 @@ function setup_tile_routes(config, auth)
 
         @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
         save(mask_path, img)
-        return file(mask_path)
+        return file(mask_path; headers=TILE_HEADERS)
     end
 end

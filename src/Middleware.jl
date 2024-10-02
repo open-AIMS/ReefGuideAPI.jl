@@ -18,7 +18,12 @@ function CorsMiddleware(handler)
         if HTTP.method(req) == "OPTIONS"
             return HTTP.Response(200, CORS_HEADERS)
         else
-            return handler(req) # passes the request to the AuthMiddleware
+            # passes the request to the AuthMiddleware and route function.
+            resp = handler(req)
+            for header_pair in CORS_HEADERS
+                HTTP.setheader(resp, header_pair)
+            end
+            return resp
         end
     end
 end
