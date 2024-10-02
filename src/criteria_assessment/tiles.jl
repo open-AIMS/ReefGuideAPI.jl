@@ -2,7 +2,7 @@
 Helper methods to support tiling
 """
 
-using ImageIO, Images
+using ImageIO, Images, Interpolations
 
 # HTTP response headers for tile images
 const TILE_HEADERS = [
