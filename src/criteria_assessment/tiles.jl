@@ -121,7 +121,7 @@ the tile). This approach prioritising performance over accuracy.
 - `z`: Tile zoom level requested.
 - `x`: x coordinate for requested tile.
 - `y`: y coordinate for the requested tile.
-- `tile_size`: The desired dimensions of the tile (lat, long).
+- `tile_size`: The desired dimensions of the tile (lat, long). Note reversed order of coordinates.
 
 # Returns
 Matrix with the resampled data.

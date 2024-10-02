@@ -80,7 +80,7 @@ StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 Creates middleware that parses a criteria query before reaching an endpoint
 
 # Example
-https:://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
+`https://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40`
 """
 function criteria_middleware(handle)
     function (req)

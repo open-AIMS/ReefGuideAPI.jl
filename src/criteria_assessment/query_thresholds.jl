@@ -109,8 +109,8 @@ end
 
 Obtain the pixel positions of valid data.
 
-Intended for use in something like:
-https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/
+Intended for use in applications similar to:
+`https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/`
 
 # Arguments
 - `data` :
@@ -201,7 +201,7 @@ applied to a set of criteria.
 
 # Notes
 - Zero values indicate locations to mask **out**.
-- Ones indicate locations to **keep**.
+- One values indicate locations to **keep**.
 
 # Arguments
 - `reg_criteria` : RegionalCriteria to assess
@@ -261,7 +261,7 @@ applied to a set of criteria.
 
 # Notes
 - Zero values indicate locations to mask **out**.
-- Ones indicate locations to **keep**.
+- One values indicate locations to **keep**.
 
 # Arguments
 - `fn` : File to write geotiff to

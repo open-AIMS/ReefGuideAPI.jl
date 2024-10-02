@@ -75,7 +75,7 @@ end
 """
     filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
-Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
+Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
 function filter_far_polygons(
     gdf::DataFrame,
@@ -212,7 +212,7 @@ end
     filter_sites(res_df::DataFrame)::DataFrame
 
 Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
-Identify and keep the highest scoring site polygon where site polygons are overlapping.
+Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons

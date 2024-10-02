@@ -30,7 +30,8 @@ end
 
 Create bounding box from x and y coordinates
 
-Returns in order of top left, top right, bottom right, bottom left
+# Returns
+Bounding box coordinates in order of top left, top right, bottom right, bottom left, top left.
 """
 function create_bbox(xs::Tuple, ys::Tuple)::Vector{Tuple{Float64,Float64}}
     # Top left, top right, bottom right, bottom left
@@ -86,6 +87,19 @@ function get_points(geom)
     end
 end
 
+"""
+    rotate_geom(
+        geom,
+        degrees::Float64,
+        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+    )
+
+Rotate target `geom` by `degrees` rotation in clockwise direction. `target_crs` is applied
+to output geometry.
+
+# Returns
+Rotated geometry.
+"""
 function rotate_geom(
     geom,
     degrees::Float64,
@@ -126,7 +140,7 @@ Move a geom to a new centroid.
 
 # Arguments
 - `geom` : geometry to move
-- `new_centroid` : Centroid given in lon, lat
+- `new_centroid` : Centroid given in (lon, lat).
 """
 function move_geom(geom, new_centroid::Tuple)
     tf_lon, tf_lat = new_centroid .- GO.centroid(geom)
@@ -140,6 +154,9 @@ end
     ) where {T<:GIWrap.Polygon}
 
 Extract the individual lines between vertices that make up the outline of a polygon.
+
+# Returns
+Vector of GeometryBasics.Line{2, Float64} with one line for each adjacent vertex pair in `polygon`.
 """
 function polygon_to_lines(
     polygon::Union{Vector{T},T,GIWrap.MultiPolygon}

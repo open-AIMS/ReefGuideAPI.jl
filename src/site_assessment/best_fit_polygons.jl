@@ -31,7 +31,10 @@ positive.
 - `surr_threshold` : Suitability threshold, below which sites are excluded from result sets.
 
 # Returns
-Returns the highest score, rotation step, polygon and a quality control flag for each assessment.
+- Highest score
+- Highest scoring rotation step
+- Highest scoring polygon
+- Quality control flag for site, indicating if `surr_threshold` was met in the highest scoring rotation.
 """
 function assess_reef_site(
     rel_pix::DataFrame,
@@ -188,7 +191,21 @@ end
         n_per_side::Int64=1
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
 
-Assess given reef site.
+Assess given reef site for it's suitability score at different specified rotations around the
+initial reef-edge rotation.
+
+# Arguments
+- `rst` : Raster or RasterStack object used to assess site suitability.
+- `geom` : Initial site polygon with no rotation applied.
+- `ruleset` : Criteria ruleset to apply to `rst` pixels when assessing which pixels are suitable.
+- `degree_step` : Degree value to vary each rotation by. Default = 15 degrees.
+- `start_rot` : Initial rotation used to align the site polygon with the nearest reef edge. Default = 0 degrees.
+- `n_per_side` : Number of times to rotate polygon on each side (clockwise and anticlockwise). Default = 2 rotations on each side.
+
+# Returns
+- Highest score identified with rotating polygons.
+- The index of the highest scoring rotation.
+- The polygon with the highest score out of the assessed rotated polygons.
 """
 function assess_reef_site(
     rst::Union{Raster,RasterStack},
@@ -196,7 +213,7 @@ function assess_reef_site(
     ruleset::Dict{Symbol,Function};
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
-    n_per_side::Int64=1
+    n_per_side::Int64=2
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
     rotations =
         (start_rot - (degree_step * n_per_side)):degree_step:(start_rot + (degree_step * n_per_side))
