@@ -109,8 +109,7 @@ end
 
 Obtain the pixel positions of valid data.
 
-Intended for use in applications similar to:
-`https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/`
+Intended for use in applications similar to [ImageryLayer - client side pixel filter](https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/).
 
 # Arguments
 - `data` :
@@ -200,8 +199,8 @@ Generate mask for a given region and reef type (slopes or flats) according to th
 applied to a set of criteria.
 
 # Notes
-- Zero values indicate locations to mask **out**.
-- One values indicate locations to **keep**.
+- Zeros indicate locations to mask **out**.
+- Ones indicate locations to **keep**.
 
 # Arguments
 - `reg_criteria` : RegionalCriteria to assess
@@ -260,8 +259,8 @@ Generate mask file for a given region and reef type (slopes or flats) according 
 applied to a set of criteria.
 
 # Notes
-- Zero values indicate locations to mask **out**.
-- One values indicate locations to **keep**.
+- Zeros indicate locations to mask **out**.
+- Ones indicate locations to **keep**.
 
 # Arguments
 - `fn` : File to write geotiff to
