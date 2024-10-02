@@ -70,7 +70,9 @@ function setup_regional_data(config::Dict)
     else
         @debug "Setting up regional data store..."
 
-        regional_assessment_data = OrderedDict{String,Union{RegionalCriteria,DataFrame,Dict}}()
+        regional_assessment_data = OrderedDict{
+            String,Union{RegionalCriteria,DataFrame,Dict}
+        }()
         for reg in get_regions()
             data_paths = String[]
             data_names = String[]
@@ -136,7 +138,9 @@ function setup_regional_data(config::Dict)
         "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
     )
 
-    preservation_zone_path = joinpath(reef_data_path, "GBRMPA_preservation_zone_exclusion.gpkg")
+    preservation_zone_path = joinpath(
+        reef_data_path, "GBRMPA_preservation_zone_exclusion.gpkg"
+    )
     REGIONAL_DATA["GBRMPA_preservation_zones"] = GDF.read(preservation_zone_path)
 
     return REGIONAL_DATA
