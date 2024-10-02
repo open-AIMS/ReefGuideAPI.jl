@@ -197,12 +197,15 @@ function setup_tile_routes(config, auth)
         # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
         if any(size(mask_data) .> tile_size(config))
-            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
+            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 12)
                 # Account for geographic positioning when zoomed out further than
                 # raster area
-                resampled = masked_nearest(mask_data, z, x, y, tile_size(config))
+                resampled = adjusted_nearest(mask_data, z, x, y, tile_size(config))
             else
-                resampled = nearest(mask_data, tile_size(config))
+                # Zoomed in close so less need to account for curvature
+                # BSpline(Constant()) is equivalent to nearest neighbor.
+                # See details in: https://juliaimages.org/ImageTransformations.jl/stable/reference/#Low-level-warping-API
+                resampled = imresize(mask_data, tile_size(config); method=BSpline(Constant()))
             end
 
             img = zeros(RGBA, size(resampled))
