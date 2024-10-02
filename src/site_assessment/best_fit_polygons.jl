@@ -126,10 +126,10 @@ function identify_potential_sites_edges(
     reef_lines = reef_lines[gdf.management_area .== region]
     gdf = gdf[gdf.management_area .== region, :]
     max_count = (
-        (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
+        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
         (
-            (y_dist + 2 * degrees_to_meters(res, mean(indices_pixels.dims[2]))) /
-            degrees_to_meters(res, mean(indices_pixels.dims[2]))
+            (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
+            degrees_to_meters(res, mean(search_pixels.lat))
         )
     )
 
