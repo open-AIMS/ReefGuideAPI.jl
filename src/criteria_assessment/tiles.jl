@@ -65,8 +65,8 @@ function _lon_lat_to_tile(zoom, lon, lat)
 end
 
 # Helper functions for Web Mercator projection
-_lat_to_y(lat::Float64) = log(tan(π/4 + lat*π/360))
-_y_to_lat(y::Float64) = 360/π * atan(exp(y)) - 90
+_lat_to_y(lat::Float64) = log(tan(π / 4 + lat * π / 360))
+_y_to_lat(y::Float64) = 360 / π * atan(exp(y)) - 90
 
 """
     adjusted_nearest(rst::Raster, z::Int, x::Int, y::Int, tile_size::Tuple{Int,Int}, orig_rst_size::Tuple{Int,Int})::Matrix
@@ -104,8 +104,14 @@ function adjusted_nearest(
     tile = zeros(lat_size, long_size)
 
     # Generate longitude and latitude arrays for the tile
-    lons = @. mod(t_lon_min + (t_lon_max - t_lon_min) * ((1:long_size) - 1) / (long_size - 1) + 180, 360) - 180
-    lats = @. _y_to_lat(_lat_to_y(t_lat_max) - (_lat_to_y(t_lat_max) - _lat_to_y(t_lat_min)) * ((1:lat_size) - 1) / (lat_size - 1))
+    lons = @. mod(
+        t_lon_min + (t_lon_max - t_lon_min) * ((1:long_size) - 1) / (long_size - 1) + 180,
+        360
+    ) - 180
+    lats = @. _y_to_lat(
+        _lat_to_y(t_lat_max) -
+        (_lat_to_y(t_lat_max) - _lat_to_y(t_lat_min)) * ((1:lat_size) - 1) / (lat_size - 1)
+    )
 
     # Determine which points are within the area of interest
     in_lons = aoi_lon_min .<= lons .<= aoi_lon_max
@@ -114,8 +120,17 @@ function adjusted_nearest(
     # Sample data that is within area of interest
     for (i, lon) in enumerate(lons), (j, lat) in enumerate(lats)
         if in_lons[i] && in_lats[j]
-            x_idx = round(Int, (lon - aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * (size(rst, 1) - 1)) + 1
-            y_idx = round(Int, (_lat_to_y(aoi_lat_max) - _lat_to_y(lat)) / (_lat_to_y(aoi_lat_max) - _lat_to_y(aoi_lat_min)) * (size(rst, 2) - 1)) + 1
+            x_idx =
+                round(
+                    Int,
+                    (lon - aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * (size(rst, 1) - 1)
+                ) + 1
+            y_idx =
+                round(
+                    Int,
+                    (_lat_to_y(aoi_lat_max) - _lat_to_y(lat)) /
+                    (_lat_to_y(aoi_lat_max) - _lat_to_y(aoi_lat_min)) * (size(rst, 2) - 1)
+                ) + 1
             x_idx = clamp(x_idx, 1, size(rst, 1))
             y_idx = clamp(y_idx, 1, size(rst, 2))
             tile[j, i] = rst[x_idx, y_idx]
@@ -205,7 +220,9 @@ function setup_tile_routes(config, auth)
                 # Zoomed in close so less need to account for curvature
                 # BSpline(Constant()) is equivalent to nearest neighbor.
                 # See details in: https://juliaimages.org/ImageTransformations.jl/stable/reference/#Low-level-warping-API
-                resampled = imresize(mask_data, tile_size(config); method=BSpline(Constant()))
+                resampled = imresize(
+                    mask_data, tile_size(config); method=BSpline(Constant())
+                )
             end
 
             img = zeros(RGBA, size(resampled))
