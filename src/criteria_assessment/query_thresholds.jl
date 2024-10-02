@@ -109,8 +109,7 @@ end
 
 Obtain the pixel positions of valid data.
 
-Intended for use in something like:
-https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/
+Intended for use in applications similar to [ImageryLayer - client side pixel filter](https://developers.arcgis.com/javascript/latest/sample-code/layers-imagery-pixelvalues/).
 
 # Arguments
 - `data` :
@@ -200,7 +199,7 @@ Generate mask for a given region and reef type (slopes or flats) according to th
 applied to a set of criteria.
 
 # Notes
-- Zero values indicate locations to mask **out**.
+- Zeros indicate locations to mask **out**.
 - Ones indicate locations to **keep**.
 
 # Arguments
@@ -260,7 +259,7 @@ Generate mask file for a given region and reef type (slopes or flats) according 
 applied to a set of criteria.
 
 # Notes
-- Zero values indicate locations to mask **out**.
+- Zeros indicate locations to mask **out**.
 - Ones indicate locations to **keep**.
 
 # Arguments
@@ -272,7 +271,12 @@ applied to a set of criteria.
 # Returns
 Nothing
 """
-function generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})::Nothing
+function generate_criteria_mask!(
+    fn::String,
+    rst_stack::RasterStack,
+    lookup::DataFrame,
+    ruleset::Vector{CriteriaBounds{Function}}
+)::Nothing
     # Create the geotiff
     res = spzeros(size(rst_stack))
     tmp_rst = Raster(
@@ -291,14 +295,14 @@ function generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::Dat
 
     write(
         fn,
-        UInt8.(tmp_rst),
+        UInt8.(tmp_rst);
         ext=".tiff",
         source="gdal",
         driver="COG",  # GTiff
         options=Dict{String,String}(
-            "COMPRESS"=>"LZW",
-            "SPARSE_OK"=>"TRUE",
-            "OVERVIEW_COUNT"=>"5"
+            "COMPRESS" => "LZW",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5"
         )
     )
 

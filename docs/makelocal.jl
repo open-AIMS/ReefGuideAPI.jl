@@ -12,11 +12,11 @@ makedocs(;
     doctest=true,
     authors="Iwanaga et al.",
     checkdocs=:all,
-    format=DocumenterVitepress.MarkdownVitepress(
+    format=DocumenterVitepress.MarkdownVitepress(;
         repo="github.com/open-AIMS/ReefGuideAPI.jl", # this must be the full URL!
         devbranch="main",
         devurl="dev",
-        build_vitepress=false;
+        build_vitepress=false
     ),
     remotes=nothing,
     draft=true,
@@ -31,7 +31,7 @@ makedocs(;
 deploydocs(;
     repo="github.com/open-AIMS/ReefGuideAPI.jl.git",
     target="build", # this is where Vitepress stores its output
-    branch = "gh-pages",
+    branch="gh-pages",
     devbranch="main",
-    push_preview = true
+    push_preview=true
 )

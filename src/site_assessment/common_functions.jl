@@ -75,7 +75,7 @@ end
 """
     filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
-Filter out reefs that are > 10km from the target pixel (currently hardcoded threshold).
+Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
 function filter_far_polygons(
     gdf::DataFrame,
@@ -180,16 +180,17 @@ function initial_search_rotation(
     distance_indices = filter_far_polygons(gdf, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
-        GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
-    ]
+    GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
+]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.
     if isempty(reef_lines)
-        reef_distances = GO.distance.(
-            [pixel],
-            gdf[distance_indices, first(GI.geometrycolumns(gdf))]
-        )
+        reef_distances =
+            GO.distance.(
+                [pixel],
+                gdf[distance_indices, first(GI.geometrycolumns(gdf))]
+            )
         reef_lines = reef_outlines[distance_indices]
         reef_lines = reef_lines[argmin(reef_distances)]
         reef_lines = vcat(reef_lines...)
@@ -211,7 +212,7 @@ end
     filter_sites(res_df::DataFrame)::DataFrame
 
 Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
-Identify and keep the highest scoring site polygon where site polygons are overlapping.
+Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons
@@ -239,7 +240,8 @@ function filter_sites(res_df::DataFrame)::DataFrame
         if any(GO.intersects.([row.poly], res_df[:, :poly]))
             intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
             if maximum(intersecting_polys.score) <= row.score
-                for x_row in eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
+                for x_row in
+                    eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
                     push!(ignore_list, x_row.row_ID)
                 end
             else
@@ -300,13 +302,13 @@ DataFrame containing indices, lon and lat for each pixel that is intended for fu
 function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
     pixels = trim(criteria_function(input_raster))
     indices = findall(pixels)
-    indices_lon = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
-    indices_lat = Vector{Union{Missing, Float64}}(missing, size(indices, 1))
+    indices_lon = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
+    indices_lat = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
 
     for (j, index) in enumerate(indices)
         indices_lon[j] = dims(pixels, X)[index[1]]
         indices_lat[j] = dims(pixels, Y)[index[2]]
     end
 
-    return DataFrame(indices = indices, lon = indices_lon, lat = indices_lat)
+    return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
 end

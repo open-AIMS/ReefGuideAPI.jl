@@ -16,7 +16,6 @@ const COG_HEADERS = [
     "Cache-Control" => "max-age=86400, no-transform"
 ]
 
-
 function criteria_data_map()
     # TODO: Load from config?
     return OrderedDict(
@@ -59,6 +58,7 @@ function Base.show(io::IO, ::MIME"text/plain", z::RegionalCriteria)
     Number of valid slope locations: $(nrow(z.valid_slopes))
     Number of valid flat locations: $(nrow(z.valid_flats))
     """)
+    return nothing
 end
 
 struct CriteriaBounds{F<:Function}
@@ -79,17 +79,16 @@ end
 # Define struct type definition to auto-serialize/deserialize to JSON
 StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 
-
 """
     criteria_middleware(handle)
 
 Creates middleware that parses a criteria query before reaching an endpoint
 
 # Example
-https:://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
+`https://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40`
 """
 function criteria_middleware(handle)
-    function(req)
+    function (req)
         fd = queryparams(req)
 
         criteria_names = string.(split(fd["criteria_names"], ","))
@@ -110,10 +109,10 @@ function setup_region_routes(config, auth)
         qp = queryparams(req)
         file_id = string(hash(qp))
         mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id*".tiff")
+        mask_path = joinpath(mask_temp_path, file_id * ".tiff")
 
         if isfile(mask_path)
-            return file(mask_path, headers=COG_HEADERS)
+            return file(mask_path; headers=COG_HEADERS)
         end
 
         criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
@@ -137,16 +136,16 @@ function setup_region_routes(config, auth)
             source="gdal",
             driver="COG",
             options=Dict{String,String}(
-                "COMPRESS"=>"DEFLATE",
-                "SPARSE_OK"=>"TRUE",
-                "OVERVIEW_COUNT"=>"5",
-                "BLOCKSIZE"=>"256",
-                "NUM_THREADS"=>n_gdal_threads(config)
+                "COMPRESS" => "DEFLATE",
+                "SPARSE_OK" => "TRUE",
+                "OVERVIEW_COUNT" => "5",
+                "BLOCKSIZE" => "256",
+                "NUM_THREADS" => n_gdal_threads(config)
             ),
             force=true
         )
 
-        return file(mask_path, headers=COG_HEADERS)
+        return file(mask_path; headers=COG_HEADERS)
     end
 
     @get auth("/bounds/{reg}") function (req::Request, reg::String)
@@ -157,25 +156,25 @@ function setup_region_routes(config, auth)
 
     # Form for testing/dev
     # https:://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
-    @get "/" function()
-        html("""
-        <form action="/assess/Cairns-Cooktown/slopes" method="post">
-            <label for="criteria_names">Criteria Names:</label><br>
-            <input type="text" id="criteria_names" name="criteria"><br>
+    @get "/" function ()
+        return html("""
+               <form action="/assess/Cairns-Cooktown/slopes" method="post">
+                   <label for="criteria_names">Criteria Names:</label><br>
+                   <input type="text" id="criteria_names" name="criteria"><br>
 
-            <label for="lb">Lower Bound:</label><br>
-            <input type="text" id="lb" name="lower_bound"><br><br>
+                   <label for="lb">Lower Bound:</label><br>
+                   <input type="text" id="lb" name="lower_bound"><br><br>
 
-            <label for="ub">Upper Bound:</label><br>
-            <input type="text" id="ub" name="upper_bound"><br><br>
+                   <label for="ub">Upper Bound:</label><br>
+                   <input type="text" id="ub" name="upper_bound"><br><br>
 
-            <input type="submit" value="Submit">
-        </form>
-        """)
+                   <input type="submit" value="Submit">
+               </form>
+               """)
     end
 
     # Parse the form data and return it
-    @post auth("/form") function(req)
+    @post auth("/form") function (req)
         data = formdata(req)
         return data
     end
