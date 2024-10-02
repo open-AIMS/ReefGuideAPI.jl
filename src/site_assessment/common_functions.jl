@@ -256,48 +256,16 @@ function filter_sites(res_df::DataFrame)::DataFrame
 end
 
 """
-    output_geojson(
-        df::DataFrame,
-        region::String,
-        output_dir::String
-    )::Nothing
-
-Writes out GeoJSON file to a target directory. Output file will be located at location:
-"`output_dir`/output_sites_`region`.geojson"
-
-# Arguments
-- `df` : DataFrame intended for writing to geojson file.
-- `region` : Region name for labelling output file.
-- `output_dir` : Directory to write geojson file to.
-"""
-function output_geojson(
-    df::DataFrame,
-    region::String,
-    output_dir::String
-)::Nothing
-    GDF.write(
-        joinpath(
-            output_dir,
-            "output_sites_$(region).geojson"
-        ),
-        df;
-        crs=GI.crs(first(df.geometry))
-    )
-
-    return nothing
-end
-
-"""
-    output_geojson(df::DataFrame, destination_path::String)::Nothing
+    output_geojson(destination_path::String, df::DataFrame)::Nothing
 
 Writes out GeoJSON file to a target directory. Output file will be located at location:
 `destination_path`.
 
 # Arguments
-- `df` : DataFrame intended for writing to geojson file.
 - `destination_path` : File path to write geojson file to.
+- `df` : DataFrame intended for writing to geojson file.
 """
-function output_geojson(df::DataFrame, destination_path::String)::Nothing
+function output_geojson(destination_path::String, df::DataFrame)::Nothing
     GDF.write(destination_path, df; crs=GI.crs(first(df.geometry)))
 
     return nothing

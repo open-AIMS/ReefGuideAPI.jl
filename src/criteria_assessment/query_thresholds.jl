@@ -199,7 +199,7 @@ end
         ruleset::Vector{CriteriaBounds{Function}}
     )
 
-Filter valid_lookup table by applying user defined `ruleset` criteria.
+Filter lookup table by applying user defined `ruleset` criteria.
 
 # Arguments
 - `reg_criteria` : RegionalCriteria containing valid_rtype lookup table for filtering.

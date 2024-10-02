@@ -56,101 +56,75 @@ OrderedDict of `RegionalCriteria` for each region.
 """
 function setup_regional_data(config::Dict)
     reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
+    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
+    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
 
     if @isdefined(REGIONAL_DATA)
         @debug "Using previously generated regional data store."
         sleep(1)  # Pause so message is noticeably visible
 
-        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
-        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
-
-        REGIONAL_DATA["region_long_names"] = Dict(
-            "FarNorthern" => "Far Northern Management Area",
-            "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
-            "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
-            "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
-        )
-        return REGIONAL_DATA
-    end
-
-    # # Check disk-based store
-    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
-    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
-    if isfile(reg_cache_fn)
+    elseif isfile(reg_cache_fn)
         @debug "Loading regional data cache from disk"
         @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
 
-        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
-        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+    else
+        @debug "Setting up regional data store..."
 
-        REGIONAL_DATA["region_long_names"] = Dict(
-            "FarNorthern" => "Far Northern Management Area",
-            "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
-            "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
-            "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
-        )
-        return REGIONAL_DATA
-    end
+        regional_assessment_data = OrderedDict{String,Union{RegionalCriteria,DataFrame,Dict}}()
+        for reg in get_regions()
+            data_paths = String[]
+            data_names = String[]
 
-    @debug "Setting up regional data store..."
+            slope_table = nothing
+            flat_table = nothing
 
-    regional_assessment_data = OrderedDict{String,Any}()
-    for reg in get_regions()
-        data_paths = String[]
-        data_names = String[]
+            for (k, dp) in criteria_data_map()
+                g = glob("$reg*$dp.tif", reef_data_path)
+                if length(g) == 0
+                    continue
+                end
 
-        slope_table = nothing
-        flat_table = nothing
+                push!(data_paths, first(g))
+                push!(data_names, string(k))
+                if occursin("valid", string(dp))
+                    # Load up Parquet files
+                    parq_file = replace(first(g), ".tif" => "_lookup.parq")
 
-        for (k, dp) in criteria_data_map()
-            g = glob("$reg*$dp.tif", reef_data_path)
-            if length(g) == 0
-                continue
-            end
-
-            push!(data_paths, first(g))
-            push!(data_names, string(k))
-            if occursin("valid", string(dp))
-                # Load up Parquet files
-                parq_file = replace(first(g), ".tif" => "_lookup.parq")
-
-                if occursin("slope", string(dp))
-                    slope_table = GeoParquet.read(parq_file)
-                elseif occursin("flat", string(dp))
-                    flat_table = GeoParquet.read(parq_file)
-                else
-                    msg = "Unknown lookup found: $(parq_file). Must be 'slope' or 'flat'"
-                    throw(ArgumentError(msg))
+                    if occursin("slope", string(dp))
+                        slope_table = GeoParquet.read(parq_file)
+                    elseif occursin("flat", string(dp))
+                        flat_table = GeoParquet.read(parq_file)
+                    else
+                        msg = "Unknown lookup found: $(parq_file). Must be 'slope' or 'flat'"
+                        throw(ArgumentError(msg))
+                    end
                 end
             end
+
+            # Pre-extract long/lat coordinates
+            coords = GI.coordinates.(slope_table.geometry)
+            slope_table[!, :lons] .= first.(coords)
+            slope_table[!, :lats] .= last.(coords)
+
+            coords = GI.coordinates.(flat_table.geometry)
+            flat_table[!, :lons] .= first.(coords)
+            flat_table[!, :lats] .= last.(coords)
+
+            rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
+            regional_assessment_data[reg] = RegionalCriteria(
+                rst_stack,
+                slope_table,
+                flat_table
+            )
         end
 
-        # Pre-extract long/lat coordinates
-        coords = GI.coordinates.(slope_table.geometry)
-        slope_table[!, :lons] .= first.(coords)
-        slope_table[!, :lats] .= last.(coords)
+        # Store cache on disk to avoid excessive cold startup times
+        @debug "Saving regional data cache to disk"
+        serialize(reg_cache_fn, regional_assessment_data)
 
-        coords = GI.coordinates.(flat_table.geometry)
-        flat_table[!, :lons] .= first.(coords)
-        flat_table[!, :lats] .= last.(coords)
-
-        rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
-        regional_assessment_data[reg] = RegionalCriteria(
-            rst_stack,
-            slope_table,
-            flat_table
-        )
+        # Remember, `@eval` runs in global scope.
+        @eval const REGIONAL_DATA = $(regional_assessment_data)
     end
-
-    regional_assessment_data["reef_outlines"] = ""
-    regional_assessment_data["region_long_names"] = ""
-
-    # Store cache on disk to avoid excessive cold startup times
-    @debug "Saving regional data cache to disk"
-    serialize(reg_cache_fn, regional_assessment_data)
-
-    # Remember, `@eval` runs in global scope.
-    @eval const REGIONAL_DATA = $(regional_assessment_data)
 
     reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
     REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
@@ -161,6 +135,9 @@ function setup_regional_data(config::Dict)
         "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
         "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
     )
+
+    preservation_zone_path = joinpath(reef_data_path, "GBRMPA_preservation_zone_exclusion.gpkg")
+    REGIONAL_DATA["GBRMPA_preservation_zones"] = GDF.read(preservation_zone_path)
 
     return REGIONAL_DATA
 end

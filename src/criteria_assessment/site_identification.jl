@@ -13,7 +13,7 @@ as being suitable according to user-selected criteria.
 - `x` : Matrix of boolean pixels after filtering with user criteria.
 - `window` : Window size to assess. Default window (-4,5) assesses a square hectare around each target pixel where the resolution of pixels is 10m.
 """
-function proportion_suitable(x::BitMatrix, window::Tuple=(-4, 5))::Matrix{Int16}
+function proportion_suitable(x::BitMatrix; window::Tuple=(-4,5))::Matrix{Int16}
     x′ = zeros(Int16, size(x))
 
     @floop for row_col in ThreadsX.findall(x)
@@ -37,8 +37,8 @@ end
         dist_nm
     )::Raster
 
-Exclude pixels in target_rast that are beyond `dist_nm` (nautical miles) from a geometry
-in `gdf`. Target_rast and gdf should be in the same CRS (EPSG:7844 / GDA2020 for GBR-reef-guidance-assessment).
+Exclude pixels in `target_rast` that are beyond `dist_nm` (nautical miles) from a geometry
+in `gdf`.  `target_rast` and `gdf` should be in the same CRS (EPSG:7844 / GDA2020 for GBR-reef-guidance-assessment).
 
 # Arguments
 - `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
@@ -49,9 +49,7 @@ in `gdf`. Target_rast and gdf should be in the same CRS (EPSG:7844 / GDA2020 for
 - `tmp_areas` : Raster of filtered pixels containing only pixels within target distance
 from a geometry centroid.
 """
-function filter_distances(
-    target_rast::Raster, gdf::DataFrame, dist; units::String="NM"
-)::Raster
+function filter_distances(target_rast::Raster, gdf::DataFrame, dist; units::String="NM")::Raster
     tmp_areas = copy(target_rast)
 
     # First dimension is the rows (latitude)
@@ -143,7 +141,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
 
     file_id = string(hash(qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_tif = joinpath(assessed_tmp_path, file_id * "_suitable.tiff")
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
 
     if isfile(assessed_path_tif)
         return file(assessed_path_tif)
@@ -157,24 +155,24 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     suitability_scores = proportion_suitable(mask_data.data)
 
     @debug "$(now()) : Running on thread $(threadid())"
-    @debug "Writing to $(assessed_path_tif)"
+    @debug "Writing to $(assessed_path)"
     Rasters.write(
-        assessed_path_tif,
+        assessed_path,
         rebuild(mask_data, suitability_scores);
         ext=".tiff",
         source="gdal",
         driver="COG",
         options=Dict{String,String}(
-            "COMPRESS" => "DEFLATE",
-            "SPARSE_OK" => "TRUE",
-            "OVERVIEW_COUNT" => "5",
-            "BLOCKSIZE" => "256",
-            "NUM_THREADS" => n_gdal_threads(config)
+            "COMPRESS"=>"DEFLATE",
+            "SPARSE_OK"=>"TRUE",
+            "OVERVIEW_COUNT"=>"5",
+            "BLOCKSIZE"=>"256",
+            "NUM_THREADS"=>n_gdal_threads(config)
         ),
         force=true
     )
 
-    return file(assessed_path_tif)
+    return file(assessed_path)
 end
 
 """
@@ -199,9 +197,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     file_id = string(hash(assessment_qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_geojson = joinpath(
-        assessed_tmp_path, file_id * "_potential_sites.geojson"
-    )
+    assessed_path_geojson = joinpath(assessed_tmp_path, file_id*"_potential_sites.geojson")
 
     if isfile(assessed_path_geojson)
         return file(assessed_path_geojson)
@@ -209,7 +205,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     file_id = string(hash(criteria_qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_tif = joinpath(assessed_tmp_path, file_id * "_suitable.tiff")
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
 
     if isfile(assessed_path_tif)
         scan_locs = Raster(assessed_path_tif)
@@ -237,7 +233,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
     scan_locs = identify_search_pixels(scan_locs, x -> x .> suitability_threshold)
 
     # Need reef outlines
-    gdf = reg_assess_data["reef_outlines"]
+    gdf = REGIONAL_DATA["reef_outlines"]
     reef_outlines = buffer_simplify(gdf)
     reef_outlines = polygon_to_lines.(reef_outlines)
 
@@ -254,9 +250,9 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
         y_dist,
         target_crs,
         reef_outlines,
-        reg_assess_data["region_long_names"][reg]
+        REGIONAL_DATA["region_long_names"][reg]
     )
-    output_geojson(filter_sites(initial_polygons), assessed_path_geojson)
+    output_geojson(assessed_path_geojson, filter_sites(initial_polygons))
 
     return file(assessed_path_geojson)
 end
