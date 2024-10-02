@@ -94,7 +94,7 @@ function setup_regional_data(config::Dict)
 
     @debug "Setting up regional data store..."
 
-    regional_assessment_data = OrderedDict{String, Any}()
+    regional_assessment_data = OrderedDict{String,Any}()
     for reg in get_regions()
         data_paths = String[]
         data_names = String[]

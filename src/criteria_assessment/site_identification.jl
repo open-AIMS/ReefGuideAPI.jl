@@ -13,7 +13,7 @@ as being suitable according to user-selected criteria.
 - `x` : Matrix of boolean pixels after filtering with user criteria.
 - `window` : Window size to assess. Default window (-4,5) assesses a square hectare around each target pixel where the resolution of pixels is 10m.
 """
-function proportion_suitable(x::BitMatrix, window::Tuple=(-4,5))::Matrix{Int16}
+function proportion_suitable(x::BitMatrix, window::Tuple=(-4, 5))::Matrix{Int16}
     x′ = zeros(Int16, size(x))
 
     @floop for row_col in ThreadsX.findall(x)
@@ -49,7 +49,9 @@ in `gdf`. Target_rast and gdf should be in the same CRS (EPSG:7844 / GDA2020 for
 - `tmp_areas` : Raster of filtered pixels containing only pixels within target distance
 from a geometry centroid.
 """
-function filter_distances(target_rast::Raster, gdf::DataFrame, dist; units::String="NM")::Raster
+function filter_distances(
+    target_rast::Raster, gdf::DataFrame, dist; units::String="NM"
+)::Raster
     tmp_areas = copy(target_rast)
 
     # First dimension is the rows (latitude)
@@ -141,7 +143,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
 
     file_id = string(hash(qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id * "_suitable.tiff")
 
     if isfile(assessed_path_tif)
         return file(assessed_path_tif)
@@ -163,11 +165,11 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
         source="gdal",
         driver="COG",
         options=Dict{String,String}(
-            "COMPRESS"=>"DEFLATE",
-            "SPARSE_OK"=>"TRUE",
-            "OVERVIEW_COUNT"=>"5",
-            "BLOCKSIZE"=>"256",
-            "NUM_THREADS"=>n_gdal_threads(config)
+            "COMPRESS" => "DEFLATE",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5",
+            "BLOCKSIZE" => "256",
+            "NUM_THREADS" => n_gdal_threads(config)
         ),
         force=true
     )
@@ -197,7 +199,9 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     file_id = string(hash(assessment_qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_geojson = joinpath(assessed_tmp_path, file_id*"_potential_sites.geojson")
+    assessed_path_geojson = joinpath(
+        assessed_tmp_path, file_id * "_potential_sites.geojson"
+    )
 
     if isfile(assessed_path_geojson)
         return file(assessed_path_geojson)
@@ -205,7 +209,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     file_id = string(hash(criteria_qp))
     assessed_tmp_path = _cache_location(config)
-    assessed_path_tif = joinpath(assessed_tmp_path, file_id*"_suitable.tiff")
+    assessed_path_tif = joinpath(assessed_tmp_path, file_id * "_suitable.tiff")
 
     if isfile(assessed_path_tif)
         scan_locs = Raster(assessed_path_tif)
