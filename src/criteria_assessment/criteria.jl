@@ -166,10 +166,9 @@ function setup_region_routes(config, auth)
         req::Request, reg::String, rtype::String
     )
         # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
-
         qp = queryparams(req)
-        criteria_names = keys(criteria_data_map())
-        criteria_qp = filter(k -> string(k.first) ∈ criteria_names, qp)
+        criteria_names = string.(keys(criteria_data_map()))
+        criteria_qp = filter(k -> k.first ∈ criteria_names, qp)
 
         assessment_qp = filter(
             k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
