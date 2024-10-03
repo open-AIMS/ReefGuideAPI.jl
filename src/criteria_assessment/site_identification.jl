@@ -19,10 +19,10 @@ function proportion_suitable(x::BitMatrix; window::Tuple=(-4, 5))::Matrix{Int16}
     @floop for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col + window[1], 1)
-        x_right = min(col + window[2], size(x, 1))
+        x_right = min(col + window[2], size(x, 2))
 
         y_top = max(row + window[1], 1)
-        y_bottom = min(row + window[2], size(x, 2))
+        y_bottom = min(row + window[2], size(x, 1))
 
         x′[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
@@ -157,9 +157,9 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     suitability_scores = proportion_suitable(mask_data.data)
 
     @debug "$(now()) : Running on thread $(threadid())"
-    @debug "Writing to $(assessed_path)"
+    @debug "Writing to $(assessed_path_tif)"
     Rasters.write(
-        assessed_path,
+        assessed_path_tif,
         rebuild(mask_data, suitability_scores);
         ext=".tiff",
         source="gdal",
@@ -174,7 +174,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
         force=true
     )
 
-    return file(assessed_path)
+    return file(assessed_path_tif)
 end
 
 """
