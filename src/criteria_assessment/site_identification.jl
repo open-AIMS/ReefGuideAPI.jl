@@ -90,36 +90,30 @@ function filter_distances(
 end
 
 """
-# TODO: Better name, and address duplication in "/assess/{reg}/{rtype}"
+    mask_region(reg_assess_data, reg, qp, rtype)
+
+# Arguments
+- `reg_assess_data` : Regional assessment data
+- `reg` : The region name to assess
+- `qp` : query parameters
+- `rtype` : region type (one of `:slopes` or `:flats`)
+
+# Returns
+Raster of region with locations that meet criteria masked.
 """
-function _temp_assess_region(reg_assess_data, reg, qp, rtype, config)
+function mask_region(reg_assess_data, reg, qp, rtype)
     criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
 
     # Otherwise, create the file
     @debug "$(now()) : Assessing criteria"
     assess = reg_assess_data[reg]
-    mask_data = make_threshold_mask(
+    mask_data = threshold_mask(
         assess,
         Symbol(rtype),
         CriteriaBounds.(criteria_names, lbs, ubs)
     )
 
     return mask_data
-end
-
-function _temp_filter_lookup(reg_assess_data, reg, qp, rtype, config)
-    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
-
-    # Otherwise, create the file
-    @debug "$(now()) : Assessing criteria table"
-    assess = reg_assess_data[reg]
-    crit_lookup = apply_criteria_lookup(
-        assess,
-        Symbol(rtype),
-        CriteriaBounds.(criteria_names, lbs, ubs)
-    )
-
-    return crit_lookup
 end
 
 """
@@ -150,7 +144,7 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     end
 
     # Make mask of suitable locations
-    mask_data = _temp_assess_region(reg_assess_data, reg, qp, rtype, config)
+    mask_data = mask_region(reg_assess_data, reg, qp, rtype)
 
     # Assess remaining pixels for their suitability
     @debug "Calculating proportional suitability score"
@@ -215,7 +209,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
         scan_locs = Raster(assessed_path_tif)
     else
         # Make mask of suitable locations
-        mask_data = _temp_assess_region(reg_assess_data, reg, criteria_qp, rtype, config)
+        mask_data = mask_region(reg_assess_data, reg, qp, rtype)
 
         # Assess remaining pixels for their suitability
         @debug "Calculating proportional suitability score"
@@ -227,7 +221,16 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     # Need dataframe of valid_lookup pixels
     @debug "Pre-processing assessment inputs."
-    crit_pixels = _temp_filter_lookup(reg_assess_data, reg, criteria_qp, rtype, config)
+    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(criteria_qp)...)
+
+    # Otherwise, create the file
+    @debug "$(now()) : Assessing criteria table"
+    assess = reg_assess_data[reg]
+    crit_pixels = apply_criteria_lookup(
+        assess,
+        Symbol(rtype),
+        CriteriaBounds.(criteria_names, lbs, ubs)
+    )
 
     res = abs(step(dims(scan_locs, X)))
     target_crs = convert(EPSG, crs(scan_locs))

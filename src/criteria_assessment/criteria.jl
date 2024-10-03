@@ -118,16 +118,9 @@ function setup_region_routes(config, auth)
             return file(mask_path; headers=COG_HEADERS)
         end
 
-        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
-
         # Otherwise, create the file
         @debug "$(now()) : Assessing criteria"
-        assess = reg_assess_data[reg]
-        mask_data = make_threshold_mask(
-            assess,
-            Symbol(rtype),
-            CriteriaBounds.(criteria_names, lbs, ubs)
-        )
+        mask_data = mask_region(reg_assess_data, reg, qp, rtype)
 
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
