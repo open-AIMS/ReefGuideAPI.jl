@@ -227,7 +227,6 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
 
     # Need dataframe of valid_lookup pixels
     @debug "Pre-processing assessment inputs."
-    #Main.@infiltrate
     crit_pixels = _temp_filter_lookup(reg_assess_data, reg, criteria_qp, rtype, config)
 
     res = abs(step(dims(scan_locs, X)))

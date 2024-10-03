@@ -158,7 +158,6 @@ function setup_region_routes(config, auth)
         # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
 
         qp = queryparams(req)
-        @debug "In region assessment route"
         return assess_region(reg_assess_data, reg, qp, rtype, config)
     end
 
@@ -174,7 +173,6 @@ function setup_region_routes(config, auth)
             k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
         )
 
-        @debug "In site assessment"
         return site_assess_region(
             reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config
         )
