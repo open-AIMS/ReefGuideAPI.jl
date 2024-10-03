@@ -254,7 +254,7 @@ function site_assess_region(reg_assess_data, reg, criteria_qp, assessment_qp, rt
         y_dist,
         target_crs,
         reef_outlines,
-        REGIONAL_DATA["region_long_names"][reg]
+        reg
     )
     output_geojson(assessed_path_geojson, filter_sites(initial_polygons))
 

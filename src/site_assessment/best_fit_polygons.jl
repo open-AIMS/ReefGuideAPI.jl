@@ -101,7 +101,7 @@ Method is currently opperating for CRS in degrees units.
 - `y_dist` : Length of vertical side of search box (in meters).
 - `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
 - `reef_lines` : Vector containing reef outline segments created from polygons in `gdf.geometry` (Must be separate object to `gdf` rather than column).
-- `region` : Management region name in GBRMPA format - e.g. "Mackay/Capricorn Management Area"
+- `region` : Region name, e.g. "Cairns-Cooktown" or "FarNorthern".
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 - `surr_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
@@ -123,8 +123,9 @@ function identify_potential_sites_edges(
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area .== region]
-    gdf = gdf[gdf.management_area .== region, :]
+    region_long = REGIONAL_DATA["region_long_names"][region]
+    reef_lines = reef_lines[gdf.management_area .== region_long]
+    gdf = gdf[gdf.management_area .== region_long, :]
     max_count = (
         (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
         (
