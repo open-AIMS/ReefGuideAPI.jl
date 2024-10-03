@@ -229,7 +229,7 @@ function apply_criteria_lookup(
 end
 
 """
-    make_threshold_mask(reg::String, rtype::Symbol, crit_map)
+    threshold_mask(reg::String, rtype::Symbol, crit_map)
 
 Generate mask for a given region and reef type (slopes or flats) according to thresholds
 applied to a set of criteria.
@@ -248,7 +248,7 @@ applied to a set of criteria.
 # Returns
 True/false mask indicating locations within desired thresholds.
 """
-function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
+function threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
     valid_lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     mask_layer = apply_criteria_thresholds(
         reg_criteria.stack,
@@ -258,7 +258,7 @@ function make_threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
 
     return mask_layer
 end
-function make_threshold_mask(
+function threshold_mask(
     reg_criteria,
     rtype::Symbol,
     crit_map,

@@ -189,7 +189,7 @@ function setup_tile_routes(config, auth)
 
         # Extract relevant data based on tile coordinates
         @debug "Thread $(thread_id) - $(now()) : Extracting tile data"
-        mask_data = make_threshold_mask(
+        mask_data = threshold_mask(
             reg_assess_data[reg],
             Symbol(rtype),
             CriteriaBounds.(criteria_names, lbs, ubs),
