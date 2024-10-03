@@ -151,11 +151,6 @@ function setup_regional_data(config::Dict)
     reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
     REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
 
-    preservation_zone_path = joinpath(
-        reef_data_path, "GBRMPA_preservation_zone_exclusion.gpkg"
-    )
-    REGIONAL_DATA["GBRMPA_preservation_zones"] = GDF.read(preservation_zone_path)
-
     return REGIONAL_DATA
 end
 
