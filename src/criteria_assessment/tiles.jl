@@ -2,7 +2,7 @@
 Helper methods to support tiling
 """
 
-using ImageIO, Images
+using ImageIO, Images, Interpolations
 
 # HTTP response headers for tile images
 const TILE_HEADERS = [
@@ -64,74 +64,29 @@ function _lon_lat_to_tile(zoom, lon, lat)
     return x, y
 end
 
-"""
-    nearest(rst::Raster, tile_size::Tuple{Int, Int})::Matrix
-
-Resample a raster to a tile size using nearest neighbor interpolation.
-This approach prioritising performance over accuracy.
-
-# Arguments
-- `rst`: The input raster to be resampled.
-- `tile_size`: The desired dimensions of the tile (lat, long).
-
-# Returns
-Matrix with the resampled data.
-
-# Examples
-```julia
-large_raster = Raster(rand(UInt8, 14756, 14838); dims=(X(1:1:14756), Y(1:1:14838)))
-small_matrix = nearest(large_raster, (256, 256))
-```
-"""
-function nearest(rst::Raster, tile_size::Tuple{Int,Int})::Matrix
-    old_size = size(rst)
-
-    # Important: must flip axes!
-    # Rasters.jl stores longitude along first dimension (rows) by default.
-    x_ratio = old_size[1] / tile_size[2]
-    y_ratio = old_size[2] / tile_size[1]
-
-    resampled = zeros(eltype(rst), tile_size)
-
-    Threads.@threads for lat in 1:tile_size[1]
-        for lon in 1:tile_size[2]
-            # Use area averaging for downsampling
-            x_start = max(1, floor(Int, (lon - 1) * x_ratio) + 1)
-            x_end = min(old_size[1], ceil(Int, lon * x_ratio))
-            y_start = max(1, floor(Int, (lat - 1) * y_ratio) + 1)
-            y_end = min(old_size[2], ceil(Int, lat * y_ratio))
-
-            count_val = count(rst[x_start:x_end, y_start:y_end].data .> 0)
-            if count_val == 0
-                continue
-            end
-
-            sum_val = sum(rst[x_start:x_end, y_start:y_end].data)
-            resampled[lat, lon] = ceil(sum_val / count_val)
-        end
-    end
-
-    return resampled
-end
+# Helper functions for Web Mercator projection
+_lat_to_y(lat::Float64) = log(tan(π / 4 + lat * π / 360))
+_y_to_lat(y::Float64) = 360 / π * atan(exp(y)) - 90
 
 """
-    masked_nearest(rst::Raster, z::Int, x::Int, y::Int, tile_size::Tuple{Int,Int}, orig_rst_size::Tuple{Int,Int})::Matrix
+    adjusted_nearest(rst::Raster, z::Int, x::Int, y::Int, tile_size::Tuple{Int,Int}, orig_rst_size::Tuple{Int,Int})::Matrix
 
 Resample a raster using nearest neighbor interpolation when the tile includes area outside
 where data exists (e.g., viewing the globe where the data may appear in a small corner of
-the tile). This approach prioritising performance over accuracy.
+the tile). This approach attempts to account for planetary curvature while still maintaining
+some performance.
 
 # Arguments
 - `rst`: The input raster to be resampled.
 - `z`: Tile zoom level requested.
 - `x`: x coordinate for requested tile.
 - `y`: y coordinate for the requested tile.
-- `tile_size`: The desired dimensions of the tile (lat, long). Note reversed order of coordinates.
+- `tile_size`: The desired dimensions of the tile (long, lat).
 
 # Returns
 Matrix with the resampled data.
 """
-function masked_nearest(
+function adjusted_nearest(
     rst::Raster,
     z::Int,
     x::Int,
@@ -144,27 +99,43 @@ function masked_nearest(
     # Bounds for the area of interest (AOI; where we have data)
     ((aoi_lon_min, aoi_lon_max), (aoi_lat_min, aoi_lat_max)) = Rasters.bounds(rst)
 
-    # Create an empty tile (lat/long)
-    lat_size = tile_size[1]
-    long_size = tile_size[2]
-    tile = fill(0.0, lat_size, long_size)
+    # Create an empty tile (long/lat)
+    long_size, lat_size = tile_size
+    tile = zeros(lat_size, long_size)
 
-    lons = @. t_lon_min + (t_lon_max - t_lon_min) * ((1:long_size) - 1) / (long_size - 1)
-    lats = @. t_lat_max - (t_lat_max - t_lat_min) * ((1:lat_size) - 1) / (lat_size - 1)
+    # Generate longitude and latitude arrays for the tile
+    lons = @. mod(
+        t_lon_min + (t_lon_max - t_lon_min) * ((1:long_size) - 1) / (long_size - 1) + 180,
+        360
+    ) - 180
+    lats = @. _y_to_lat(
+        _lat_to_y(t_lat_max) -
+        (_lat_to_y(t_lat_max) - _lat_to_y(t_lat_min)) * ((1:lat_size) - 1) / (lat_size - 1)
+    )
+
+    # Determine which points are within the area of interest
     in_lons = aoi_lon_min .<= lons .<= aoi_lon_max
     in_lats = aoi_lat_min .<= lats .<= aoi_lat_max
 
     # Sample data that is within area of interest
-    data_x =
-        round.(
-            Int, (lons[in_lons] .- aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * size(rst, 1)
-        )
-    data_y =
-        round.(
-            Int, (aoi_lat_max .- lats[in_lats]) / (aoi_lat_max - aoi_lat_min) * size(rst, 2)
-        )
-
-    tile[in_lats, in_lons] .= rst[data_x, data_y]'
+    for (i, lon) in enumerate(lons), (j, lat) in enumerate(lats)
+        if in_lons[i] && in_lats[j]
+            x_idx =
+                round(
+                    Int,
+                    (lon - aoi_lon_min) / (aoi_lon_max - aoi_lon_min) * (size(rst, 1) - 1)
+                ) + 1
+            y_idx =
+                round(
+                    Int,
+                    (_lat_to_y(aoi_lat_max) - _lat_to_y(lat)) /
+                    (_lat_to_y(aoi_lat_max) - _lat_to_y(aoi_lat_min)) * (size(rst, 2) - 1)
+                ) + 1
+            x_idx = clamp(x_idx, 1, size(rst, 1))
+            y_idx = clamp(y_idx, 1, size(rst, 2))
+            tile[j, i] = rst[x_idx, y_idx]
+        end
+    end
 
     return tile
 end
@@ -241,12 +212,17 @@ function setup_tile_routes(config, auth)
         # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
         if any(size(mask_data) .> tile_size(config))
-            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 8)
+            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 12)
                 # Account for geographic positioning when zoomed out further than
                 # raster area
-                resampled = masked_nearest(mask_data, z, x, y, tile_size(config))
+                resampled = adjusted_nearest(mask_data, z, x, y, tile_size(config))
             else
-                resampled = nearest(mask_data, tile_size(config))
+                # Zoomed in close so less need to account for curvature
+                # BSpline(Constant()) is equivalent to nearest neighbor.
+                # See details in: https://juliaimages.org/ImageTransformations.jl/stable/reference/#Low-level-warping-API
+                resampled = imresize(
+                    mask_data, tile_size(config); method=BSpline(Constant())
+                )
             end
 
             img = zeros(RGBA, size(resampled))
