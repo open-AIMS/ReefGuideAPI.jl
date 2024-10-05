@@ -132,12 +132,9 @@ function setup_regional_data(config::Dict)
 
     if @isdefined(REGIONAL_DATA)
         @debug "Using previously generated regional data store."
-        sleep(1)  # Pause so message is noticeably visible
-
     elseif isfile(reg_cache_fn)
         @debug "Loading regional data cache from disk"
         @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
-
     else
         @debug "Setting up regional data store..."
         regional_assessment_data = initialize_regional_data_cache(
@@ -148,8 +145,15 @@ function setup_regional_data(config::Dict)
         @eval const REGIONAL_DATA = $(regional_assessment_data)
     end
 
-    reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
-    REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+    # If REGIONAL_DATA is defined, but failed to load supported data that cannot
+    # be cached to disk (e.g., the reef outlines), then it will cause errors later on.
+    # Then there's no way to address this, even between web server sessions, as `const`
+    # values cannot be modified.
+    # We check for existance and try to load again if needed.
+    if !haskey(REGIONAL_DATA, "reef_outlines")
+        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
+        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+    end
 
     return REGIONAL_DATA
 end
