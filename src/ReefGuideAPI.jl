@@ -179,6 +179,25 @@ function _cache_location(config::Dict)::String
 end
 
 """
+    cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
+
+Generate a filename for a cache.
+
+# Arguments
+- `qp` : Query parameters to hash
+- `config` : app configuration (to extract cache parent directory from)
+- `suffix` : a suffix to use in the filename (pass `""` if none required)
+- `ext` : file extension to use
+"""
+function cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
+    file_id = string(hash(qp))
+    temp_path = _cache_location(config)
+    cache_file_path = joinpath(temp_path, "$(file_id)$(suffix).$(ext)")
+
+    return cache_file_path
+end
+
+"""
     n_gdal_threads(config::Dict)::String
 
 Retrieve the configured number of threads to use when writing COGs with GDAL.
