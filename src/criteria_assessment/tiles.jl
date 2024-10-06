@@ -165,11 +165,9 @@ function setup_tile_routes(config, auth)
     reg_assess_data = setup_regional_data(config)
     @get auth("/tile/{z}/{x}/{y}") function (req::Request, z::Int64, x::Int64, y::Int64)
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
-        qp = queryparams(req)
-        file_id = string(hash(qp))
-        mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id * ".png")
 
+        qp = queryparams(req)
+        mask_path = cache_filename(qp, config, "", "png")
         if isfile(mask_path)
             return file(mask_path; headers=TILE_HEADERS)
         end

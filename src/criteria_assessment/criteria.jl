@@ -139,10 +139,7 @@ function setup_region_routes(config, auth)
 
     @get auth("/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
-        file_id = string(hash(qp))
-        mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id * ".tiff")
-
+        mask_path = cache_filename(qp, config, "", "tiff")
         if isfile(mask_path)
             return file(mask_path; headers=COG_HEADERS)
         end
@@ -154,21 +151,7 @@ function setup_region_routes(config, auth)
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
         # Writing time: ~10-25 seconds
-        Rasters.write(
-            mask_path,
-            UInt8.(mask_data);
-            ext=".tiff",
-            source="gdal",
-            driver="COG",
-            options=Dict{String,String}(
-                "COMPRESS" => "DEFLATE",
-                "SPARSE_OK" => "TRUE",
-                "OVERVIEW_COUNT" => "5",
-                "BLOCKSIZE" => "256",
-                "NUM_THREADS" => n_gdal_threads(config)
-            ),
-            force=true
-        )
+        _write_cog(mask_path, UInt8.(mask_data))
 
         return file(mask_path; headers=COG_HEADERS)
     end
@@ -180,7 +163,10 @@ function setup_region_routes(config, auth)
         # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
 
         qp = queryparams(req)
-        return assess_region(reg_assess_data, reg, qp, rtype, config)
+        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
+        if isfile(assessed_fn)
+            return file(assessed_fn; headers=COG_HEADERS)
+        end
     end
 
     @get auth("/suitability/site-suitability/{reg}/{rtype}") function (
@@ -188,6 +174,12 @@ function setup_region_routes(config, auth)
     )
         # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
         qp = queryparams(req)
+        suitable_sites_fn = cache_filename(
+            qp, config, "$(reg)_potential_sites", "geojson"
+        )
+        if isfile(suitable_sites_fn)
+            return file(suitable_sites_fn)
+        end
         criteria_names = string.(keys(criteria_data_map()))
         criteria_qp = filter(k -> k.first ∈ criteria_names, qp)
 
