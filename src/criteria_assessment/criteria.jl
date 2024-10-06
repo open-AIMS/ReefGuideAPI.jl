@@ -83,6 +83,35 @@ end
 StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 
 """
+    _write_cog(file_path::String, data::Raster)::Nothing
+
+Write out a COG using common options.
+
+# Arguments
+- `file_path` : Path to write data out to
+- `data` : Raster data to write out
+"""
+function _write_cog(file_path::String, data::Raster)::Nothing
+    Rasters.write(
+        file_path,
+        data;
+        ext=".tiff",
+        source="gdal",
+        driver="COG",
+        options=Dict{String,String}(
+            "COMPRESS" => "DEFLATE",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5",
+            "BLOCKSIZE" => tile_size(config),
+            "NUM_THREADS" => n_gdal_threads(config)
+        ),
+        force=true
+    )
+
+    return nothing
+end
+
+"""
     criteria_middleware(handle)
 
 Creates middleware that parses a criteria query before reaching an endpoint
