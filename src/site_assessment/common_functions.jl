@@ -278,7 +278,8 @@ Identifies all pixels in an input raster that return true for the function `crit
 
 # Arguments
 - `input_raster` : Raster containing pixels for the target region.
-- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`. Pixels that return true will be targetted in analysis.
+- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`.
+                        Pixels that return true will be targetted in analysis.
 
 # Returns
 DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
