@@ -167,6 +167,14 @@ function setup_region_routes(config, auth)
         if isfile(assessed_fn)
             return file(assessed_fn; headers=COG_HEADERS)
         end
+
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+        @debug "$(now()) : Running on thread $(threadid())"
+        @debug "Writing to $(assessed_fn)"
+        _write_cog(assessed_fn, assessed)
+
+        return file(assessed_fn; headers=COG_HEADERS)
     end
 
     @get auth("/suitability/site-suitability/{reg}/{rtype}") function (
@@ -180,16 +188,29 @@ function setup_region_routes(config, auth)
         if isfile(suitable_sites_fn)
             return file(suitable_sites_fn)
         end
-        criteria_names = string.(keys(criteria_data_map()))
-        criteria_qp = filter(k -> k.first ∈ criteria_names, qp)
 
-        assessment_qp = filter(
+        # Assess location suitability if needed
+        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
+        if isfile(assessed_fn)
+            assessed = file(assessed_fn; headers=COG_HEADERS)
+        else
+            assessed = assess_region(reg_assess_data, reg, qp, rtype)
+            _write_cog(assessed_fn, assessed)
+        end
+
+        # Extract criteria and assessment
+        criteria_names = string.(keys(criteria_data_map()))
+        pixel_criteria = filter(k -> k.first ∈ criteria_names, qp)
+        site_criteria = filter(
             k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
         )
 
-        return site_assess_region(
-            reg_assess_data, reg, criteria_qp, assessment_qp, rtype, config
-        )
+        best_sites = filter_sites(assess_sites(
+            reg_assess_data, reg, pixel_criteria, site_criteria, assessed
+        ))
+
+        output_geojson(suitable_sites_fn, best_sites)
+        return file(suitable_sites_fn)
     end
 
     @get auth("/bounds/{reg}") function (req::Request, reg::String)

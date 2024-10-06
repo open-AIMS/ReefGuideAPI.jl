@@ -117,7 +117,7 @@ function mask_region(reg_assess_data, reg, qp, rtype)
 end
 
 """
-    assess_region(reg_assess_data, reg, qp, rtype, config)
+    assess_region(reg_assess_data, reg, qp, rtype)
 
 Perform raster suitability assessment based on user defined criteria.
 
@@ -126,22 +126,13 @@ Perform raster suitability assessment based on user defined criteria.
 - `reg` : Name of the region being assessed (format `Cairns-Cooktown` rather than `Cairns/Cooktown Management Area`).
 - `qp` : Dict containing bounds for each variable being filtered.
 - `rtype` : Type of zone to assess (flats or slopes).
-- `config` : Information from `.config.toml` file.
 
 # Returns
 GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
 by a user.
 """
-function assess_region(reg_assess_data, reg, qp, rtype, config)
+function assess_region(reg_assess_data, reg, qp, rtype)
     @debug "Assessing region's suitability score"
-
-    file_id = string(hash(qp))
-    assessed_tmp_path = _cache_location(config)
-    assessed_path_tif = joinpath(assessed_tmp_path, file_id * "_suitable.tiff")
-
-    if isfile(assessed_path_tif)
-        return file(assessed_path_tif)
-    end
 
     # Make mask of suitable locations
     mask_data = mask_region(reg_assess_data, reg, qp, rtype)
@@ -150,25 +141,66 @@ function assess_region(reg_assess_data, reg, qp, rtype, config)
     @debug "Calculating proportional suitability score"
     suitability_scores = proportion_suitable(mask_data.data)
 
-    @debug "$(now()) : Running on thread $(threadid())"
-    @debug "Writing to $(assessed_path_tif)"
-    Rasters.write(
-        assessed_path_tif,
-        rebuild(mask_data, suitability_scores);
-        ext=".tiff",
-        source="gdal",
-        driver="COG",
-        options=Dict{String,String}(
-            "COMPRESS" => "DEFLATE",
-            "SPARSE_OK" => "TRUE",
-            "OVERVIEW_COUNT" => "5",
-            "BLOCKSIZE" => "256",
-            "NUM_THREADS" => n_gdal_threads(config)
-        ),
-        force=true
+    return rebuild(mask_data, suitability_scores)
+end
+
+"""
+    assess_sites(reg_assess_data::Dict, reg::String, pixel_criteria::Dict, site_criteria::Dict, assess_locs::Raster)
+
+# Arguments
+- `reg_assess_data` :
+- `reg` : Short region name
+- `pixel_criteria` : parameters to assess specific locations with
+- `site_criteria` : parameters to assess sites based on their polygonal representation
+- `assess_locs` : Raster of suitability scores for each valid pixel
+
+# Returns
+GeoDataFrame of all potential sites
+"""
+function assess_sites(
+    reg_assess_data::Dict,
+    reg::String,
+    pixel_criteria::Dict,
+    site_criteria::Dict,
+    assess_locs::Raster
+)
+    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(pixel_criteria)...)
+
+    # Otherwise, create the file
+    @debug "$(now()) : Assessing criteria table"
+    assess = reg_assess_data[reg]
+    crit_pixels = apply_criteria_lookup(
+        assess,
+        Symbol(rtype),
+        CriteriaBounds.(criteria_names, lbs, ubs)
     )
 
-    return file(assessed_path_tif)
+    res = abs(step(dims(assess_locs, X)))
+    target_crs = convert(EPSG, crs(assess_locs))
+
+    suitability_threshold = parse(Int64, (site_criteria["SuitabilityThreshold"]))
+    assess_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
+
+    # Need reef outlines to indicate direction of the reef edge
+    gdf = REGIONAL_DATA["reef_outlines"]
+    reef_outlines = buffer_simplify(gdf)
+    reef_outlines = polygon_to_lines.(reef_outlines)
+
+    x_dist = parse(Int64, site_criteria["xdist"])
+    y_dist = parse(Int64, site_criteria["ydist"])
+    initial_polygons = identify_potential_sites_edges(
+        crit_pixels,
+        assess_locs,
+        res,
+        gdf,
+        x_dist,
+        y_dist,
+        target_crs,
+        reef_outlines,
+        reg
+    )
+
+    return initial_polygons
 end
 
 """
