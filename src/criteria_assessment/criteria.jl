@@ -205,9 +205,11 @@ function setup_region_routes(config, auth)
             k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
         )
 
-        best_sites = filter_sites(assess_sites(
-            reg_assess_data, reg, pixel_criteria, site_criteria, assessed
-        ))
+        best_sites = filter_sites(
+            assess_sites(
+                reg_assess_data, reg, pixel_criteria, site_criteria, assessed
+            )
+        )
 
         output_geojson(suitable_sites_fn, best_sites)
         return file(suitable_sites_fn)
