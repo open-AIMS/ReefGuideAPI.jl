@@ -91,7 +91,7 @@ Write out a COG using common options.
 - `file_path` : Path to write data out to
 - `data` : Raster data to write out
 """
-function _write_cog(file_path::String, data::Raster)::Nothing
+function _write_cog(file_path::String, data::Raster, config)::Nothing
     Rasters.write(
         file_path,
         data;
@@ -151,7 +151,7 @@ function setup_region_routes(config, auth)
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
         # Writing time: ~10-25 seconds
-        _write_cog(mask_path, UInt8.(mask_data))
+        _write_cog(mask_path, UInt8.(mask_data), config)
 
         return file(mask_path; headers=COG_HEADERS)
     end
@@ -172,7 +172,7 @@ function setup_region_routes(config, auth)
 
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed)
+        _write_cog(assessed_fn, assessed, config)
 
         return file(assessed_fn; headers=COG_HEADERS)
     end
@@ -195,7 +195,7 @@ function setup_region_routes(config, auth)
             assessed = file(assessed_fn; headers=COG_HEADERS)
         else
             assessed = assess_region(reg_assess_data, reg, qp, rtype)
-            _write_cog(assessed_fn, assessed)
+            _write_cog(assessed_fn, assessed, config)
         end
 
         # Extract criteria and assessment
