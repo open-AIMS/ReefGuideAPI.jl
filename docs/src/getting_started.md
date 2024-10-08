@@ -139,7 +139,7 @@ Locally, write times with four threads configured range from 10 to 15 seconds.
 
 ## Reef edge alignment for site searching
 
-`identify_potential_sites_edges()` can be used to identify potential sites that only align with
+`identify_edge_aligned_sites()` can be used to identify potential sites that only align with
 the nearest reef edge (or specified rotations away from this angle).
 This method works by identifying the closest edge of reef polygon geometries that have been
 converted into lines.
@@ -159,4 +159,4 @@ The following processing is required before use:
 - `lon` and `lat` columns (FLoat64) must be added to the GeoDataFrame.
   - E.g. `valid_pixels.lon = first.(GI.coordinates.(valid_pixels.geometry))`
   The column used for masking should be the same as the column specified as geometry_col in
-  `identify_potential_sites_edges` (default = `:geometry`).
+  `identify_edge_aligned_sites` (default = `:geometry`).

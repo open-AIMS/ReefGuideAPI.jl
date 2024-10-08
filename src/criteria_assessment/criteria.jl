@@ -207,7 +207,7 @@ function setup_region_routes(config, auth)
 
         best_sites = filter_sites(
             assess_sites(
-                reg_assess_data, reg, pixel_criteria, site_criteria, assessed
+                reg_assess_data, reg, rtype, pixel_criteria, site_criteria, assessed
             )
         )
 

@@ -71,7 +71,7 @@ function assess_reef_site(
 end
 
 """
-    identify_potential_sites_edges(
+    identify_edge_aligned_sites(
         df::DataFrame,
         search_pixels::DataFrame,
         res::Float64,
@@ -109,7 +109,7 @@ Method is currently opperating for CRS in degrees units.
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
-function identify_potential_sites_edges(
+function identify_edge_aligned_sites(
     df::DataFrame,
     search_pixels::DataFrame,
     res::Float64,
@@ -247,7 +247,7 @@ function assess_reef_site(
 end
 
 """
-    identify_potential_sites_edges(
+    identify_edge_aligned_sites(
         rst_stack::RasterStack,
         search_pixels::DataFrame,
         gdf::DataFrame,
@@ -280,7 +280,7 @@ and used for searching with custom rotation parameters.
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
-function identify_potential_sites_edges(
+function identify_edge_aligned_sites(
     rst_stack::RasterStack,
     search_pixels::DataFrame,
     gdf::DataFrame,

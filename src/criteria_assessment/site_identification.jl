@@ -145,11 +145,19 @@ function assess_region(reg_assess_data, reg, qp, rtype)
 end
 
 """
-    assess_sites(reg_assess_data::Dict, reg::String, pixel_criteria::Dict, site_criteria::Dict, assess_locs::Raster)
+    assess_sites(
+        reg_assess_data::OrderedDict,
+        reg::String,
+        rtype::String,
+        pixel_criteria::Dict,
+        site_criteria::Dict,
+        assess_locs::Raster
+    )
 
 # Arguments
 - `reg_assess_data` : Regional assessment data
 - `reg` : Short region name
+- `rtype` : Slopes or Flats assessment type
 - `pixel_criteria` : parameters to assess specific locations with
 - `site_criteria` : parameters to assess sites based on their polygonal representation
 - `assess_locs` : Raster of suitability scores for each valid pixel
@@ -158,8 +166,9 @@ end
 GeoDataFrame of all potential sites
 """
 function assess_sites(
-    reg_assess_data::Dict,
+    reg_assess_data::OrderedDict,
     reg::String,
+    rtype::String,
     pixel_criteria::Dict,
     site_criteria::Dict,
     assess_locs::Raster
@@ -188,7 +197,8 @@ function assess_sites(
 
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    initial_polygons = identify_potential_sites_edges(
+    @debug "Assessing site polygons for $(size(assess_locs, 1)) locations."
+    initial_polygons = identify_edge_aligned_sites(
         crit_pixels,
         assess_locs,
         res,

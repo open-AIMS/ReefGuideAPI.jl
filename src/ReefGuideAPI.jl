@@ -277,7 +277,7 @@ export
 # Methods to assess/identify deployment "plots" of reef.
 export
     assess_reef_site,
-    identify_potential_sites_edges,
+    identify_edge_aligned_sites,
     filter_sites,
     output_geojson
 
