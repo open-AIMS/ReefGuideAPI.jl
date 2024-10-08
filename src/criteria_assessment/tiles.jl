@@ -164,7 +164,12 @@ function setup_tile_routes(config, auth)
 
     reg_assess_data = setup_regional_data(config)
     @get auth("/tile/{z}/{x}/{y}") function (req::Request, z::Int64, x::Int64, y::Int64)
+        # http://127.0.0.1:8000/tile/{z}/{x}/{y}?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+        # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
+
+        no_data_path = cache_filename(Dict("no_data"=>"none"), config, "no_data", "png")
 
         qp = queryparams(req)
         mask_path = cache_filename(qp, config, "", "png")
@@ -195,17 +200,12 @@ function setup_tile_routes(config, auth)
             (lat_min, lat_max)
         )
 
-        if any(size(mask_data) .== 0) || all(size(mask_data) .< tile_size(config))
+        if any(size(mask_data) .== 0)
             @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
-            save(mask_path, zeros(RGBA, tile_size(config)))
-            return file(mask_path; headers=TILE_HEADERS)
+            return file(no_data_path; headers=TILE_HEADERS)
         end
 
         @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
-
-        # Working:
-        # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
-        # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
 
         # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
