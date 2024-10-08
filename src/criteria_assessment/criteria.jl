@@ -83,7 +83,7 @@ end
 StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 
 """
-    _write_cog(file_path::String, data::Raster)::Nothing
+    _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
 
 Write out a COG using common options.
 
@@ -91,7 +91,7 @@ Write out a COG using common options.
 - `file_path` : Path to write data out to
 - `data` : Raster data to write out
 """
-function _write_cog(file_path::String, data::Raster, config)::Nothing
+function _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
     Rasters.write(
         file_path,
         data;
@@ -102,7 +102,7 @@ function _write_cog(file_path::String, data::Raster, config)::Nothing
             "COMPRESS" => "DEFLATE",
             "SPARSE_OK" => "TRUE",
             "OVERVIEW_COUNT" => "5",
-            "BLOCKSIZE" => tile_size(config),
+            "BLOCKSIZE" => string(first(tile_size(config))),
             "NUM_THREADS" => n_gdal_threads(config)
         ),
         force=true
