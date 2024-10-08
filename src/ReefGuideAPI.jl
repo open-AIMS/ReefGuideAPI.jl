@@ -243,7 +243,7 @@ function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
 
     # Create re-usable empty tile
-    no_data_path = cache_filename(Dict("no_data"=>"none"), config, "no_data", "png")
+    no_data_path = cache_filename(Dict("no_data" => "none"), config, "no_data", "png")
     if !isfile(no_data_path)
         save(no_data_path, zeros(RGBA, tile_size(config)))
     end
