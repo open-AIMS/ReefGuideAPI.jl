@@ -2,7 +2,7 @@
 Helper methods to support tiling
 """
 
-using ImageIO, Images, Interpolations
+using Images, ImageIO, Interpolations
 
 # HTTP response headers for tile images
 const TILE_HEADERS = [
@@ -207,9 +207,7 @@ function setup_tile_routes(config, auth)
 
         @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
 
-        # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
-
         img = zeros(RGBA, tile_size(config))
         if (z < 12)
             # Account for geographic positioning when zoomed out further than

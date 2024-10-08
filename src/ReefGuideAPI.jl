@@ -242,6 +242,7 @@ Invokes warm up of regional data cache to reduce later spin up times.
 function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
 
+    # Create re-usable empty tile
     no_data_path = cache_filename(Dict("no_data"=>"none"), config, "no_data", "png")
     if !isfile(no_data_path)
         save(no_data_path, zeros(RGBA, tile_size(config)))
@@ -252,6 +253,8 @@ end
 
 function start_server(config_path)
     @info "Launching server... please wait"
+
+    ReefGuideAPI.warmup_cache(config_path)
 
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
