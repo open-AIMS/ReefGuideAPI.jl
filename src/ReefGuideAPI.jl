@@ -241,6 +241,12 @@ Invokes warm up of regional data cache to reduce later spin up times.
 """
 function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
+
+    no_data_path = cache_filename(Dict("no_data"=>"none"), config, "no_data", "png")
+    if !isfile(no_data_path)
+        save(no_data_path, zeros(RGBA, tile_size(config)))
+    end
+
     return setup_regional_data(config)
 end
 
