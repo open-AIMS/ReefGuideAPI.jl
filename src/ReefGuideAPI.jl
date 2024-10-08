@@ -217,7 +217,7 @@ end
 
 Retrieve the configured size of map tiles in pixels (width and height / lon and lat).
 """
-function tile_size(config::Dict)::String
+function tile_size(config::Dict)::Tuple
     tile_dims = try
         res = parse(Int, config["server_config"]["TILE_SIZE"])
         (res, res)
@@ -225,7 +225,7 @@ function tile_size(config::Dict)::String
         (256, 256)  # 256x256
     end
 
-    return string(tile_dims[1])
+    return tile_dims
 end
 
 function get_auth_router(config::Dict)
