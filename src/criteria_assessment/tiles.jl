@@ -209,26 +209,22 @@ function setup_tile_routes(config, auth)
 
         # Using if block to avoid type instability
         @debug "Thread $(thread_id) - $(now()) : Creating PNG (with transparency)"
-        if any(size(mask_data) .> tile_size(config))
-            if any(size(mask_data) .== size(reg_assess_data[reg].stack)) || (z < 12)
-                # Account for geographic positioning when zoomed out further than
-                # raster area
-                resampled = adjusted_nearest(mask_data, z, x, y, tile_size(config))
-            else
-                # Zoomed in close so less need to account for curvature
-                # BSpline(Constant()) is equivalent to nearest neighbor.
-                # See details in: https://juliaimages.org/ImageTransformations.jl/stable/reference/#Low-level-warping-API
-                resampled = imresize(
-                    mask_data, tile_size(config); method=BSpline(Constant())
-                )
-            end
 
-            img = zeros(RGBA, size(resampled))
-            img[resampled .== 1] .= RGBA(0, 0, 0, 1)
+        img = zeros(RGBA, tile_size(config))
+        if (z < 12)
+            # Account for geographic positioning when zoomed out further than
+            # raster area
+            resampled = adjusted_nearest(mask_data, z, x, y, tile_size(config))
         else
-            img = zeros(RGBA, size(mask_data))
-            img[mask_data .== 1] .= RGBA(0, 0, 0, 1)
+            # Zoomed in close so less need to account for curvature
+            # BSpline(Constant()) is equivalent to nearest neighbor.
+            # See details in: https://juliaimages.org/ImageTransformations.jl/stable/reference/#Low-level-warping-API
+            resampled = imresize(
+                mask_data.data', tile_size(config); method=BSpline(Constant())
+            )
         end
+
+        img[resampled .== 1] .= RGBA(0, 0, 0, 1)
 
         @debug "Thread $(thread_id) - $(now()) : Saving and serving file"
         save(mask_path, img)
