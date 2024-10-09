@@ -168,7 +168,7 @@ docker build . --target reefguide-src -t reefguide
 ### To build from src files using Docker Compose
 
 ```bash
-docker compose up --build reefguide-src
+docker compose build reefguide-src
 ```
 
 ### To run with mounted files (launch server) using Docker
