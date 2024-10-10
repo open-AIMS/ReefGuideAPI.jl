@@ -7,22 +7,27 @@ using FLoops, ThreadsX
 
 Calculate the the proportion of the subsection that is suitable for deployments.
 Subsection is the surrounding a rough hectare area centred on each cell of a raster marked
-as being suitable according to user-selected criteria.
+as being suitable according to user-selected criteria. Cells on the edges of a raster object
+are assessed using a smaller surrounding area, rather than shifting the window inward.
 
 # Arguments
 - `x` : Matrix of boolean pixels after filtering with user criteria.
-- `window` : Window size to assess. Default window (-4,5) assesses a square hectare around each target pixel where the resolution of pixels is 10m.
+- `window` : The number of pixels +/- to assess as the moving window. For example, the default
+window (-4,5) assesses a square that contains 4 pixels to the left/above the target pixel,
+the target pixel, and 5 pixels to the right/below the target pixel. This default window
+assesses a hectare around each target pixel where the resolution of pixels is 10m.
 """
 function proportion_suitable(x::BitMatrix; window::Tuple=(-4, 5))::Matrix{Int16}
-    x′ = zeros(Int16, size(x))
+    subsection_dims = size(x)
+    x′ = zeros(Int16, subsection_dims)
 
     @floop for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col + window[1], 1)
-        x_right = min(col + window[2], size(x, 2))
+        x_right = min(col + window[2], subsection_dims[2])
 
         y_top = max(row + window[1], 1)
-        y_bottom = min(row + window[2], size(x, 1))
+        y_bottom = min(row + window[2], subsection_dims[1])
 
         x′[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
