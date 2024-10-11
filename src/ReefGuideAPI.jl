@@ -12,6 +12,8 @@ using OrderedCollections
 using Memoization
 using SparseArrays
 
+using FLoops, ThreadsX
+
 import GeoDataFrames as GDF
 using
     ArchGDAL,
@@ -43,38 +45,15 @@ function get_regions()
 end
 
 """
-    setup_regional_data(config::Dict)
+    initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::String)
 
-Load regional data to act as an in-memory cache.
-
-# Arguments
-- `config` : Configuration settings, typically loaded from a TOML file.
-- `reef_data_path` : Path to pre-prepared reef data
-
-# Returns
-OrderedDict of `RegionalCriteria` for each region.
+Create initial regional data store with data from `reef_data_path`, excluding geospatial
+data and save to `reg_cache_fn` path.
 """
-function setup_regional_data(config::Dict)
-    if @isdefined(REGIONAL_DATA)
-        @debug "Using previously generated regional data store."
-        sleep(1)  # Pause so message is noticeably visible
-        return REGIONAL_DATA
-    end
-
-    # Check disk-based store
-    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
-    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
-    if isfile(reg_cache_fn)
-        @debug "Loading regional data cache from disk"
-        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
-        return REGIONAL_DATA
-    end
-
-    @debug "Setting up regional data store..."
-
-    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
-
-    regional_assessment_data = OrderedDict{String,RegionalCriteria}()
+function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::String)
+    regional_assessment_data = OrderedDict{
+        String,Union{RegionalCriteria,DataFrame,Dict}
+    }()
     for reg in get_regions()
         data_paths = String[]
         data_names = String[]
@@ -122,12 +101,62 @@ function setup_regional_data(config::Dict)
         )
     end
 
+    regional_assessment_data["region_long_names"] = Dict(
+        "FarNorthern" => "Far Northern Management Area",
+        "Cairns-Cooktown" => "Cairns/Cooktown Management Area",
+        "Townsville-Whitsunday" => "Townsville/Whitsunday Management Area",
+        "Mackay-Capricorn" => "Mackay/Capricorn Management Area"
+    )
+
     # Store cache on disk to avoid excessive cold startup times
     @debug "Saving regional data cache to disk"
     serialize(reg_cache_fn, regional_assessment_data)
 
-    # Remember, `@eval` runs in global scope.
-    @eval const REGIONAL_DATA = $(regional_assessment_data)
+    return regional_assessment_data
+end
+
+"""
+    setup_regional_data(config::Dict)
+
+Load regional data to act as an in-memory cache.
+
+# Arguments
+- `config` : Configuration settings, typically loaded from a TOML file.
+- `reef_data_path` : Path to pre-prepared reef data
+
+# Returns
+OrderedDict of `RegionalCriteria` for each region.
+"""
+function setup_regional_data(config::Dict)
+    reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
+    reg_cache_dir = config["server_config"]["REGIONAL_CACHE_DIR"]
+    reg_cache_fn = joinpath(reg_cache_dir, "regional_cache.dat")
+
+    if @isdefined(REGIONAL_DATA)
+        @debug "Using previously generated regional data store."
+    elseif isfile(reg_cache_fn)
+        @debug "Loading regional data cache from disk"
+        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+    else
+        @debug "Setting up regional data store..."
+        regional_assessment_data = initialize_regional_data_cache(
+            reef_data_path,
+            reg_cache_fn
+        )
+        # Remember, `@eval` runs in global scope.
+        @eval const REGIONAL_DATA = $(regional_assessment_data)
+    end
+
+    # If REGIONAL_DATA is defined, but failed to load supporting data that cannot be
+    # cached to disk, such as the reef outlines, (e.g., due to incorrect config), then it
+    # will cause errors later on.
+    # Then there's no way to address this, even between web server sessions, as `const`
+    # values cannot be modified.
+    # Here, we check for existence and try to load again if needed.
+    if !haskey(REGIONAL_DATA, "reef_outlines")
+        reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
+        REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
+    end
 
     return REGIONAL_DATA
 end
@@ -139,17 +168,37 @@ Retrieve cache location for geotiffs.
 """
 function _cache_location(config::Dict)::String
     cache_loc = try
-        in_debug = "DEBUG_MODE" in config["server_config"]
+        in_debug = haskey(config["server_config"], "DEBUG_MODE")
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
             mktempdir()
         else
             config["server_config"]["TIFF_CACHE_DIR"]
         end
-    catch
+    catch err
+        @info string(err)
         mktempdir()
     end
 
     return cache_loc
+end
+
+"""
+    cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
+
+Generate a filename for a cache.
+
+# Arguments
+- `qp` : Query parameters to hash
+- `config` : app configuration (to extract cache parent directory from)
+- `suffix` : a suffix to use in the filename (pass `""` if none required)
+- `ext` : file extension to use
+"""
+function cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
+    file_id = string(hash(qp))
+    temp_path = _cache_location(config)
+    cache_file_path = joinpath(temp_path, "$(file_id)$(suffix).$(ext)")
+
+    return cache_file_path
 end
 
 """
@@ -196,11 +245,20 @@ Invokes warm up of regional data cache to reduce later spin up times.
 """
 function warmup_cache(config_path::String)
     config = TOML.parsefile(config_path)
+
+    # Create re-usable empty tile
+    no_data_path = cache_filename(Dict("no_data" => "none"), config, "no_data", "png")
+    if !isfile(no_data_path)
+        save(no_data_path, zeros(RGBA, tile_size(config)))
+    end
+
     return setup_regional_data(config)
 end
 
 function start_server(config_path)
     @info "Launching server... please wait"
+
+    ReefGuideAPI.warmup_cache(config_path)
 
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
@@ -232,7 +290,7 @@ export
 # Methods to assess/identify deployment "plots" of reef.
 export
     assess_reef_site,
-    identify_potential_sites_edges,
+    identify_edge_aligned_sites,
     filter_sites,
     output_geojson
 

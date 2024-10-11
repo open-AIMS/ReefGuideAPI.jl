@@ -44,34 +44,38 @@ function assess_reef_site(
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
-    surr_threshold::Float64=0.33
+    surr_threshold::Float64=0.2
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
-    rotations =
-        (start_rot - (degree_step * n_per_side)):degree_step:(start_rot + (degree_step * n_per_side))
+    rot_start = (start_rot - (degree_step * n_per_side))
+    rot_end = (start_rot + (degree_step * n_per_side))
+    rotations = rot_start:degree_step:rot_end
     n_rotations = length(rotations)
     score = zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
     qc_flag = zeros(Int64, n_rotations)
 
-    for (j, r) in enumerate(rotations)
+    @floop for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
         score[j] =
             size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
         best_poly[j] = rot_geom
 
         if score[j] < surr_threshold
+            # Early exit as there's no point in searching further.
+            # Changing the rotation is unlikely to improve the score.
             qc_flag[j] = 1
             break
         end
     end
 
     return score[argmax(score)],
-    argmax(score) - (n_per_side + 1), best_poly[argmax(score)],
+    argmax(score) - (n_per_side + 1),
+    best_poly[argmax(score)],
     maximum(qc_flag)
 end
 
 """
-    identify_potential_sites_edges(
+    identify_edge_aligned_sites(
         df::DataFrame,
         search_pixels::DataFrame,
         res::Float64,
@@ -101,7 +105,7 @@ Method is currently opperating for CRS in degrees units.
 - `y_dist` : Length of vertical side of search box (in meters).
 - `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
 - `reef_lines` : Vector containing reef outline segments created from polygons in `gdf.geometry` (Must be separate object to `gdf` rather than column).
-- `region` : Management region name in GBRMPA format - e.g. "Mackay/Capricorn Management Area"
+- `region` : Region name, e.g. "Cairns-Cooktown" or "FarNorthern".
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
 - `surr_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
@@ -109,7 +113,7 @@ Method is currently opperating for CRS in degrees units.
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
-function identify_potential_sites_edges(
+function identify_edge_aligned_sites(
     df::DataFrame,
     search_pixels::DataFrame,
     res::Float64,
@@ -123,13 +127,14 @@ function identify_potential_sites_edges(
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area .== region]
-    gdf = gdf[gdf.management_area .== region, :]
+    region_long = REGIONAL_DATA["region_long_names"][region]
+    reef_lines = reef_lines[gdf.management_area .== region_long]
+    gdf = gdf[gdf.management_area .== region_long, :]
     max_count = (
-        (x_dist / degrees_to_meters(res, mean(indices_pixels.dims[2]))) *
+        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
         (
-            (y_dist + 2 * degrees_to_meters(res, mean(indices_pixels.dims[2]))) /
-            degrees_to_meters(res, mean(indices_pixels.dims[2]))
+            (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
+            degrees_to_meters(res, mean(search_pixels.lat))
         )
     )
 
@@ -138,6 +143,7 @@ function identify_potential_sites_edges(
     best_poly = Vector(undef, length(search_pixels.lon))
     best_rotation = zeros(Int64, length(search_pixels.lon))
     quality_flag = zeros(Int64, length(search_pixels.lon))
+    bounds = zeros(4)
     for (i, index) in enumerate(eachrow(search_pixels))
         lon = index.lon
         lat = index.lat
@@ -146,16 +152,27 @@ function identify_potential_sites_edges(
         pixel = GO.Point(lon, lat)
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
-        bounds = [
-            lon - meters_to_degrees(x_dist / 2, lat),
-            lon + meters_to_degrees(x_dist / 2, lat),
-            lat - meters_to_degrees(x_dist / 2, lat),
-            lat + meters_to_degrees(x_dist / 2, lat)
+        lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
+        lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
+        bounds .= Float64[
+            lon - lon_offset,
+            lon + lon_offset,
+            lat - lat_offset,
+            lat + lat_offset
         ]
 
-        rel_pix = df[
-            (df.lon .> bounds[1]) .& (df.lon .< bounds[2]) .& (df.lat .> bounds[3]) .& (df.lat .< bounds[4]),
-            :]
+        lower_lon = (df.lon .>= bounds[1])
+        upper_lon = (df.lon .<= bounds[2])
+        lower_lat = (df.lat .>= bounds[3])
+        upper_lat = (df.lat .<= bounds[4])
+        rel_pix = df[lower_lon .& upper_lon .& lower_lat .& upper_lat, :]
+
+        if nrow(rel_pix) == 0
+            best_score[i] = 0.0
+            best_rotation[i] = 0
+            quality_flag[i] = 0
+            continue
+        end
 
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
@@ -175,7 +192,10 @@ function identify_potential_sites_edges(
     end
 
     return DataFrame(;
-        score=best_score, orientation=best_rotation, qc_flag=quality_flag, poly=best_poly
+        score=best_score,
+        orientation=best_rotation,
+        qc_flag=quality_flag,
+        geometry=best_poly
     )
 end
 
@@ -195,7 +215,7 @@ Assess given reef site for it's suitability score at different specified rotatio
 initial reef-edge rotation.
 
 # Arguments
-- `rst` : Raster or RasterStack object used to assess site suitability.
+- `rst` : Raster of suitability scores.
 - `geom` : Initial site polygon with no rotation applied.
 - `ruleset` : Criteria ruleset to apply to `rst` pixels when assessing which pixels are suitable.
 - `degree_step` : Degree value to vary each rotation by. Default = 15 degrees.
@@ -209,8 +229,7 @@ initial reef-edge rotation.
 """
 function assess_reef_site(
     rst::Union{Raster,RasterStack},
-    geom::GI.Wrappers.Polygon,
-    ruleset::Dict{Symbol,Function};
+    geom::GI.Wrappers.Polygon;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2
@@ -221,24 +240,16 @@ function assess_reef_site(
     score = zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
 
+    target_crs = GI.crs(rst)
     for (j, r) in enumerate(rotations)
-        rot_geom = rotate_geom(geom, r)
+        rot_geom = rotate_geom(geom, r, target_crs)
         c_rst = crop(rst; to=rot_geom)
         if !all(size(c_rst) .> (0, 0))
             @warn "No data found!"
             continue
         end
 
-        window = trues(size(c_rst))
-        for (n, crit_rule) in ruleset
-            window .= window .& crit_rule(c_rst[n])
-            if count(window) < ceil(length(window) / 3)
-                # Stop checking other rules if below hard threshold
-                break
-            end
-        end
-
-        score[j] = mean(window)
+        score[j] = mean(c_rst)
         best_poly[j] = rot_geom
     end
 
@@ -246,7 +257,7 @@ function assess_reef_site(
 end
 
 """
-    identify_potential_sites_edges(
+    identify_edge_aligned_sites(
         rst_stack::RasterStack,
         search_pixels::DataFrame,
         gdf::DataFrame,
@@ -279,7 +290,7 @@ and used for searching with custom rotation parameters.
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
-function identify_potential_sites_edges(
+function identify_edge_aligned_sites(
     rst_stack::RasterStack,
     search_pixels::DataFrame,
     gdf::DataFrame,
@@ -295,12 +306,6 @@ function identify_potential_sites_edges(
     gdf = gdf[gdf.management_area .== region, :]
     res = abs(step(dims(rst_stack, X)))
 
-    # # TODO: Dynamically build this ruleset
-    ruleset = Dict(
-        :Depth => (data) -> within_thresholds(data, -9.0, -2.0),
-        :WavesTp => (data) -> within_thresholds(data, 0.0, 5.9)
-    )
-
     # Search each location to assess
     best_score = zeros(length(search_pixels.lon))
     best_poly = Vector(undef, length(search_pixels.lon))
@@ -315,8 +320,7 @@ function identify_potential_sites_edges(
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,
-            geom_buff,
-            ruleset;
+            geom_buff;
             degree_step=degree_step,
             start_rot=rot_angle,
             n_per_side=n_rot_per_side
@@ -327,5 +331,5 @@ function identify_potential_sites_edges(
         best_poly[i] = b_poly
     end
 
-    return DataFrame(; score=best_score, orientation=best_rotation, poly=best_poly)
+    return DataFrame(; score=best_score, orientation=best_rotation, geometry=best_poly)
 end

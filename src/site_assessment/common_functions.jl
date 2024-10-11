@@ -78,12 +78,11 @@ end
 Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
 function filter_far_polygons(
-    gdf::DataFrame,
+    geoms,
     pixel::GeometryBasics.Point,
     lat::Float64,
     dist::Union{Int64,Float64}
 )::BitVector
-    geoms = gdf[:, first(GI.geometrycolumns(gdf))]
     return (GO.distance.(GO.centroid.(geoms), [pixel]) .< meters_to_degrees(dist, lat))
 end
 
@@ -177,10 +176,11 @@ function initial_search_rotation(
     reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
     search_buffer::Union{Int64,Float64}=20000.0
 )::Float64
-    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], search_buffer)
+    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
+    distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
-    GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
+    GO.within.([pixel], geoms[distance_indices])
 ]
     reef_lines = vcat(reef_lines...)
 
@@ -216,12 +216,12 @@ Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons
-             (output from `identify_potential_sites()` or `identify_potential_sites_edges()`).
+             (output from `identify_potential_sites()` or `identify_edge_aligned_sites()`).
 
 # Returns
 DataFrame containing only the highest scoring sites where site polygons intersect, and
 containing only sites with scores greater than the `surr_threshold` specified in
-`identify_potential_sites_edges()` (default=0.33).
+`identify_edge_aligned_sites()` (default=0.33).
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
@@ -232,13 +232,9 @@ function filter_sites(res_df::DataFrame)::DataFrame
             continue
         end
 
-        if row.qc_flag == 1
-            push!(ignore_list, row.row_ID)
-            continue
-        end
-
-        if any(GO.intersects.([row.poly], res_df[:, :poly]))
-            intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
+        poly = row.geometry
+        if any(GO.intersects.([poly], res_df[:, :geometry]))
+            intersecting_polys = res_df[(GO.intersects.([poly], res_df[:, :geometry])), :]
             if maximum(intersecting_polys.score) <= row.score
                 for x_row in
                     eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
@@ -250,39 +246,21 @@ function filter_sites(res_df::DataFrame)::DataFrame
         end
     end
 
-    rename!(res_df, :poly => :geometry)
-
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)]
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
 end
 
 """
-    output_geojson(
-        df::DataFrame,
-        region::String,
-        output_dir::String
-    )::Nothing
+    output_geojson(destination_path::String, df::DataFrame)::Nothing
 
 Writes out GeoJSON file to a target directory. Output file will be located at location:
-"`output_dir`/output_sites_`region`.geojson"
+`destination_path`.
 
 # Arguments
+- `destination_path` : File path to write geojson file to.
 - `df` : DataFrame intended for writing to geojson file.
-- `region` : Region name for labelling output file.
-- `output_dir` : Directory to write geojson file to.
 """
-function output_geojson(
-    df::DataFrame,
-    region::String,
-    output_dir::String
-)::Nothing
-    GDF.write(
-        joinpath(
-            output_dir,
-            "output_sites_$(region).geojson"
-        ),
-        df;
-        crs=GI.crs(first(df.geometry))
-    )
+function output_geojson(destination_path::String, df::DataFrame)::Nothing
+    GDF.write(destination_path, df; crs=GI.crs(first(df.geometry)))
 
     return nothing
 end
@@ -294,13 +272,14 @@ Identifies all pixels in an input raster that return true for the function `crit
 
 # Arguments
 - `input_raster` : Raster containing pixels for the target region.
-- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`. Pixels that return true will be targetted in analysis.
+- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`.
+                        Pixels that return true will be targetted in analysis.
 
 # Returns
 DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
 """
 function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = trim(criteria_function(input_raster))
+    pixels = criteria_function(input_raster)
     indices = findall(pixels)
     indices_lon = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
     indices_lat = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
@@ -311,4 +290,39 @@ function identify_search_pixels(input_raster::Raster, criteria_function)::DataFr
     end
 
     return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
+end
+
+"""
+    buffer_simplify(
+        gdf::DataFrame;
+        number_verts::Int64=30,
+        buffer_dist_m::Int64=40
+    )::Vector{GeoInterface.Wrappers.WrapperGeometry}
+
+Simplify and buffer the polygons in a GeoDataFrame to account for uncertainty and inaccuracies
+in the reef outlines.
+
+# Arguments
+- `gdf` : GeoDataFrame containing the reef polygons in `gdf.geometry`.
+- `number_verts` : Number of vertices to simplify the reefs to. Default is 30 vertices.
+- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 40m.
+
+# Returns
+Vector containing buffered and simplified reef polygons
+"""
+function buffer_simplify(
+    gdf::DataFrame;
+    number_verts::Int64=30,
+    buffer_dist_m::Int64=40
+)::Vector{GIWrap.WrapperGeometry}
+    reef_buffer = GO.simplify(gdf.geometry; number=number_verts)
+    for row in eachrow(reef_buffer)
+        lat = GO.centroid(row)[2]
+        row = GO.simplify(
+            GO.buffer(row, meters_to_degrees(buffer_dist_m, lat));
+            number=number_verts
+        )
+    end
+
+    return reef_buffer
 end

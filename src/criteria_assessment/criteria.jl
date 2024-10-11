@@ -8,6 +8,7 @@ using Oxygen: json
 
 include("query_parser.jl")
 include("tiles.jl")
+include("site_identification.jl")
 
 const REEF_TYPE = [:slopes, :flats]
 
@@ -28,7 +29,9 @@ function criteria_data_map()
         :WavesTp => "_waves_Tp",
         :Rugosity => "_rugosity",
         :ValidSlopes => "_valid_slopes",
-        :ValidFlats => "_valid_flats"
+        :ValidFlats => "_valid_flats",
+        :PortDistSlopes => "_PortDistSlopes",
+        :PortDistFlats => "_PortDistFlats"
     )
 end
 
@@ -80,6 +83,35 @@ end
 StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 
 """
+    _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
+
+Write out a COG using common options.
+
+# Arguments
+- `file_path` : Path to write data out to
+- `data` : Raster data to write out
+"""
+function _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
+    Rasters.write(
+        file_path,
+        data;
+        ext=".tiff",
+        source="gdal",
+        driver="COG",
+        options=Dict{String,String}(
+            "COMPRESS" => "DEFLATE",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5",
+            "BLOCKSIZE" => string(first(tile_size(config))),
+            "NUM_THREADS" => n_gdal_threads(config)
+        ),
+        force=true
+    )
+
+    return nothing
+end
+
+"""
     criteria_middleware(handle)
 
 Creates middleware that parses a criteria query before reaching an endpoint
@@ -107,45 +139,80 @@ function setup_region_routes(config, auth)
 
     @get auth("/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
-        file_id = string(hash(qp))
-        mask_temp_path = _cache_location(config)
-        mask_path = joinpath(mask_temp_path, file_id * ".tiff")
-
+        mask_path = cache_filename(qp, config, "", "tiff")
         if isfile(mask_path)
             return file(mask_path; headers=COG_HEADERS)
         end
 
-        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
-
         # Otherwise, create the file
         @debug "$(now()) : Assessing criteria"
-        assess = reg_assess_data[reg]
-        mask_data = make_threshold_mask(
-            assess,
-            Symbol(rtype),
-            CriteriaBounds.(criteria_names, lbs, ubs)
-        )
+        mask_data = mask_region(reg_assess_data, reg, qp, rtype)
 
         @debug "$(now()) : Running on thread $(threadid())"
         @debug "Writing to $(mask_path)"
         # Writing time: ~10-25 seconds
-        Rasters.write(
-            mask_path,
-            UInt8.(mask_data);
-            ext=".tiff",
-            source="gdal",
-            driver="COG",
-            options=Dict{String,String}(
-                "COMPRESS" => "DEFLATE",
-                "SPARSE_OK" => "TRUE",
-                "OVERVIEW_COUNT" => "5",
-                "BLOCKSIZE" => "256",
-                "NUM_THREADS" => n_gdal_threads(config)
-            ),
-            force=true
-        )
+        _write_cog(mask_path, UInt8.(mask_data), config)
 
         return file(mask_path; headers=COG_HEADERS)
+    end
+
+    @get auth("/suitability/assess/{reg}/{rtype}") function (
+        req::Request, reg::String, rtype::String
+    )
+        # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
+        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
+
+        qp = queryparams(req)
+        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
+        if isfile(assessed_fn)
+            return file(assessed_fn; headers=COG_HEADERS)
+        end
+
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+        @debug "$(now()) : Running on thread $(threadid())"
+        @debug "Writing to $(assessed_fn)"
+        _write_cog(assessed_fn, assessed, config)
+
+        return file(assessed_fn; headers=COG_HEADERS)
+    end
+
+    @get auth("/suitability/site-suitability/{reg}/{rtype}") function (
+        req::Request, reg::String, rtype::String
+    )
+        # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
+        qp = queryparams(req)
+        suitable_sites_fn = cache_filename(
+            qp, config, "$(reg)_potential_sites", "geojson"
+        )
+        if isfile(suitable_sites_fn)
+            return file(suitable_sites_fn)
+        end
+
+        # Assess location suitability if needed
+        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
+        if isfile(assessed_fn)
+            assessed = Raster(assessed_fn)
+        else
+            assessed = assess_region(reg_assess_data, reg, qp, rtype)
+            _write_cog(assessed_fn, assessed, config)
+        end
+
+        # Extract criteria and assessment
+        criteria_names = string.(keys(criteria_data_map()))
+        pixel_criteria = filter(k -> k.first ∈ criteria_names, qp)
+        site_criteria = filter(
+            k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
+        )
+
+        best_sites = filter_sites(
+            assess_sites(
+                reg_assess_data, reg, rtype, pixel_criteria, site_criteria, assessed
+            )
+        )
+
+        output_geojson(suitable_sites_fn, best_sites)
+        return file(suitable_sites_fn)
     end
 
     @get auth("/bounds/{reg}") function (req::Request, reg::String)

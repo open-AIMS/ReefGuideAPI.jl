@@ -39,6 +39,8 @@ Remove rugosity layer from consideration if region is not Townsville.
 Rugosity data currently only exists for the Townsville region.
 """
 function remove_rugosity(reg, criteria_names, lbs, ubs)
+
+    # Need to specify `Base` as geospatial packages also define `contains()`.
     if !Base.contains(reg, "Townsville")
         # Remove rugosity layer from consideration as it doesn't exist for regions
         # outside of Townsville.
