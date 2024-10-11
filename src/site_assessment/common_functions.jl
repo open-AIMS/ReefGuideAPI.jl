@@ -156,7 +156,7 @@ end
         geom_buff::GI.Wrappers.Polygon,
         gdf::DataFrame,
         reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
-        search_buffer::Union{Int64,Float64}=20000.0
+        search_buffer::Union{Int64,Float64}=15000.0
     )::Float64
 
 Identifies the closest edge to the target `pixel`/'`geom_buff`. The angle required to rotate
@@ -182,7 +182,7 @@ function initial_search_rotation(
     geom_buff::GI.Wrappers.Polygon,
     gdf::DataFrame,
     reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
-    search_buffer::Union{Int64,Float64}=20000.0
+    search_buffer::Union{Int64,Float64}=15000.0
 )::Float64
     geoms = gdf[!, first(GI.geometrycolumns(gdf))]
     distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
