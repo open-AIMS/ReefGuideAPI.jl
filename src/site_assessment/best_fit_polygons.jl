@@ -11,7 +11,7 @@
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
-        surr_threshold::Float64=0.33
+        surr_threshold::Float64=0.2
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
 
 Assesses the rotations of a search box `geom` for their suitability score (calculated as the
