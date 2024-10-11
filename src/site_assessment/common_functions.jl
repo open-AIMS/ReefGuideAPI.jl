@@ -283,29 +283,43 @@ function output_geojson(
     return nothing
 end
 
-"""
-    identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-
-Identifies all pixels in an input raster that return true for the function `criteria_function`.
-
-# Arguments
-- `input_raster` : Raster containing pixels for the target region.
-- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`.
-                        Pixels that return true will be targetted in analysis.
-
-# Returns
-DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
-"""
-function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = criteria_function(input_raster)
-    indices = findall(pixels)
+function _extract_search_idx(rst, indices)
     indices_lon = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
     indices_lat = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
 
     for (j, index) in enumerate(indices)
-        indices_lon[j] = dims(pixels, X)[index[1]]
-        indices_lat[j] = dims(pixels, Y)[index[2]]
+        indices_lon[j] = dims(rst, X)[index[1]]
+        indices_lat[j] = dims(rst, Y)[index[2]]
     end
+
+    return indices_lon, indices_lat
+end
+
+"""
+    identify_search_pixels(rst::Raster, criteria_function)::DataFrame
+    identify_search_pixels(rst::Raster, criteria_threshold::Int64)::DataFrame
+
+Identifies all pixels in an input raster that return true for the function `criteria_function`.
+
+# Arguments
+- `rst` : Raster containing pixels for the target region.
+- `criteria_function` : Function that returns a boolean value for each pixel in `rst`.
+                        Pixels that return true will be targetted in analysis.
+- `criteria_threshold` : Threshold value that pixels must meet to be considered in the
+                         analysis.
+
+# Returns
+DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
+"""
+function identify_search_pixels(rst::Raster, criteria_function::Function)::DataFrame
+    indices = findall(criteria_function(rst))
+    indices_lon, indices_lat = _extract_search_idx(rst, indices)
+
+    return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
+end
+function identify_search_pixels(rst::Raster, criteria_threshold::Int64)::DataFrame
+    indices = findall(rst .>= criteria_threshold)
+    indices_lon, indices_lat = _extract_search_idx(rst, indices)
 
     return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
 end
