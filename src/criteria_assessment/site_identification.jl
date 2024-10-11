@@ -200,7 +200,7 @@ function assess_sites(
     target_crs = convert(EPSG, crs(assess_locs))
 
     suitability_threshold = parse(Int64, (site_criteria["SuitabilityThreshold"]))
-    assess_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
+    assess_scores = identify_search_pixels(assess_locs, suitability_threshold)
 
     # Need reef outlines to indicate direction of the reef edge
     gdf = REGIONAL_DATA["reef_outlines"]
@@ -209,10 +209,10 @@ function assess_sites(
 
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "Assessing site polygons for $(size(assess_locs, 1)) locations."
+    @debug "Assessing site polygons for $(size(assess_scores, 1)) locations."
     initial_polygons = identify_edge_aligned_sites(
         crit_pixels,
-        assess_locs,
+        assess_scores,
         res,
         gdf,
         x_dist,
