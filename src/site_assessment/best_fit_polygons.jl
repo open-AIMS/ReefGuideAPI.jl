@@ -152,7 +152,7 @@ function identify_edge_aligned_sites(
         pixel = GO.Point(lon, lat)
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
-        lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
+        lon_offset = abs(meters_to_degrees(x_dist / 2, lat))
         lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
         bounds .= Float64[
             lon - lon_offset,
