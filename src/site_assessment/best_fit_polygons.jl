@@ -214,7 +214,7 @@ Assess given reef site for it's suitability score at different specified rotatio
 initial reef-edge rotation.
 
 # Arguments
-- `rst` : Raster or RasterStack object used to assess site suitability.
+- `rst` : Raster of suitability scores.
 - `geom` : Initial site polygon with no rotation applied.
 - `ruleset` : Criteria ruleset to apply to `rst` pixels when assessing which pixels are suitable.
 - `degree_step` : Degree value to vary each rotation by. Default = 15 degrees.
@@ -228,8 +228,7 @@ initial reef-edge rotation.
 """
 function assess_reef_site(
     rst::Union{Raster,RasterStack},
-    geom::GI.Wrappers.Polygon,
-    ruleset::Dict{Symbol,Function};
+    geom::GI.Wrappers.Polygon;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2
@@ -240,24 +239,16 @@ function assess_reef_site(
     score = zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
 
+    target_crs = GI.crs(rst)
     for (j, r) in enumerate(rotations)
-        rot_geom = rotate_geom(geom, r)
+        rot_geom = rotate_geom(geom, r, target_crs)
         c_rst = crop(rst; to=rot_geom)
         if !all(size(c_rst) .> (0, 0))
             @warn "No data found!"
             continue
         end
 
-        window = trues(size(c_rst))
-        for (n, crit_rule) in ruleset
-            window .= window .& crit_rule(c_rst[n])
-            if count(window) < ceil(length(window) / 3)
-                # Stop checking other rules if below hard threshold
-                break
-            end
-        end
-
-        score[j] = mean(window)
+        score[j] = mean(c_rst)
         best_poly[j] = rot_geom
     end
 
@@ -314,12 +305,6 @@ function identify_edge_aligned_sites(
     gdf = gdf[gdf.management_area .== region, :]
     res = abs(step(dims(rst_stack, X)))
 
-    # # TODO: Dynamically build this ruleset
-    ruleset = Dict(
-        :Depth => (data) -> within_thresholds(data, -9.0, -2.0),
-        :WavesTp => (data) -> within_thresholds(data, 0.0, 5.9)
-    )
-
     # Search each location to assess
     best_score = zeros(length(search_pixels.lon))
     best_poly = Vector(undef, length(search_pixels.lon))
@@ -334,8 +319,7 @@ function identify_edge_aligned_sites(
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,
-            geom_buff,
-            ruleset;
+            geom_buff;
             degree_step=degree_step,
             start_rot=rot_angle,
             n_per_side=n_rot_per_side
@@ -346,5 +330,5 @@ function identify_edge_aligned_sites(
         best_poly[i] = b_poly
     end
 
-    return DataFrame(; score=best_score, orientation=best_rotation, poly=best_poly)
+    return DataFrame(; score=best_score, orientation=best_rotation, geometry=best_poly)
 end
