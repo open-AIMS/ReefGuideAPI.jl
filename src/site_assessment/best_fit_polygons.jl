@@ -56,8 +56,8 @@ function assess_reef_site(
 
     @floop for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
-        score[j] =
-            size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
+        touched_locs = GO.intersects.([rot_geom], rel_pix.geometry)
+        score[j] = nrow(rel_pix[touched_locs, :]) / max_count
         best_poly[j] = rot_geom
 
         if score[j] < surr_threshold
