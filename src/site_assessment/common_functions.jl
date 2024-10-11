@@ -232,23 +232,27 @@ containing only sites with scores greater than the `surr_threshold` specified in
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
-    ignore_list = []
+    ignore_list = Int64[]
 
-    for (row) in eachrow(res_df)
+    for row in eachrow(res_df)
         if row.row_ID ∈ ignore_list
             continue
         end
 
+        # if row.qc_flag == 1
+        #     push!(ignore_list, row.row_ID)
+        #     continue
+        # end
+
         poly = row.geometry
         if any(GO.intersects.([poly], res_df[:, :geometry]))
-            intersecting_polys = res_df[(GO.intersects.([poly], res_df[:, :geometry])), :]
-            if maximum(intersecting_polys.score) <= row.score
-                for x_row in
-                    eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
-                    push!(ignore_list, x_row.row_ID)
-                end
-            else
-                push!(ignore_list, row.row_ID)
+            intersect_geoms = res_df[(GO.intersects.([poly], res_df[:, :geometry])), :]
+            best_score_idx = intersect_geoms[argmax(intersect_geoms.score), :row_ID]
+            intersect_rows = intersect_geoms.row_ID
+
+            lesser_scored_inds = intersect_geoms[intersect_rows .!= best_score_idx, :row_ID]
+            if length(lesser_scored_inds) > 0
+                append!(ignore_list, lesser_scored_inds)
             end
         end
     end
