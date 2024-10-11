@@ -127,7 +127,7 @@ function identify_edge_aligned_sites(
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
     max_count = (
-        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
+        (x_dist / degrees_to_meters(res, mean(search_pixels.lon))) *
         (
             (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
             degrees_to_meters(res, mean(search_pixels.lat))
@@ -148,10 +148,10 @@ function identify_edge_aligned_sites(
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
         bounds = [
-            lon - meters_to_degrees(x_dist / 2, lat),
-            lon + meters_to_degrees(x_dist / 2, lat),
-            lat - meters_to_degrees(x_dist / 2, lat),
-            lat + meters_to_degrees(x_dist / 2, lat)
+            lon - meters_to_degrees(x_dist / 2, lon),
+            lon + meters_to_degrees(x_dist / 2, lon),
+            lat - meters_to_degrees(y_dist / 2, lat),
+            lat + meters_to_degrees(y_dist / 2, lat)
         ]
 
         rel_pix = df[
