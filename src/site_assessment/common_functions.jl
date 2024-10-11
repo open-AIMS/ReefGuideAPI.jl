@@ -180,8 +180,8 @@ function initial_search_rotation(
     distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
-        GO.within.([pixel], geoms[distance_indices])
-    ]
+    GO.within.([pixel], geoms[distance_indices])
+]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.
