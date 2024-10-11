@@ -199,7 +199,9 @@ function setup_tile_routes(config, auth)
         )
 
         if any(size(mask_data) .== 0)
-            no_data_path = cache_filename(Dict("no_data" => "none"), config, "no_data", "png")
+            no_data_path = cache_filename(
+                Dict("no_data" => "none"), config, "no_data", "png"
+            )
 
             @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
             return file(no_data_path; headers=TILE_HEADERS)
