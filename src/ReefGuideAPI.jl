@@ -166,13 +166,14 @@ Retrieve cache location for geotiffs.
 """
 function _cache_location(config::Dict)::String
     cache_loc = try
-        in_debug = "DEBUG_MODE" in config["server_config"]
+        in_debug = haskey(config["server_config"], "DEBUG_MODE")
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
             mktempdir()
         else
             config["server_config"]["TIFF_CACHE_DIR"]
         end
-    catch
+    catch err
+        @info string(err)
         mktempdir()
     end
 
