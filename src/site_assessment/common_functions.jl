@@ -78,12 +78,11 @@ end
 Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
 function filter_far_polygons(
-    gdf::DataFrame,
+    geoms,
     pixel::GeometryBasics.Point,
     lat::Float64,
     dist::Union{Int64,Float64}
 )::BitVector
-    geoms = gdf[:, first(GI.geometrycolumns(gdf))]
     return (GO.distance.(GO.centroid.(geoms), [pixel]) .< meters_to_degrees(dist, lat))
 end
 
@@ -177,11 +176,12 @@ function initial_search_rotation(
     reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
     search_buffer::Union{Int64,Float64}=20000.0
 )::Float64
-    distance_indices = filter_far_polygons(gdf, pixel, pixel[2], search_buffer)
+    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
+    distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
     reef_lines = reef_lines[
-    GO.within.([pixel], gdf[distance_indices, first(GI.geometrycolumns(gdf))])
-]
+        GO.within.([pixel], geoms[distance_indices])
+    ]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.

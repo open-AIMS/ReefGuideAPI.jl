@@ -143,6 +143,7 @@ function identify_edge_aligned_sites(
     best_poly = Vector(undef, length(search_pixels.lon))
     best_rotation = zeros(Int64, length(search_pixels.lon))
     quality_flag = zeros(Int64, length(search_pixels.lon))
+    bounds = zeros(4)
     for (i, index) in enumerate(eachrow(search_pixels))
         lon = index.lon
         lat = index.lat
@@ -153,7 +154,7 @@ function identify_edge_aligned_sites(
 
         lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
         lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
-        bounds = [
+        bounds .= Float64[
             lon - lon_offset,
             lon + lon_offset,
             lat - lat_offset,
