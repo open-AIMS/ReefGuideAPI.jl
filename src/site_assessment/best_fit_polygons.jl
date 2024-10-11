@@ -191,7 +191,10 @@ function identify_edge_aligned_sites(
     end
 
     return DataFrame(;
-        score=best_score, orientation=best_rotation, qc_flag=quality_flag, poly=best_poly
+        score=best_score,
+        orientation=best_rotation,
+        qc_flag=quality_flag,
+        geometry=best_poly
     )
 end
 
