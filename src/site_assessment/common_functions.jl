@@ -179,9 +179,7 @@ function initial_search_rotation(
     geoms = gdf[!, first(GI.geometrycolumns(gdf))]
     distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
     reef_lines = reef_outlines[distance_indices]
-    reef_lines = reef_lines[
-    GO.within.([pixel], geoms[distance_indices])
-]
+    reef_lines = reef_lines[GO.within.([pixel], geoms[distance_indices])]
     reef_lines = vcat(reef_lines...)
 
     # If a pixel is outside of a polygon, use the closest polygon instead.
@@ -189,7 +187,7 @@ function initial_search_rotation(
         reef_distances =
             GO.distance.(
                 [pixel],
-                gdf[distance_indices, first(GI.geometrycolumns(gdf))]
+                geoms[distance_indices]
             )
         reef_lines = reef_outlines[distance_indices]
         reef_lines = reef_lines[argmin(reef_distances)]
@@ -199,8 +197,9 @@ function initial_search_rotation(
     edge_line = closest_reef_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
-    edge_bearing = line_angle([(0.0, 5.0), (0.0, 0.0)], from_zero(edge_line))
-    rot_angle = line_angle(from_zero(find_horizontal(geom_buff)), from_zero(edge_line))
+    zero_line::Vector{Tuple{Float64, Float64}} = from_zero(edge_line)
+    edge_bearing = line_angle([(0.0, 5.0), (0.0, 0.0)], zero_line)
+    rot_angle = line_angle(from_zero(find_horizontal(geom_buff)), zero_line)
     if edge_bearing > 90
         rot_angle = -rot_angle
     end
