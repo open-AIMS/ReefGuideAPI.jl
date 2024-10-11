@@ -46,8 +46,9 @@ function assess_reef_site(
     n_per_side::Int64=2,
     surr_threshold::Float64=0.33
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
-    rotations =
-        (start_rot - (degree_step * n_per_side)):degree_step:(start_rot + (degree_step * n_per_side))
+    rot_start = (start_rot - (degree_step * n_per_side))
+    rot_end = (start_rot + (degree_step * n_per_side))
+    rotations = rot_start:degree_step:rot_end
     n_rotations = length(rotations)
     score = zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
@@ -60,13 +61,16 @@ function assess_reef_site(
         best_poly[j] = rot_geom
 
         if score[j] < surr_threshold
+            # Early exit as there's no point in searching further.
+            # Changing the rotation is unlikely to improve the score.
             qc_flag[j] = 1
             break
         end
     end
 
     return score[argmax(score)],
-    argmax(score) - (n_per_side + 1), best_poly[argmax(score)],
+    argmax(score) - (n_per_side + 1),
+    best_poly[argmax(score)],
     maximum(qc_flag)
 end
 
@@ -127,7 +131,7 @@ function identify_edge_aligned_sites(
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
     max_count = (
-        (x_dist / degrees_to_meters(res, mean(search_pixels.lon))) *
+        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
         (
             (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
             degrees_to_meters(res, mean(search_pixels.lat))
@@ -147,16 +151,27 @@ function identify_edge_aligned_sites(
         pixel = GO.Point(lon, lat)
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
+        lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
+        lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
         bounds = [
-            lon - meters_to_degrees(x_dist / 2, lon),
-            lon + meters_to_degrees(x_dist / 2, lon),
-            lat - meters_to_degrees(y_dist / 2, lat),
-            lat + meters_to_degrees(y_dist / 2, lat)
+            lon - lon_offset,
+            lon + lon_offset,
+            lat - lat_offset,
+            lat + lat_offset
         ]
 
-        rel_pix = df[
-            (df.lon .> bounds[1]) .& (df.lon .< bounds[2]) .& (df.lat .> bounds[3]) .& (df.lat .< bounds[4]),
-            :]
+        lower_lon = (df.lon .>= bounds[1])
+        upper_lon = (df.lon .<= bounds[2])
+        lower_lat = (df.lat .>= bounds[3])
+        upper_lat = (df.lat .<= bounds[4])
+        rel_pix = df[lower_lon .& upper_lon .& lower_lat .& upper_lat, :]
+
+        if nrow(rel_pix) == 0
+            best_score[i] = 0.0
+            best_rotation[i] = 0
+            quality_flag[i] = 0
+            continue
+        end
 
         b_score, b_rot, b_poly, qc_flag = assess_reef_site(
             rel_pix,
