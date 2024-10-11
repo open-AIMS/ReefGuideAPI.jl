@@ -232,11 +232,6 @@ function filter_sites(res_df::DataFrame)::DataFrame
             continue
         end
 
-        if row.qc_flag == 1
-            push!(ignore_list, row.row_ID)
-            continue
-        end
-
         if any(GO.intersects.([row.poly], res_df[:, :poly]))
             intersecting_polys = res_df[(GO.intersects.([row.poly], res_df[:, :poly])), :]
             if maximum(intersecting_polys.score) <= row.score
@@ -252,7 +247,7 @@ function filter_sites(res_df::DataFrame)::DataFrame
 
     rename!(res_df, :poly => :geometry)
 
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], Not(:qc_flag, :row_ID)]
+    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
 end
 
 """
