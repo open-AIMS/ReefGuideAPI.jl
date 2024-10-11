@@ -145,11 +145,12 @@ function setup_regional_data(config::Dict)
         @eval const REGIONAL_DATA = $(regional_assessment_data)
     end
 
-    # If REGIONAL_DATA is defined, but failed to load supported data that cannot
-    # be cached to disk (e.g., the reef outlines), then it will cause errors later on.
+    # If REGIONAL_DATA is defined, but failed to load supporting data that cannot be
+    # cached to disk, such as the reef outlines, (e.g., due to incorrect config), then it
+    # will cause errors later on.
     # Then there's no way to address this, even between web server sessions, as `const`
     # values cannot be modified.
-    # We check for existance and try to load again if needed.
+    # Here, we check for existence and try to load again if needed.
     if !haskey(REGIONAL_DATA, "reef_outlines")
         reef_outline_path = joinpath(reef_data_path, "rrap_canonical_outlines.gpkg")
         REGIONAL_DATA["reef_outlines"] = GDF.read(reef_outline_path)
