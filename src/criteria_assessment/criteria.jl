@@ -192,7 +192,7 @@ function setup_region_routes(config, auth)
         # Assess location suitability if needed
         assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
         if isfile(assessed_fn)
-            assessed = file(assessed_fn; headers=COG_HEADERS)
+            assessed = Raster(assessed_fn)
         else
             assessed = assess_region(reg_assess_data, reg, qp, rtype)
             _write_cog(assessed_fn, assessed, config)
