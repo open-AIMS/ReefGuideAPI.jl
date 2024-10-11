@@ -22,11 +22,11 @@ close to the edge due to the use of buffer areas.
 Matrix of values 0 - 100 indicating the percentage of the area around the target pixel that
 meet suitability criteria.
 """
-function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix{Int16}
+function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-3, 3))::Matrix{Int16}
     subsection_dims = size(x)
     target_area = zeros(Int16, subsection_dims)
 
-    @floop for row_col in ThreadsX.findall(x)
+    @floop for row_col in findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col + square_offset[1], 1)
         x_right = min(col + square_offset[2], subsection_dims[2])
@@ -34,7 +34,9 @@ function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix
         y_top = max(row + square_offset[1], 1)
         y_bottom = min(row + square_offset[2], subsection_dims[1])
 
-        target_area[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
+        assessment_window = @view(x[y_top:y_bottom, x_left:x_right])
+        perc_score = sum(assessment_window) / length(assessment_window) * 100.0
+        target_area[row, col] = Int16(round(perc_score; digits=0))
     end
 
     return target_area
