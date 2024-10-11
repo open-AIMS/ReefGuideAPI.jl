@@ -3,36 +3,43 @@
 using FLoops, ThreadsX
 
 """
-    proportion_suitable(subsection::BitMatrix, window::Tuple=(-4,5))::Matrix{Int16}
+    proportion_suitable(subsection::BitMatrix, square_offset::Tuple=(-4,5))::Matrix{Int16}
 
 Calculate the the proportion of the subsection that is suitable for deployments.
-Subsection is the surrounding a rough hectare area centred on each cell of a raster marked
-as being suitable according to user-selected criteria. Cells on the edges of a raster object
-are assessed using a smaller surrounding area, rather than shifting the window inward.
+The `subsection` is the surrounding a rough hectare area centred on each cell of a raster
+marked as being suitable according to user-selected criteria.
+
+Cells on the edges of a raster object are assessed using a smaller surrounding area, rather
+than shifting the window inward. In usual applications, there will be no target pixel
+close to the edge due to the use of buffer areas.
 
 # Arguments
 - `x` : Matrix of boolean pixels after filtering with user criteria.
-- `window` : The number of pixels +/- to assess as the moving window. For example, the default
-window (-4,5) assesses a square that contains 4 pixels to the left/above the target pixel,
-the target pixel, and 5 pixels to the right/below the target pixel. This default window
-assesses a hectare around each target pixel where the resolution of pixels is 10m.
+- `square_offset` : The number of pixels +/- around a center "target" pixel to assess as the
+                    moving window. Defaults to (-4, 5).
+                    Assuming a 10m² pixel, the default `square_offset` resolves to a one
+                    hectare area.
+
+# Returns
+Matrix of values 0 - 100 indicating the percentage of the area around the target pixel that
+meet suitability criteria.
 """
-function proportion_suitable(x::BitMatrix; window::Tuple=(-4, 5))::Matrix{Int16}
+function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix{Int16}
     subsection_dims = size(x)
-    x′ = zeros(Int16, subsection_dims)
+    target_area = zeros(Int16, subsection_dims)
 
     @floop for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
-        x_left = max(col + window[1], 1)
-        x_right = min(col + window[2], subsection_dims[2])
+        x_left = max(col + square_offset[1], 1)
+        x_right = min(col + square_offset[2], subsection_dims[2])
 
-        y_top = max(row + window[1], 1)
-        y_bottom = min(row + window[2], subsection_dims[1])
+        y_top = max(row + square_offset[1], 1)
+        y_bottom = min(row + square_offset[2], subsection_dims[1])
 
-        x′[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
+        target_area[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
 
-    return x′
+    return target_area
 end
 
 """
@@ -46,7 +53,7 @@ Exclude pixels in `target_rast` that are beyond `dist_nm` (nautical miles) from 
 in `gdf`.  `target_rast` and `gdf` should be in the same CRS (EPSG:7844 / GDA2020 for GBR-reef-guidance-assessment).
 
 # Arguments
-- `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
+- `target_rast` : Boolean raster of suitable pixels to filter.
 - `gdf` : DataFrame with `geometry` column that contains vector objects of interest.
 - `dist_nm` : Filtering distance from geometry object in nautical miles.
 
@@ -64,7 +71,7 @@ function filter_distances(
     raster_lat = Vector{Float64}(tmp_areas.dims[1].val)
     raster_lon = Vector{Float64}(tmp_areas.dims[2].val)
 
-    @floop for row_col in findall(tmp_areas)
+    @floop for row_col in ThreadsX.findall(tmp_areas)
         (lat_ind, lon_ind) = Tuple(row_col)
         point = AG.createpoint()
 
