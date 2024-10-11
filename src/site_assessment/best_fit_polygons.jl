@@ -11,7 +11,7 @@
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
-        surr_threshold::Float64=0.33
+        surr_threshold::Float64=0.2
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
 
 Assesses the rotations of a search box `geom` for their suitability score (calculated as the
@@ -21,7 +21,7 @@ rotations clockwise are
 positive.
 
 # Arguments
-- `rel_pix` : DataFrame containing the point data for pixels that are within maxmimum user search box dimensions from a pixel.
+- `rel_pix` : DataFrame containing the point data for pixels that are within maximum user search box dimensions from a pixel.
 - `geom` : Starting search box for assessment.
 - `max_count` : The maximum number of pixels that can intersect the search box (used to standardise scores between 0 and 1).
 - `target_crs` : Coordinate Reference System used for analysis vector and raster data.
