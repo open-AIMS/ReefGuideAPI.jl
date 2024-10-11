@@ -259,9 +259,13 @@ Writes out GeoJSON file to a target directory. Output file will be located at lo
 - `destination_path` : File path to write geojson file to.
 - `df` : DataFrame intended for writing to geojson file.
 """
-function output_geojson(destination_path::String, df::DataFrame; output_crs=EPSG(4326))::Nothing
+function output_geojson(
+    destination_path::String, df::DataFrame; output_crs=EPSG(4326)
+)::Nothing
     out_df = copy(df)
-    out_df.geometry = GO.reproject(out_df.geometry, GI.crs(first(out_df.geometry)), output_crs)
+    out_df.geometry = GO.reproject(
+        out_df.geometry, GI.crs(first(out_df.geometry)), output_crs
+    )
 
     GDF.write(destination_path, out_df; crs=GI.crs(first(out_df.geometry)))
 
