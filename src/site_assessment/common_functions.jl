@@ -10,7 +10,7 @@ include("geom_ops.jl")
 
 Convert meters to degrees at target latitude.
 """
-function meters_to_degrees(x, lat)
+function meters_to_degrees(x::Union{Int64,Float64}, lat::Float64)
     return x / (111.1 * 1000 * cosd(lat))
 end
 
@@ -19,7 +19,7 @@ end
 
 Convert degrees to meters at target latitude.
 """
-function degrees_to_meters(x, lat)
+function degrees_to_meters(x::Union{Int64,Float64}, lat::Float64)
     return x * (111.1 * 1000 * cosd(lat))
 end
 
