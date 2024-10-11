@@ -169,8 +169,6 @@ function setup_tile_routes(config, auth)
         # http://127.0.0.1:8000/tile/7/115/69?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
 
-        no_data_path = cache_filename(Dict("no_data" => "none"), config, "no_data", "png")
-
         qp = queryparams(req)
         mask_path = cache_filename(qp, config, "", "png")
         if isfile(mask_path)
@@ -201,6 +199,8 @@ function setup_tile_routes(config, auth)
         )
 
         if any(size(mask_data) .== 0)
+            no_data_path = cache_filename(Dict("no_data" => "none"), config, "no_data", "png")
+
             @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
             return file(no_data_path; headers=TILE_HEADERS)
         end
