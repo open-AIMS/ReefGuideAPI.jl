@@ -1,7 +1,5 @@
 """Methods for identifying potential deployment locations."""
 
-using FLoops, ThreadsX
-
 """
     proportion_suitable(subsection::BitMatrix, square_offset::Tuple=(-4,5))::Matrix{Int16}
 
