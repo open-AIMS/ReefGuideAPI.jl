@@ -44,7 +44,7 @@ function assess_reef_site(
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
-    surr_threshold::Float64=0.33
+    surr_threshold::Float64=0.2
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     rot_start = (start_rot - (degree_step * n_per_side))
     rot_end = (start_rot + (degree_step * n_per_side))
@@ -54,7 +54,7 @@ function assess_reef_site(
     best_poly = Vector(undef, n_rotations)
     qc_flag = zeros(Int64, n_rotations)
 
-    for (j, r) in enumerate(rotations)
+    @floop for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
         score[j] =
             size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
