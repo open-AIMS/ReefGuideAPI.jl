@@ -131,7 +131,10 @@ function identify_edge_aligned_sites(
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
     max_count = (
-        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
+        (
+            (x_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
+            degrees_to_meters(res, mean(search_pixels.lat))
+        ) *
         (
             (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
             degrees_to_meters(res, mean(search_pixels.lat))
@@ -152,13 +155,16 @@ function identify_edge_aligned_sites(
         pixel = GO.Point(lon, lat)
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
-        lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
-        lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
-        bounds .= Float64[
-            lon - lon_offset,
-            lon + lon_offset,
-            lat - lat_offset,
-            lat + lat_offset
+        max_offset = (
+            abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
+            (2 * degrees_to_meters(res, lat))
+        )
+
+        bounds = [
+            lon - max_offset,
+            lon + max_offset,
+            lat - max_offset,
+            lat + max_offset
         ]
 
         lower_lon = (df.lon .>= bounds[1])
@@ -170,7 +176,8 @@ function identify_edge_aligned_sites(
         if nrow(rel_pix) == 0
             best_score[i] = 0.0
             best_rotation[i] = 0
-            quality_flag[i] = 0
+            best_poly[i] = geom_buff
+            quality_flag[i] = 1
             continue
         end
 
