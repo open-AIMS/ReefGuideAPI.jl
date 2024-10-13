@@ -170,7 +170,7 @@ function setup_tile_routes(config, auth)
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
 
         qp = queryparams(req)
-        mask_path = cache_filename(qp, config, "", "png")
+        mask_path = cache_filename(qp, config, "tile-zxy_$(z)_$(x)_$(y)", "png")
         if isfile(mask_path)
             return file(mask_path; headers=TILE_HEADERS)
         end
