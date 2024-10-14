@@ -159,8 +159,7 @@ end
         search_buffer::Union{Int64,Float64}=20000.0
     )::Float64
 
-Identifies the closest edge to the target `pixel`/'`geom_buff` and returns the initial rotation
-angle required to match the edge line.
+Identifies the closest edge to the target `pixel`/'`geom_buff`.
 
 # Arguments
 - `pixel` : Target point at the center of the search polygon.
