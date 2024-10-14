@@ -160,7 +160,7 @@ function identify_edge_aligned_sites(
             (2 * res)
         )
 
-        local bounds = [
+        bounds .= Float64[
             lon - max_offset,
             lon + max_offset,
             lat - max_offset,
