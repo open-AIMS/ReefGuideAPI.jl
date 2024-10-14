@@ -35,6 +35,13 @@ positive.
 - Highest scoring rotation step
 - Highest scoring polygon
 - Quality control flag for site, indicating if `surr_threshold` was met in the highest scoring rotation.
+
+# Extended help
+The scores produced are a proportion of the polygon that are covered by valid pixel points,
+relative to the maximum number of points (`max_count`) (0-1). `max_count` is approximate
+(determined by user `x_dist` and `y_dist` box dimensions) and doesn't account for buffering
+and rotation of the search box. In rare cases scores could be > 1, however returned values
+are capped at max 1.
 """
 function assess_reef_site(
     rel_pix::DataFrame,
@@ -68,7 +75,7 @@ function assess_reef_site(
         end
     end
 
-    return score[argmax(score)],
+    return min(score[argmax(score)], 1),
     argmax(score) - (n_per_side + 1),
     best_poly[argmax(score)],
     maximum(qc_flag)
@@ -130,13 +137,7 @@ function identify_edge_aligned_sites(
     region_long = REGIONAL_DATA["region_long_names"][region]
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
-    max_count = (
-        (x_dist / degrees_to_meters(res, mean(search_pixels.lat))) *
-        (
-            (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
-            degrees_to_meters(res, mean(search_pixels.lat))
-        )
-    )
+    max_count = (x_dist * y_dist) / (pixel_unit^2)
 
     # Search each location to assess
     best_score = zeros(length(search_pixels.lon))
@@ -152,13 +153,16 @@ function identify_edge_aligned_sites(
         pixel = GO.Point(lon, lat)
         rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
 
-        lon_offset = abs(meters_to_degrees(x_dist / 2, lon))
-        lat_offset = abs(meters_to_degrees(y_dist / 2, lat))
+        max_offset = (
+            abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
+            (2 * res)
+        )
+
         bounds .= Float64[
-            lon - lon_offset,
-            lon + lon_offset,
-            lat - lat_offset,
-            lat + lat_offset
+            lon - max_offset,
+            lon + max_offset,
+            lat - max_offset,
+            lat + max_offset
         ]
 
         lower_lon = (df.lon .>= bounds[1])
@@ -170,7 +174,8 @@ function identify_edge_aligned_sites(
         if nrow(rel_pix) == 0
             best_score[i] = 0.0
             best_rotation[i] = 0
-            quality_flag[i] = 0
+            best_poly[i] = geom_buff
+            quality_flag[i] = 1
             continue
         end
 
