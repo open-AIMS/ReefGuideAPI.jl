@@ -35,6 +35,13 @@ positive.
 - Highest scoring rotation step
 - Highest scoring polygon
 - Quality control flag for site, indicating if `surr_threshold` was met in the highest scoring rotation.
+
+# Extended help
+The scores produced are a proportion of the polygon that are covered by valid pixel points,
+relative to the maximum number of points (`max_count`) (0-1). `max_count` is approximate
+(determined by user `x_dist` and `y_dist` box dimensions) and doesn't account for buffering
+and rotation of the search box. In rare cases scores could be > 1, however returned values
+are capped at max 1.
 """
 function assess_reef_site(
     rel_pix::DataFrame,
@@ -68,7 +75,7 @@ function assess_reef_site(
         end
     end
 
-    return score[argmax(score)],
+    return min(score[argmax(score)], 1),
     argmax(score) - (n_per_side + 1),
     best_poly[argmax(score)],
     maximum(qc_flag)
@@ -130,16 +137,7 @@ function identify_edge_aligned_sites(
     region_long = REGIONAL_DATA["region_long_names"][region]
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
-    max_count = (
-        (
-            (x_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
-            degrees_to_meters(res, mean(search_pixels.lat))
-        ) *
-        (
-            (y_dist + 2 * degrees_to_meters(res, mean(search_pixels.lat))) /
-            degrees_to_meters(res, mean(search_pixels.lat))
-        )
-    )
+    max_count = (x_dist * y_dist) / (pixel_unit^2)
 
     # Search each location to assess
     best_score = zeros(length(search_pixels.lon))
