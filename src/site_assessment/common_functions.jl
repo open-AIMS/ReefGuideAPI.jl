@@ -168,6 +168,12 @@ angle required to match the edge line.
 - `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
 - `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
 - `search_buffer` : Distance to search from pixel to find closest reef.
+
+# Returns
+Angle of rotation required to match reef edge line. This angle is the angle relative to the
+default `geom_buff` horizontal orientation. Therefore, if returned angle = 45 degrees,
+`rot_geom(geom_buff, 45)` will rotate `geom_buff` by 45 degrees to match the identified reef
+edge.
 """
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
