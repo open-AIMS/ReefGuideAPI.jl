@@ -157,10 +157,10 @@ function identify_edge_aligned_sites(
 
         max_offset = (
             abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
-            (2 * degrees_to_meters(res, lat))
+            (2 * res)
         )
 
-        bounds = [
+        local bounds = [
             lon - max_offset,
             lon + max_offset,
             lat - max_offset,
