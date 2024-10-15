@@ -2,7 +2,6 @@
 #-------------------------------------------------
 # Docker compose for ReefGuideAPI.jl docker image
 #--------------------------------------------------
-version: "3.8"
 
 services:
   # TODO enable and update this once the release version is ready
@@ -11,7 +10,7 @@ services:
   #     args:
   #       # TODO when versioning is setup improve this
   #       REEFGUIDE_VERSION: "v0.1.0"
-  #       JULIA_VERSION: "1.10.4"
+  #       JULIA_VERSION: "1.10.5"
   #     context: .
   #     target: reefguide-base
   #   image: ReefGuideAPI.jl/reefguide-base:latest
