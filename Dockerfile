@@ -8,8 +8,9 @@ ARG JULIA_VERSION="1.10.5"
 FROM julia:${JULIA_VERSION}-bookworm AS internal-base
 
 # Record the actual base image used from the FROM command as label in the compiled image
-ARG BASE_IMAGE=$BASE_IMAGE
+ARG BASE_IMAGE="julia:${JULIA_VERSION}-bookworm" 
 LABEL org.opencontainers.image.base.name=${BASE_IMAGE}
+
 
 # Update all pre-installed OS packages (to get security updates)
 # and add a few extra utilities
