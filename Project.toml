@@ -47,4 +47,4 @@ ThreadsX = "ac1d9e8a-700a-412c-b207-f0111f4b6c0d"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
-DiskArrays = "=0.3.23"
+DiskArrays = "=0.3.23, ^0.4.5"
