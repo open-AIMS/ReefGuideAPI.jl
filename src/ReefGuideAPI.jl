@@ -136,8 +136,16 @@ function setup_regional_data(config::Dict)
         @debug "Using previously generated regional data store."
     elseif isfile(reg_cache_fn)
         @debug "Loading regional data cache from disk"
-        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
-    else
+        # Updates to packages like DiskArrays can break deserialization
+        try
+            @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+        catch err
+            @warn "Failed to deserialize $(reg_cache_fn) with error:" err
+            rm(reg_cache_fn)
+        end
+    end
+
+    if !@isdefined(REGIONAL_DATA)
         @debug "Setting up regional data store..."
         regional_assessment_data = initialize_regional_data_cache(
             reef_data_path,
