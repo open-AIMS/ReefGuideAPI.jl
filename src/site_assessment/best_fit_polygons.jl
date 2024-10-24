@@ -137,7 +137,7 @@ function identify_edge_aligned_sites(
     region_long = REGIONAL_DATA["region_long_names"][region]
     reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
-    max_count = (x_dist * y_dist) / (pixel_unit^2)
+    max_count = (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lat))^2)
 
     # Search each location to assess
     best_score = zeros(length(search_pixels.lon))
