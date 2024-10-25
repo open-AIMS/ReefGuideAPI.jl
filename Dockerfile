@@ -1,5 +1,5 @@
 # See https://hub.docker.com/_/julia for valid versions.
-ARG JULIA_VERSION="1.10.5"
+ARG JULIA_VERSION="1.11.1"
 
 #------------------------------------------------------------------------------
 # internal-base build target: julia with OS updates and an empty @reefguide
@@ -22,9 +22,13 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     git \
     less \
     nano \
+    gdal-bin \
+    libgdal-dev \
+    libfftw3-dev \
     && apt-get clean \
     && apt-get autoremove --purge \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Tweak the JULIA_DEPOT_PATH setting so that our shared environments will end up
 # in a user-agnostic location, not in ~/.julia => /root/.julia which is the default.
@@ -104,7 +108,11 @@ ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 WORKDIR "${REEFGUIDE_SRC_DIR}"
 COPY ./Project.toml ./Project.toml
 COPY ./Manifest.toml ./Manifest.toml
-RUN julia --project=@reefguide -e 'using Pkg;  Pkg.instantiate(verbose=true)'
+# Pre-download and cache MKL_jll dependency before general precompilation
+RUN julia -e 'using Pkg; Pkg.add("MKL_jll"); Pkg.instantiate(); using MKL_jll'
+
+# Precompile Julia packages using BuildKit cache for better efficiency
+RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
