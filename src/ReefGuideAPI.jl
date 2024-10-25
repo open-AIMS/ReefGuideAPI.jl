@@ -31,6 +31,7 @@ include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
 
 include("Middleware.jl")
+include("admin.jl")
 
 function get_regions()
     # TODO: Comes from config?
@@ -288,6 +289,9 @@ function start_server(config_path)
     @info "Setting up tile routes..."
     setup_tile_routes(config, auth)
 
+    @info "Setting up admin routes..."
+    setup_admin_routes(config)
+
     port = 8000
     @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."
 
@@ -295,7 +299,8 @@ function start_server(config_path)
         middleware=[CorsMiddleware],
         host="0.0.0.0",
         port=port,
-        parallel=Threads.nthreads() > 1
+        parallel=Threads.nthreads() > 1,
+        is_prioritized=(req::HTTP.Request) -> req.target == "/health"
     )
 end
 
