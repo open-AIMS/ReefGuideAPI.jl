@@ -106,8 +106,8 @@ ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 # those to set up the ReefGuideAPI source code as a development package in the
 # shared @reefguide environment, pre-installing and precompiling dependencies.
 WORKDIR "${REEFGUIDE_SRC_DIR}"
-COPY ./Project.toml ./Project.toml
-COPY ./Manifest.toml ./Manifest.toml
+COPY Project.toml Manifest.toml ./
+
 # Pre-download and cache MKL_jll dependency before general precompilation
 RUN julia -e 'using Pkg; Pkg.add("MKL_jll"); Pkg.instantiate(); using MKL_jll'
 
