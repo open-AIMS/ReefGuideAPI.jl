@@ -178,13 +178,21 @@ function _cache_location(config::Dict)::String
     cache_loc = try
         in_debug = haskey(config["server_config"], "DEBUG_MODE")
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
-            mktempdir()
+            if "DEBUG_CACHE_DIR" ∉ keys(ENV)
+                ENV["DEBUG_CACHE_DIR"] = mktempdir()
+            end
+
+            ENV["DEBUG_CACHE_DIR"]
         else
             config["server_config"]["TIFF_CACHE_DIR"]
         end
     catch err
-        @info string(err)
-        mktempdir()
+        @warn "Encountered error:" err
+        if "DEBUG_CACHE_DIR" ∉ keys(ENV)
+            ENV["DEBUG_CACHE_DIR"] = mktempdir()
+        end
+
+        ENV["DEBUG_CACHE_DIR"]
     end
 
     return cache_loc
@@ -266,7 +274,7 @@ end
 function start_server(config_path)
     @info "Launching server... please wait"
 
-    ReefGuideAPI.warmup_cache(config_path)
+    warmup_cache(config_path)
 
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
