@@ -162,6 +162,11 @@ end
 Identifies the closest edge to the target `pixel`/'`geom_buff`. The angle required to rotate
 geom_buff by to match this reef edge is calculated.
 
+# Extended help
+The returned angle is the angle relative to the default `geom_buff` horizontal orientation.
+Therefore, if returned angle = 45 degrees, `rot_geom(geom_buff, 45)` will rotate `geom_buff`
+by 45 degrees to match the identified reef edge.
+
 # Arguments
 - `pixel` : Target point at the center of the search polygon.
 - `geom_buff` : Initial search box with zero rotation.
@@ -171,11 +176,6 @@ geom_buff by to match this reef edge is calculated.
 
 # Returns
 Rotation angle required to match reef edge when used in `rotate_geom(geom_buff, rot_angle)`.
-
-# Extended help
-The returned angle is the angle relative to the default `geom_buff` horizontal orientation.
-Therefore, if returned angle = 45 degrees, `rot_geom(geom_buff, 45)` will rotate `geom_buff`
-by 45 degrees to match the identified reef edge.
 """
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
