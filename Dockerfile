@@ -109,7 +109,7 @@ WORKDIR "${REEFGUIDE_SRC_DIR}"
 COPY Project.toml Manifest.toml ./
 
 # Pre-download and cache MKL_jll dependency before general precompilation
-RUN julia -e 'using Pkg; Pkg.add("MKL_jll"); Pkg.instantiate(); using MKL_jll'
+RUN julia -e 'using Pkg; pkg_path = Pkg.TOML.parsefile("Manifest.toml")["packages"]["MKL_jll"]["git-tree-sha1"]; Pkg.develop(PackageSpec(name="MKL_jll", version=pkg_path)); Pkg.precompile()'
 
 # Precompile Julia packages using BuildKit cache for better efficiency
 RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
