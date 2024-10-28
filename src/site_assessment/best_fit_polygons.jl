@@ -307,8 +307,8 @@ function identify_edge_aligned_sites(
     degree_step::Float64=15.0,
     n_rot_per_side::Int64=2
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area .== region]
-    gdf = gdf[gdf.management_area .== region, :]
+    reef_lines = reef_lines[gdf.management_area_short .== region]
+    gdf = gdf[gdf.management_area_short .== region, :]
     res = abs(step(dims(rst_stack, X)))
 
     # Search each location to assess
