@@ -12,9 +12,6 @@ name: Build and Publish ReefGuideAPI.jl Docker Image
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - pascal
   release:
     types: [published]
 
