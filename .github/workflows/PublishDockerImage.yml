@@ -2,6 +2,7 @@
 # It is triggered when a push is made to the main branch.
 
 # Additional notes:
+# - Checks that MKL_jll dependency has been output before running
 # - The workflow uses the github.repository context to name the image, ensuring it's tied to your repository
 # - The GITHUB_TOKEN is automatically provided by GitHub Actions, no need to set it up manually
 # - The Docker metadata action automatically generates appropriate tags based on the release version
@@ -28,7 +29,14 @@ env:
   FIXED_REEFGUIDEAPI_VERSION: "0.1.0"
 
 jobs:
+  check-mkl:
+    uses: ./.github/workflows/MKL_jll.yml
+    with:
+      auto_update: false # Fail if out of date, don't auto-update
+
   build-and-push-image:
+    needs: check-mkl
+    if: needs.check-mkl.outputs.is_up_to_date == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

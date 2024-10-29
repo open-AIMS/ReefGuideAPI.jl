@@ -1,0 +1,99 @@
+name: Check MKL_jll Dependency
+
+on:
+  workflow_call:
+    inputs:
+      auto_update:
+        description: "Automatically update MKL_jll.dep if out of date"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      is_up_to_date:
+        description: "Whether MKL_jll.dep is up to date"
+        value: ${{ jobs.check-mkl-dep.outputs.is_up_to_date }}
+  pull_request:
+    paths:
+      - "Manifest.toml"
+      - "MKL_jll.dep"
+
+jobs:
+  check-mkl-dep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      is_up_to_date: ${{ steps.check.outputs.is_up_to_date }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract current MKL hash from Manifest
+        run: |
+          CURRENT_HASH=$(awk '/\[\[deps\.MKL_jll\]\]/{flag=1;next}/\[\[/{if(flag){exit}}flag&&/git-tree-sha1/{gsub(/^.*= "|".*$/,"",$0);printf "%s", $0}' Manifest.toml)
+          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
+
+      - name: Read existing dep file
+        run: |
+          if [ -f MKL_jll.dep ]; then
+            EXISTING_HASH=$(tr -d '[:space:]' < MKL_jll.dep)
+            echo "EXISTING_HASH=$EXISTING_HASH" >> $GITHUB_ENV
+          else
+            echo "MKL_jll.dep does not exist"
+            echo "EXISTING_HASH=" >> $GITHUB_ENV
+          fi
+
+      - name: Check if update needed
+        id: check
+        run: |
+          if [ "${{ env.EXISTING_HASH }}" != "${{ env.CURRENT_HASH }}" ]; then
+            echo "UPDATE_NEEDED=true" >> $GITHUB_OUTPUT
+            echo "is_up_to_date=false" >> $GITHUB_OUTPUT
+          else
+            echo "UPDATE_NEEDED=false" >> $GITHUB_OUTPUT
+            echo "is_up_to_date=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine if we should auto-update
+        id: should_update
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "should_auto_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_auto_update=${{ inputs.auto_update }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if out of date and auto-update is disabled
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.should_update.outputs.should_auto_update == 'false'
+        run: |
+          echo "MKL_jll.dep is out of date and auto-update is disabled"
+          exit 1
+
+      - name: Commit and push if changed and auto-update enabled
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.should_update.outputs.should_auto_update == 'true'
+        run: |
+          printf "%s" "${{ env.CURRENT_HASH }}" > MKL_jll.dep
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add MKL_jll.dep
+          git commit -m "Update MKL_jll.dep to match Manifest.toml"
+          git push
+
+      - name: Comment on PR
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              issue_number: context.issue.number,
+              body: `I've automatically updated MKL_jll.dep to match the current Manifest.toml.
+              
+              Previous hash: \`${process.env.EXISTING_HASH || 'file did not exist'}\`
+              New hash: \`${process.env.CURRENT_HASH}\``
+            })
