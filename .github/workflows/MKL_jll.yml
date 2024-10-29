@@ -13,6 +13,7 @@ on:
         description: "Whether MKL_jll.dep is up to date"
         value: ${{ jobs.check-mkl-dep.outputs.is_up_to_date }}
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - "Manifest.toml"
       - "MKL_jll.dep"
