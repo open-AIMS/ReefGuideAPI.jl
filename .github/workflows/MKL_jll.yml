@@ -15,9 +15,6 @@ on:
   # trigger on pull request whenever Manifest or MKL dep changes
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "Manifest.toml"
-      - "MKL_jll.dep"
 
 jobs:
   check-mkl-dep:
