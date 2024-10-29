@@ -15,6 +15,8 @@ on:
   # trigger on pull request
   pull_request:
     types: [opened, synchronize, reopened]
+  push:
+    branches: [pascal]
 
 jobs:
   check-mkl-dep:
