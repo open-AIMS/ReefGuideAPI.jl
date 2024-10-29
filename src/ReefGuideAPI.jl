@@ -31,6 +31,7 @@ include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
 
 include("Middleware.jl")
+include("admin.jl")
 
 function get_regions()
     # TODO: Comes from config?
@@ -136,8 +137,16 @@ function setup_regional_data(config::Dict)
         @debug "Using previously generated regional data store."
     elseif isfile(reg_cache_fn)
         @debug "Loading regional data cache from disk"
-        @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
-    else
+        # Updates to packages like DiskArrays can break deserialization
+        try
+            @eval const REGIONAL_DATA = deserialize($(reg_cache_fn))
+        catch err
+            @warn "Failed to deserialize $(reg_cache_fn) with error:" err
+            rm(reg_cache_fn)
+        end
+    end
+
+    if !@isdefined(REGIONAL_DATA)
         @debug "Setting up regional data store..."
         regional_assessment_data = initialize_regional_data_cache(
             reef_data_path,
@@ -170,13 +179,21 @@ function _cache_location(config::Dict)::String
     cache_loc = try
         in_debug = haskey(config["server_config"], "DEBUG_MODE")
         if in_debug && lowercase(config["server_config"]["DEBUG_MODE"]) == "true"
-            mktempdir()
+            if "DEBUG_CACHE_DIR" ∉ keys(ENV)
+                ENV["DEBUG_CACHE_DIR"] = mktempdir()
+            end
+
+            ENV["DEBUG_CACHE_DIR"]
         else
             config["server_config"]["TIFF_CACHE_DIR"]
         end
     catch err
-        @info string(err)
-        mktempdir()
+        @warn "Encountered error:" err
+        if "DEBUG_CACHE_DIR" ∉ keys(ENV)
+            ENV["DEBUG_CACHE_DIR"] = mktempdir()
+        end
+
+        ENV["DEBUG_CACHE_DIR"]
     end
 
     return cache_loc
@@ -258,7 +275,7 @@ end
 function start_server(config_path)
     @info "Launching server... please wait"
 
-    ReefGuideAPI.warmup_cache(config_path)
+    warmup_cache(config_path)
 
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
@@ -272,6 +289,9 @@ function start_server(config_path)
     @info "Setting up tile routes..."
     setup_tile_routes(config, auth)
 
+    @info "Setting up admin routes..."
+    setup_admin_routes(config)
+
     port = 8000
     @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."
 
@@ -279,7 +299,8 @@ function start_server(config_path)
         middleware=[CorsMiddleware],
         host="0.0.0.0",
         port=port,
-        parallel=Threads.nthreads() > 1
+        parallel=Threads.nthreads() > 1,
+        is_prioritized=(req::HTTP.Request) -> req.target == "/health"
     )
 end
 

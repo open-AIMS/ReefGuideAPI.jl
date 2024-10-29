@@ -1,6 +1,5 @@
 @baseUrl = {{$dotenv API_BASE_URL}}
 @webBaseUrl = {{$dotenv REST_API_BASE_URL}}
-@authToken = {{$dotenv TOKEN}}
 @contentType = application/json
 
 ### Login to rest API
@@ -25,6 +24,9 @@ Content-Type: {{contentType}}
     "password": "securepassword123"
 }
 
+###
+@authToken = {{login.response.body.token}}
+
 ### Hello world (authorised)
 # @name loadEnv
 GET {{baseUrl}}
@@ -35,3 +37,13 @@ Authorization: Bearer {{authToken}}
 # @name loadEnv
 GET {{baseUrl}}
 Content-Type: {{contentType}}
+
+### Health chgeck
+GET {{baseUrl}}/health
+Content-Type: : {{contentType}}
+
+### Example of 500 internal error
+
+GET {{baseUrl}}/tile/10/928/560?region=Townsville-Whitsunday&rtype=slopes&Depth=-10%3A0&Slope=0%3A45&Turbidity=0%3A60&WavesHs=0%3A1&WavesTp=0%3A6
+Content-Type: : {{contentType}}
+Authorization: Bearer {{authToken}}

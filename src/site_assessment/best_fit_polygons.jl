@@ -21,7 +21,7 @@ rotations clockwise are
 positive.
 
 # Arguments
-- `rel_pix` : DataFrame containing the point data for pixels that are within maxmimum user search box dimensions from a pixel.
+- `rel_pix` : The point data for relevant pixels that are within the search area around a pixel.
 - `geom` : Starting search box for assessment.
 - `max_count` : The maximum number of pixels that can intersect the search box (used to standardise scores between 0 and 1).
 - `target_crs` : Coordinate Reference System used for analysis vector and raster data.
