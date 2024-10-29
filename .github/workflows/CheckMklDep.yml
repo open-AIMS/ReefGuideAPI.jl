@@ -1,5 +1,4 @@
 name: Check MKL_jll Dependency
-
 on:
   workflow_call:
     inputs:
@@ -12,12 +11,10 @@ on:
       is_up_to_date:
         description: "Whether MKL_jll.dep is up to date"
         value: ${{ jobs.check-mkl-dep.outputs.is_up_to_date }}
-  # trigger on pull request
   pull_request:
     types: [opened, synchronize, reopened]
   push:
     branches: [pascal]
-
 jobs:
   check-mkl-dep:
     runs-on: ubuntu-latest
@@ -26,32 +23,41 @@ jobs:
       pull-requests: write
     outputs:
       is_up_to_date: ${{ steps.check.outputs.is_up_to_date }}
-
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-
+      
       - name: Extract current MKL hash from Manifest
+        id: extract
         run: |
           CURRENT_HASH=$(awk '/\[\[deps\.MKL_jll\]\]/{flag=1;next}/\[\[/{if(flag){exit}}flag&&/git-tree-sha1/{gsub(/^.*= "|".*$/,"",$0);printf "%s", $0}' Manifest.toml)
-          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
-
+          echo "CURRENT_HASH=${CURRENT_HASH}" >> $GITHUB_OUTPUT
+          echo "Found current hash: ${CURRENT_HASH}"
+      
       - name: Read existing dep file
+        id: read
         run: |
           if [ -f MKL_jll.dep ]; then
             EXISTING_HASH=$(tr -d '[:space:]' < MKL_jll.dep)
-            echo "EXISTING_HASH=$EXISTING_HASH" >> $GITHUB_ENV
+            echo "EXISTING_HASH=${EXISTING_HASH}" >> $GITHUB_OUTPUT
+            echo "Found existing hash: ${EXISTING_HASH}"
           else
             echo "MKL_jll.dep does not exist"
-            echo "EXISTING_HASH=" >> $GITHUB_ENV
+            echo "EXISTING_HASH=" >> $GITHUB_OUTPUT
           fi
-
+      
       - name: Check if update needed
         id: check
         run: |
-          if [ "${{ env.EXISTING_HASH }}" != "${{ env.CURRENT_HASH }}" ]; then
+          CURRENT="${{ steps.extract.outputs.CURRENT_HASH }}"
+          EXISTING="${{ steps.read.outputs.EXISTING_HASH }}"
+          
+          echo "Current hash: ${CURRENT}"
+          echo "Existing hash: ${EXISTING}"
+          
+          if [ -z "$EXISTING" ] || [ "$EXISTING" != "$CURRENT" ]; then
             echo "Update required..."
             echo "UPDATE_NEEDED=true" >> $GITHUB_OUTPUT
             echo "is_up_to_date=false" >> $GITHUB_OUTPUT
@@ -60,23 +66,23 @@ jobs:
             echo "UPDATE_NEEDED=false" >> $GITHUB_OUTPUT
             echo "is_up_to_date=true" >> $GITHUB_OUTPUT
           fi
-
+      
       - name: Fail if out of date and auto-update is disabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == 'false'
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == false
         run: |
           echo "MKL_jll.dep is out of date and auto-update is disabled"
           exit 1
-
+      
       - name: Commit and push if changed and auto-update enabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == 'true'
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == true
         run: |
-          printf "%s" "${{ env.CURRENT_HASH }}" > MKL_jll.dep
+          printf "%s" "${{ steps.extract.outputs.CURRENT_HASH }}" > MKL_jll.dep
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add MKL_jll.dep
           git commit -m "Update MKL_jll.dep to match Manifest.toml"
           git push
-
+      
       - name: Comment on PR
         if: steps.check.outputs.UPDATE_NEEDED == 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -86,8 +92,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.name,
               issue_number: context.issue.number,
-              body: `I've automatically updated MKL_jll.dep to match the current Manifest.toml.
+              body: `[bot] Automatically updated MKL_jll.dep to match the current Manifest.toml.
               
-              Previous hash: \`${process.env.EXISTING_HASH || 'file did not exist'}\`
-              New hash: \`${process.env.CURRENT_HASH}\``
+              Previous hash: \`${{ steps.read.outputs.EXISTING_HASH || 'file did not exist' }}\`
+              New hash: \`${{ steps.extract.outputs.CURRENT_HASH }}\``
             })
