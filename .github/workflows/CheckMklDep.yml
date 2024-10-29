@@ -7,7 +7,7 @@ on:
         description: "Automatically update MKL_jll.dep if out of date"
         required: false
         type: boolean
-        default: false
+        default: true
     outputs:
       is_up_to_date:
         description: "Whether MKL_jll.dep is up to date"
@@ -59,23 +59,14 @@ jobs:
             echo "is_up_to_date=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Determine if we should auto-update
-        id: should_update
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "should_auto_update=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_auto_update=${{ inputs.auto_update }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Fail if out of date and auto-update is disabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.should_update.outputs.should_auto_update == 'false'
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == 'false'
         run: |
           echo "MKL_jll.dep is out of date and auto-update is disabled"
           exit 1
 
       - name: Commit and push if changed and auto-update enabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.should_update.outputs.should_auto_update == 'true'
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == 'true'
         run: |
           printf "%s" "${{ env.CURRENT_HASH }}" > MKL_jll.dep
           git config --global user.name 'github-actions[bot]'
