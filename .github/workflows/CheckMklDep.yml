@@ -40,7 +40,7 @@ jobs:
       - name: Extract current MKL hash from Manifest
         id: extract
         run: |
-          CURRENT_HASH=$(awk '/\[\[deps\.MKL_jll\]\]/{flag=1;next}/\[\[/{if(flag){exit}}flag&&/git-tree-sha1/{gsub(/^.*= "|".*$/,"",$0);printf "%s", $0}' Manifest.toml)
+          CURRENT_HASH=$(awk '/\[\[deps\.MKL_jll\]\]/{flag=1;next}/\[\[/{if(flag){exit}}flag&&/uuid/{gsub(/^.*= "|".*$/,"",$0);printf "%s", $0}' Manifest.toml)
           echo "CURRENT_HASH=${CURRENT_HASH}" >> $GITHUB_OUTPUT
           echo "Found current hash: ${CURRENT_HASH}"
 
