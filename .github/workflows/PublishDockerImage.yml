@@ -30,6 +30,9 @@ env:
 
 jobs:
   check-mkl:
+    permissions:
+      contents: write
+      pull-requests: write
     uses: ./.github/workflows/CheckMklDep.yml
     with:
       auto_update: false # Fail if out of date, don't auto-update
