@@ -30,7 +30,7 @@ env:
 
 jobs:
   check-mkl:
-    uses: ./.github/workflows/MKL_jll.yml
+    uses: ./.github/workflows/CheckMklDep.yml
     with:
       auto_update: false # Fail if out of date, don't auto-update
 

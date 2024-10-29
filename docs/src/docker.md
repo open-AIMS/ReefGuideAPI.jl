@@ -33,7 +33,7 @@ However PRs will automatically perform this sync, if out of date.
 
 ### Github action to sync MKL_jll
 
-There is an action which ensures the MKL_jll dep file is up to date, and pushes if not. See `.github/workflows/MKL_jll.yml`.
+There is an action which ensures the MKL_jll dep file is up to date, and pushes if not. See `.github/workflows/CheckMklDep.yml`.
 
 ## Mounting files and required data
 
