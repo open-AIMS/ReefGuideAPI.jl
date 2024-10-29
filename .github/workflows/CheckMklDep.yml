@@ -1,10 +1,11 @@
 name: Check MKL_jll Dependency
+
 on:
   workflow_call:
     inputs:
       auto_update:
         description: "Automatically update MKL_jll.dep if out of date"
-        required: false
+        required: true
         type: boolean
         default: true
     outputs:
@@ -15,6 +16,7 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [pascal]
+
 jobs:
   check-mkl-dep:
     runs-on: ubuntu-latest
@@ -24,18 +26,27 @@ jobs:
     outputs:
       is_up_to_date: ${{ steps.check.outputs.is_up_to_date }}
     steps:
+      # Add this step at the beginning to set the auto_update value
+      - name: Set auto_update
+        id: set_auto_update
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "value=true" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ inputs.auto_update }}" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract current MKL hash from Manifest
         id: extract
         run: |
           CURRENT_HASH=$(awk '/\[\[deps\.MKL_jll\]\]/{flag=1;next}/\[\[/{if(flag){exit}}flag&&/git-tree-sha1/{gsub(/^.*= "|".*$/,"",$0);printf "%s", $0}' Manifest.toml)
           echo "CURRENT_HASH=${CURRENT_HASH}" >> $GITHUB_OUTPUT
           echo "Found current hash: ${CURRENT_HASH}"
-      
+
       - name: Read existing dep file
         id: read
         run: |
@@ -47,16 +58,16 @@ jobs:
             echo "MKL_jll.dep does not exist"
             echo "EXISTING_HASH=" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Check if update needed
         id: check
         run: |
           CURRENT="${{ steps.extract.outputs.CURRENT_HASH }}"
           EXISTING="${{ steps.read.outputs.EXISTING_HASH }}"
-          
+
           echo "Current hash: ${CURRENT}"
           echo "Existing hash: ${EXISTING}"
-          
+
           if [ -z "$EXISTING" ] || [ "$EXISTING" != "$CURRENT" ]; then
             echo "Update required..."
             echo "UPDATE_NEEDED=true" >> $GITHUB_OUTPUT
@@ -66,15 +77,15 @@ jobs:
             echo "UPDATE_NEEDED=false" >> $GITHUB_OUTPUT
             echo "is_up_to_date=true" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Fail if out of date and auto-update is disabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == false
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.set_auto_update.outputs.value == 'false'
         run: |
           echo "MKL_jll.dep is out of date and auto-update is disabled"
           exit 1
-      
+
       - name: Commit and push if changed and auto-update enabled
-        if: steps.check.outputs.UPDATE_NEEDED == 'true' && inputs.auto_update == true
+        if: steps.check.outputs.UPDATE_NEEDED == 'true' && steps.set_auto_update.outputs.value == 'true'
         run: |
           printf "%s" "${{ steps.extract.outputs.CURRENT_HASH }}" > MKL_jll.dep
           git config --global user.name 'github-actions[bot]'
@@ -82,7 +93,7 @@ jobs:
           git add MKL_jll.dep
           git commit -m "Update MKL_jll.dep to match Manifest.toml"
           git push
-      
+
       - name: Comment on PR
         if: steps.check.outputs.UPDATE_NEEDED == 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
