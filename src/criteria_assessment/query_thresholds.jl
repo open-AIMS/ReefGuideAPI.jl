@@ -277,7 +277,7 @@ function threshold_mask(
     lookup = lookup[within_search, :]
     if nrow(lookup) == 0
         # Exit as there is no data
-        return Raster(zeros(0,0), dims=([0], [0]))
+        return Raster(zeros(0, 0); dims=([0], [0]))
     end
 
     # Need to pass in full representation of the raster as the lookup table relies on
