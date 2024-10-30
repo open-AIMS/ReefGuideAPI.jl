@@ -9,31 +9,7 @@ published versions of the Docker image on the repository packages page.
 
 Due to how Julia (particularly v1.11) handles precompilation, it significantly reduces the build time by explicitly installed MKL_jll before installing any of explicit project dependencies.
 
-For this reason, the project includes a few helpers to optimise this process
-
-- `get_mkl.sh`: this script extracts the `uuid` field of the `[[deps.MKL_jll]]` element in the `Manifest.toml` - it is written into;
-- `MKL_jll.dep`: which caches the output of the above script
-- `Dockerfile`: the dockerfile includes some explicit steps to preinstall this dependency against the `uuid`
-
-```Dockerfile
-# Get the MKL_jll dependency hash
-COPY MKL_jll.dep .
-
-# Compile MKL_jll first - this improves build time significantly - unsure exactly why
-RUN export MKL_JLL_HASH=$(cat MKL_jll.dep); julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", uuid=ENV["MKL_JLL_HASH"])); Pkg.precompile()'
-```
-
-Before running a docker build, I recommend running the script
-
-```bash
-./get_mkl.sh
-```
-
-However PRs will automatically perform this sync, if out of date.
-
-### Github action to sync MKL_jll
-
-There is an action which ensures the MKL_jll dep file is up to date, and pushes if not. See `.github/workflows/CheckMklDep.yml`.
+For this reason, the Dockerfile extracts the MKL_jll version from the Manifest file using Pkg.dependency(), precompiles this in an anonymous project, then compiles the main dependencies. This cuts the build time from around 15 minutes down to around 6-7.
 
 ## Mounting files and required data
 

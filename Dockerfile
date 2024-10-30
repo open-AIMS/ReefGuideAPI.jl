@@ -107,13 +107,15 @@ ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 # shared @reefguide environment, pre-installing and precompiling dependencies.
 WORKDIR "${REEFGUIDE_SRC_DIR}"
 
-# Get the MKL_jll dependency hash
-COPY MKL_jll.dep .
+
+# Copy project and manifest - includes Manifest-v1.11 etc
+COPY Project.toml Manifest*.toml ./
+
+# Then fire up a julia execution just to dump out the version
+RUN echo $(julia --project=.  -e 'using Pkg; println(Pkg.dependencies()[Base.UUID("856f044c-d86e-5d09-b602-aeab76dc8ba7")].version)') | cut -d '+' -f 1 >> mkl.dep
 
 # Compile MKL_jll first - this improves build time significantly - unsure exactly why
-RUN export MKL_JLL_HASH=$(cat MKL_jll.dep); julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", uuid=ENV["MKL_JLL_HASH"])); Pkg.precompile()'
-
-COPY Project.toml Manifest.toml ./
+RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", version=ENV["MKL_VERSION"])); Pkg.precompile()'
 
 # Precompile Julia packages using BuildKit cache for better efficiency
 RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'

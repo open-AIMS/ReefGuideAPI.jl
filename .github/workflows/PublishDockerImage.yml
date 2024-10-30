@@ -26,17 +26,7 @@ env:
   FIXED_REEFGUIDEAPI_VERSION: "0.1.0"
 
 jobs:
-  check-mkl:
-    permissions:
-      contents: write
-      pull-requests: write
-    uses: ./.github/workflows/CheckMklDep.yml
-    with:
-      auto_update: false # Fail if out of date, don't auto-update
-
   build-and-push-image:
-    needs: check-mkl
-    if: needs.check-mkl.outputs.is_up_to_date == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
