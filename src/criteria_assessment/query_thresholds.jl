@@ -268,7 +268,7 @@ function threshold_mask(
 )::Raster
     lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
 
-    (lat1, lat2) = lats[1] > lats[2] ? (lats[2], lats[1]) : (lats[1], lats[2])
+    lat1, lat2 = lats[1] > lats[2] ? (lats[2], lats[1]) : (lats[1], lats[2])
 
     within_search = (
         (lons[1] .<= lookup.lons .<= lons[2]) .&
