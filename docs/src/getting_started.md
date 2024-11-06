@@ -156,7 +156,7 @@ The following processing is required before use:
 ### Parquet assessment additional setup
 
 - A parquet GeoDataFrame must be loaded and filtered for unsuitable pixels based on user criteria thresholds using a Dict and `within_thresholds()`.
-- `lon` and `lat` columns (FLoat64) must be added to the GeoDataFrame.
-  - E.g. `valid_pixels.lon = first.(GI.coordinates.(valid_pixels.geometry))`
+- `lons` and `lats` columns (FLoat64) must be added to the GeoDataFrame.
+  - E.g. `valid_pixels.lons = first.(GI.coordinates.(valid_pixels.geometry))`
   The column used for masking should be the same as the column specified as geometry_col in
   `identify_edge_aligned_sites` (default = `:geometry`).
