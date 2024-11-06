@@ -64,7 +64,11 @@ function assess_reef_site(
     for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
         score[j] =
-            size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
+            length(
+                rel_pix[
+                    GO.intersects.([rot_geom], rel_pix.geometry), :lon_idx
+                ]
+            ) / max_count
         best_poly[j] = rot_geom
 
         if score[j] < suit_threshold
