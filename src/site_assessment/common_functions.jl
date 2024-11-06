@@ -293,17 +293,12 @@ Identifies all pixels in an input raster that return true for the function `crit
 DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
 """
 function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = criteria_function(input_raster)
-    indices = findall(pixels)
-    indices_lon = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
-    indices_lat = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
+    pixels = map(criteria_function, input_raster)
+    indices::Vector{CartesianIndex{2}} = findall(pixels)
+    indices_lon::Vector{Float64} = lookup(pixels, X)[first.(Tuple.(indices))]
+    indices_lat::Vector{Float64} = lookup(pixels, Y)[last.(Tuple.(indices))]
 
-    for (j, index) in enumerate(indices)
-        indices_lon[j] = dims(pixels, X)[index[1]]
-        indices_lat[j] = dims(pixels, Y)[index[2]]
-    end
-
-    return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
+    return DataFrame(; indices=indices, lons=indices_lon, lats=indices_lat)
 end
 
 """
