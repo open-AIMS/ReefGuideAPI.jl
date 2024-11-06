@@ -169,9 +169,8 @@ by 45 degrees to match the identified reef edge.
 # Arguments
 - `pixel` : Target point at the center of the search polygon.
 - `geom_buff` : Initial search box with zero rotation.
-- `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
+- `reef_geoms` : Geometries representing reefs
 - `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
-- `search_buffer` : Distance to search from pixel to find closest reef.
 
 # Returns
 Rotation angle required to match reef edge when used in `rotate_geom(geom_buff, rot_angle)`.
@@ -179,30 +178,24 @@ Rotation angle required to match reef edge when used in `rotate_geom(geom_buff, 
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
-    gdf::DataFrame,
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
-    search_buffer::Union{Int64,Float64}=20000.0
+    reef_geoms::Vector{ArchGDAL.IGeometry},
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
 )::Float64
-    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
-    distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
-    reef_lines = reef_outlines[distance_indices]
-    reef_lines = reef_lines[
-    GO.within.([pixel], geoms[distance_indices])
-]
-    reef_lines = vcat(reef_lines...)
+    # Get closest reef outline
+    closest_reef_outline_idx = try
+        in_reef = findall(GO.within.([pixel], reef_geoms))
+        first(in_reef)
+    catch err
+        if !(err isa BoundsError)
+            rethrow(err)
+        end
 
-    # If a pixel is outside of a polygon, use the closest polygon instead.
-    if isempty(reef_lines)
-        reef_distances =
-            GO.distance.(
-                [pixel],
-                gdf[distance_indices, first(GI.geometrycolumns(gdf))]
-            )
-        reef_lines = reef_outlines[distance_indices]
-        reef_lines = reef_lines[argmin(reef_distances)]
-        reef_lines = vcat(reef_lines...)
+        # Pixel is outside a reef outline so get the closest one instead
+        # Note: distance will be 0 if point is inside the geometry
+        argmin(GO.distance.([pixel], reef_geoms))
     end
 
+    reef_lines = reef_outlines[closest_reef_outline_idx]
     edge_line = closest_reef_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
