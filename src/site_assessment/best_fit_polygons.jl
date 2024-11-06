@@ -87,14 +87,13 @@ end
 
 """
     identify_edge_aligned_sites(
-        df::DataFrame,
+        env_lookup::DataFrame,
         search_pixels::DataFrame,
         res::Float64,
         gdf::DataFrame,
         x_dist::Union{Int64,Float64},
         y_dist::Union{Int64,Float64},
         target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-        reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
         region::String;
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2,
@@ -108,14 +107,13 @@ is identified and used for searching with custom rotation parameters.
 Method is currently opperating for CRS in degrees units.
 
 # Arguments
-- `df` : DataFrame containing environmental variables for assessment.
+- `env_lookup` : DataFrame containing environmental variables for assessment.
 - `search_pixels` : DataFrame containing lon and lat columns for each pixel that is intended for analysis.
 - `res` : Resolution of the original raster pixels. Can by found via `abs(step(dims(raster, X)))`.
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box (in meters).
 - `y_dist` : Length of vertical side of search box (in meters).
 - `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
-- `reef_lines` : Vector containing reef outline segments created from polygons in `gdf.geometry` (Must be separate object to `gdf` rather than column).
 - `region` : Region name, e.g. "Cairns-Cooktown" or "FarNorthern".
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
@@ -125,43 +123,50 @@ Method is currently opperating for CRS in degrees units.
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
 function identify_edge_aligned_sites(
-    df::DataFrame,
+    env_lookup::DataFrame,
     search_pixels::DataFrame,
     res::Float64,
     gdf::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-    reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}},
     region::String;
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2,
     surr_threshold::Float64=0.33
 )::DataFrame
     region_long = REGIONAL_DATA["region_long_names"][region]
-    reef_lines = reef_lines[gdf.management_area .== region_long]
     gdf = gdf[gdf.management_area .== region_long, :]
-    max_count = (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lat))^2)
+    max_count = (
+        (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lat))^2)
+    )
 
     # Search each location to assess
-    best_score = zeros(length(search_pixels.lon))
-    best_poly = Vector(undef, length(search_pixels.lon))
-    best_rotation = zeros(Int64, length(search_pixels.lon))
-    quality_flag = zeros(Int64, length(search_pixels.lon))
+    n_pixels = nrow(search_pixels)
+    best_score = zeros(n_pixels)
+    best_poly = Vector(undef, n_pixels)
+    best_rotation = zeros(Int64, n_pixels)
+    quality_flag = zeros(Int64, n_pixels)
     bounds = zeros(4)
-    for (i, index) in enumerate(eachrow(search_pixels))
-        lon = index.lon
-        lat = index.lat
-        geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
-
-        pixel = GO.Point(lon, lat)
-        rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
-
+    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
+    half_x = x_dist / 2
+    half_y = y_dist / 2
+    loc_constraint = BitVector(falses(nrow(env_lookup)))
+    for (i, pix) in enumerate(eachrow(search_pixels))
+        lon = pix.lons
+        lat = pix.lats
+        search_box = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
+        rot_angle = initial_search_rotation(
+            GO.Point(lon, lat),
+            search_box,
+            geoms,
+            reef_lines
+        )
+        
         max_offset = (
             abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
             (2 * res)
         )
-
         bounds .= Float64[
             lon - max_offset,
             lon + max_offset,
@@ -169,11 +174,14 @@ function identify_edge_aligned_sites(
             lat + max_offset
         ]
 
-        lower_lon = (df.lon .>= bounds[1])
-        upper_lon = (df.lon .<= bounds[2])
-        lower_lat = (df.lat .>= bounds[3])
-        upper_lat = (df.lat .<= bounds[4])
-        rel_pix = df[lower_lon .& upper_lon .& lower_lat .& upper_lat, :]
+        # Identify relevant pixels to assess
+        loc_constraint .= (
+            (env_lookup.lons .>= bounds[1]) .&  # left
+            (env_lookup.lons .<= bounds[2]) .&  # right
+            (env_lookup.lats .>= bounds[3]) .&  # bottom
+            (env_lookup.lats .<= bounds[4])     # top
+        )
+        rel_pix = env_lookup[loc_constraint, :]
 
         if nrow(rel_pix) == 0
             best_score[i] = 0.0
@@ -183,9 +191,9 @@ function identify_edge_aligned_sites(
             continue
         end
 
-        b_score, b_rot, b_poly, qc_flag = assess_reef_site(
+        best_score[i], best_rotation[i], best_poly[i], quality_flag[i] = assess_reef_site(
             rel_pix,
-            geom_buff,
+            search_box,
             max_count,
             target_crs;
             degree_step=degree_step,
@@ -193,11 +201,6 @@ function identify_edge_aligned_sites(
             n_per_side=n_rot_p_side,
             surr_threshold=surr_threshold
         )
-
-        best_score[i] = b_score
-        best_rotation[i] = b_rot
-        best_poly[i] = b_poly
-        quality_flag[i] = qc_flag
     end
 
     return DataFrame(;
@@ -306,22 +309,22 @@ function identify_edge_aligned_sites(
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
-    region::String,
-    reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
+    region::String;
     degree_step::Float64=15.0,
     n_rot_per_side::Int64=2
 )::DataFrame
-    reef_lines = reef_lines[gdf.management_area_short .== region]
-    gdf = gdf[gdf.management_area_short .== region, :]
+    gdf = gdf[gdf.management_area .== region, :]
+    reef_lines = polygon_to_lines.(buffer_simplify(gdf))
+
     res = abs(step(dims(rst_stack, X)))
 
     # Search each location to assess
-    best_score = zeros(length(search_pixels.lon))
-    best_poly = Vector(undef, length(search_pixels.lon))
-    best_rotation = zeros(Int64, length(search_pixels.lon))
+    best_score = zeros(length(search_pixels.lons))
+    best_poly = Vector(undef, length(search_pixels.lons))
+    best_rotation = zeros(Int64, length(search_pixels.lons))
     for (i, index) in enumerate(eachrow(search_pixels))
-        lon = index.lon
-        lat = index.lat
+        lon = index.lons
+        lat = index.lats
         geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
 
         pixel = GO.Point(lon, lat)
