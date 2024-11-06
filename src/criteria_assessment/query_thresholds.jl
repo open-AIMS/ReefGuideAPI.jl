@@ -213,7 +213,7 @@ function apply_criteria_lookup(
     reg_criteria::RegionalCriteria,
     rtype::Symbol,
     ruleset
-)
+)::DataFrame
     lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     lookup.all_crit .= 1
 
@@ -222,8 +222,6 @@ function apply_criteria_lookup(
     end
 
     lookup = lookup[BitVector(lookup.all_crit), :]
-    lookup.lon = first.(GI.coordinates.(lookup.geometry))
-    lookup.lat = last.(GI.coordinates.(lookup.geometry))
 
     return lookup
 end
