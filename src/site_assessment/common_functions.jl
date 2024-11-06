@@ -73,11 +73,11 @@ function line_angle(a::T, b::T)::Float64 where {T<:Vector{Tuple{Float64,Float64}
 end
 
 """
-    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
+    filter_far_reefs(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
 Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
-function filter_far_polygons(
+function filter_far_reefs(
     geoms,
     pixel::GeometryBasics.Point,
     lat::Float64,

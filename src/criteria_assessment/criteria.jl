@@ -208,7 +208,7 @@ function setup_region_routes(config, auth)
             assessed = Raster(assessed_fn)
         else
             assessed = assess_region(reg_assess_data, reg, qp, rtype)
-            _write_cog(assessed_fn, assessed, config)
+            _write_tiff(assessed_fn, assessed, config)
         end
 
         # Extract criteria and assessment
