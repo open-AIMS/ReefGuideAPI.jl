@@ -225,24 +225,26 @@ containing only sites with scores greater than the `surr_threshold` specified in
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
-    ignore_list = []
+    ignore_list = Int64[]
 
-    for (row) in eachrow(res_df)
+    for row in eachrow(res_df)
         if row.row_ID ∈ ignore_list
             continue
         end
 
+        not_ignored = res_df.row_ID .∉ [ignore_list]
         poly = row.geometry
-        if any(GO.intersects.([poly], res_df[:, :geometry]))
-            intersecting_polys = res_df[(GO.intersects.([poly], res_df[:, :geometry])), :]
-            if maximum(intersecting_polys.score) <= row.score
-                for x_row in
-                    eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
-                    push!(ignore_list, x_row.row_ID)
-                end
-            else
-                push!(ignore_list, row.row_ID)
-            end
+        poly_interx = GO.intersects.([poly], res_df[not_ignored, :geometry])
+
+        if count(poly_interx) > 1
+            intersecting_polys = res_df[not_ignored, :][poly_interx, :]
+
+            # Find the ID of the polygon with the best score.
+            # Add polygon IDs with non-maximal score to the ignore list
+            best_poly_idx = argmax(intersecting_polys.score)
+            best_ID = intersecting_polys[best_poly_idx, :row_ID]
+            not_best_ID = intersecting_polys.row_ID .!= best_ID
+            append!(ignore_list, intersecting_polys[not_best_ID, :row_ID])
         end
     end
 
