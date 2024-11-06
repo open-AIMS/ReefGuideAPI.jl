@@ -141,7 +141,7 @@ Perform raster suitability assessment based on user defined criteria.
 GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
 by a user.
 """
-function assess_region(reg_assess_data, reg, qp, rtype)
+function assess_region(reg_assess_data, reg, qp, rtype)::Raster
     @debug "Assessing region's suitability score"
 
     # Make mask of suitable locations
