@@ -95,6 +95,14 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         flat_table[!, :lats] .= last.(coords)
 
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
+
+        # Constrain to just the areas with valid data (with a 0.05 degree buffer)
+        # min_lon = min(minimum(slope_table.lons), minimum(flat_table.lons)) - 0.05
+        # max_lon = max(maximum(slope_table.lons), maximum(flat_table.lons)) + 0.05
+        # min_lat = min(minimum(slope_table.lats), minimum(flat_table.lats)) - 0.05
+        # max_lat = max(maximum(slope_table.lats), maximum(flat_table.lats)) + 0.05
+        # rst_stack = view(rst_stack, X(min_lon .. max_lon), Y(min_lat .. max_lat))
+
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
             slope_table,
