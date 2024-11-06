@@ -111,6 +111,19 @@ function _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
     return nothing
 end
 
+function _write_tiff(file_path::String, data::Raster, config::Dict)::Nothing
+    Rasters.write(
+        file_path,
+        data;
+        ext=".tiff",
+        source="gdal",
+        driver="gtiff",
+        force=true
+    )
+
+    return nothing
+end
+
 """
     criteria_middleware(handle)
 
