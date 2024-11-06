@@ -11,7 +11,7 @@
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
-        surr_threshold::Float64=0.33
+        suit_threshold::Float64=0.3
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
 
 Assesses the rotations of a search box `geom` for their suitability score (calculated as the
@@ -35,13 +35,13 @@ are capped at max 1.
 - `degree_step` : Step to vary the search box rotations.
 - `start_rot` : Starting angle rotation that aligns the box with the closest reef edge.
 - `n_per_side` : Number of rotations to perform around the starting search box angle.
-- `surr_threshold` : Suitability threshold, below which sites are excluded from result sets.
+- `suit_threshold` : Suitability threshold, below which sites are excluded from result sets.
 
 # Returns
 - Highest score
 - Highest scoring rotation step
 - Highest scoring polygon
-- Quality control flag for site, indicating if `surr_threshold` was met in the highest scoring rotation.
+- Quality control flag for site, indicating if `suit_threshold` was met in the highest scoring rotation.
 """
 function assess_reef_site(
     rel_pix::DataFrame,
@@ -51,7 +51,7 @@ function assess_reef_site(
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=2,
-    surr_threshold::Float64=0.2
+    suit_threshold::Float64=0.3
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     rot_start = (start_rot - (degree_step * n_per_side))
     rot_end = (start_rot + (degree_step * n_per_side))
@@ -67,7 +67,7 @@ function assess_reef_site(
             size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
         best_poly[j] = rot_geom
 
-        if score[j] < surr_threshold
+        if score[j] < suit_threshold
             # Early exit as there's no point in searching further.
             # Changing the rotation is unlikely to improve the score.
             qc_flag[j] = 1
