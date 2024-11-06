@@ -158,7 +158,7 @@ end
         search_buffer::Union{Int64,Float64}=20000.0
     )::Float64
 
-Identifies the closest edge to the target `pixel`/'`geom_buff`. The angle required to rotate
+Identifies the closest edge to the target `pixel`/`geom_buff`. The angle required to rotate
 geom_buff by to match this reef edge is calculated.
 
 # Extended help
@@ -218,7 +218,7 @@ end
 """
     filter_sites(res_df::DataFrame)::DataFrame
 
-Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
+Filter out sites where the qc_flag indicates a suitability < `surr_threshold` in searching.
 Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
