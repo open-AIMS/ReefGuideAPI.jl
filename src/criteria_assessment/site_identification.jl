@@ -26,7 +26,7 @@ function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix
     subsection_dims = size(x)
     target_area = zeros(Int16, subsection_dims)
 
-    @floop for row_col in ThreadsX.findall(x)
+    for row_col in findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col + square_offset[1], 1)
         x_right = min(col + square_offset[2], subsection_dims[2])
