@@ -174,6 +174,7 @@ function setup_region_routes(config, auth)
     )
         # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
         # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
+        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95
 
         qp = queryparams(req)
         assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
@@ -181,11 +182,11 @@ function setup_region_routes(config, auth)
             return file(assessed_fn; headers=COG_HEADERS)
         end
 
+        @debug "$(now()) : Assessing region $(reg)"
         assessed = assess_region(reg_assess_data, reg, qp, rtype)
 
-        @debug "$(now()) : Running on thread $(threadid())"
-        @debug "Writing to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed, config)
+        @debug "$(now()) : Writing to $(assessed_fn)"
+        _write_tiff(assessed_fn, assessed, config)
 
         return file(assessed_fn; headers=COG_HEADERS)
     end
@@ -223,6 +224,9 @@ function setup_region_routes(config, auth)
                 reg_assess_data, reg, rtype, pixel_criteria, site_criteria, assessed
             )
         )
+
+        # Specifically clear from memory to invoke garbage collector
+        assessed = nothing
 
         output_geojson(suitable_sites_fn, best_sites)
         return file(suitable_sites_fn)
