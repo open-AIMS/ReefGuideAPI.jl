@@ -61,7 +61,7 @@ function assess_reef_site(
     best_poly = Vector(undef, n_rotations)
     qc_flag = zeros(Int64, n_rotations)
 
-    @floop for (j, r) in enumerate(rotations)
+    for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
         score[j] =
             size(rel_pix[GO.intersects.([rot_geom], rel_pix.geometry), :], 1) / max_count
