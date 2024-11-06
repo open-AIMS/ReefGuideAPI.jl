@@ -146,8 +146,7 @@ function closest_reef_edge(
     reef_lines::Vector{GeometryBasics.Line{2,Float64}}
 )::Vector{Tuple{Float64,Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
-
-    return [tuple(x...) for x in nearest_edge]
+    return Tuple.(nearest_edge)
 end
 
 """
