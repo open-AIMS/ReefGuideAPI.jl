@@ -159,7 +159,7 @@ end
     )::Float64
 
 Identifies the closest edge to the target `pixel`/`geom_buff`. The angle required to rotate
-geom_buff by to match this reef edge is calculated.
+`geom_buff` by to match this reef edge is calculated.
 
 # Extended help
 The returned angle is the angle relative to the default `geom_buff` horizontal orientation.
