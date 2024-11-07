@@ -44,7 +44,11 @@ function create_bbox(xs::Tuple, ys::Tuple)::Vector{Tuple{Float64,Float64}}
     ]
 end
 
-"""Rotate the polygon by the given angle about its center."""
+"""
+    rotate_polygon(poly_points, centroid, degrees)
+
+Rotate target `poly_points` by `degrees` rotation about its center defined by `centroid`.
+"""
 function rotate_polygon(poly_points, centroid, degrees)
     if degrees == 0.0
         return poly_points
@@ -69,6 +73,25 @@ function rotate_polygon(poly_points, centroid, degrees)
     end
 
     return new_points
+end
+
+"""
+    rotate_polygon(geom, degrees)
+
+Rotate target `geom` by `degrees` rotation about its center.
+
+# Returns
+Rotated geometry.
+"""
+function rotate_polygon(geom, degrees)
+    return create_poly(
+        rotate_polygon(
+            get_points(geom),
+            GO.centroid(geom),
+            degrees
+        ),
+        GI.crs(geom)
+    )
 end
 
 """
