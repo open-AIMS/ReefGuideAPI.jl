@@ -206,7 +206,7 @@ function assess_sites(
 
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "Assessing site polygons for $(size(target_locs, 1)) locations."
+    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations."
     initial_polygons = identify_edge_aligned_sites(
         crit_pixels,
         target_locs,
