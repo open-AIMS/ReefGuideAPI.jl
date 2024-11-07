@@ -110,7 +110,7 @@ Method is currently opperating for CRS in degrees units.
 - `env_lookup` : DataFrame containing environmental variables for assessment.
 - `search_pixels` : DataFrame containing lon and lat columns for each pixel that is intended for analysis.
 - `res` : Resolution of the original raster pixels. Can by found via `abs(step(dims(raster, X)))`.
-- `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
+- `reef_outlines` : GeoDataFrame of reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box (in meters).
 - `y_dist` : Length of vertical side of search box (in meters).
 - `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
@@ -126,20 +126,22 @@ function identify_edge_aligned_sites(
     env_lookup::DataFrame,
     search_pixels::DataFrame,
     res::Float64,
-    gdf::DataFrame,
+    reef_outlines::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
     region::String;
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=2,
-    surr_threshold::Float64=0.33
+    suit_threshold::Float64=0.33
 )::DataFrame
     region_long = REGIONAL_DATA["region_long_names"][region]
-    gdf = gdf[gdf.management_area .== region_long, :]
+    target_reefs = reef_outlines[reef_outlines.management_area .== region_long, :]
     max_count = (
-        (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lat))^2)
+        (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lats))^2)
     )
+
+    reef_lines = polygon_to_lines.(buffer_simplify(target_reefs))
 
     # Search each location to assess
     n_pixels = nrow(search_pixels)
@@ -148,9 +150,7 @@ function identify_edge_aligned_sites(
     best_rotation = zeros(Int64, n_pixels)
     quality_flag = zeros(Int64, n_pixels)
     bounds = zeros(4)
-    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
-    half_x = x_dist / 2
-    half_y = y_dist / 2
+    target_geoms = target_reefs[!, first(GI.geometrycolumns(target_reefs))]
     loc_constraint = BitVector(falses(nrow(env_lookup)))
     for (i, pix) in enumerate(eachrow(search_pixels))
         lon = pix.lons
@@ -159,10 +159,10 @@ function identify_edge_aligned_sites(
         rot_angle = initial_search_rotation(
             GO.Point(lon, lat),
             search_box,
-            geoms,
+            target_geoms,
             reef_lines
         )
-        
+
         max_offset = (
             abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
             (2 * res)
@@ -199,7 +199,7 @@ function identify_edge_aligned_sites(
             degree_step=degree_step,
             start_rot=rot_angle,
             n_per_side=n_rot_p_side,
-            surr_threshold=surr_threshold
+            suit_threshold=suit_threshold
         )
     end
 
