@@ -80,7 +80,7 @@ function get_points(geom)
     try
         SVector{2,Float64}.(getfield.(GI.getpoint(geom), :geom))
     catch err
-        if !contains(err.msg, "type SArray has no field geom")
+        if !Base.contains(err.msg, "has no field geom")
             throw(err)
         end
         SVector{2,Float64}.(GI.getpoint(geom))
