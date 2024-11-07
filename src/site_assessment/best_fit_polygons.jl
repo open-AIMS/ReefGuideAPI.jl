@@ -84,6 +84,41 @@ function assess_reef_site(
     best_poly[argmax(score)],
     maximum(qc_flag)
 end
+function assess_reef_site(
+    rel_pix::DataFrame,
+    rotated::Vector{GI.Wrappers.Polygon},
+    max_count::Float64;
+    n_per_side::Int64=2,
+    suit_threshold::Float64=0.3
+)::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
+    # Implementation with pre-rotations
+    n_rotations = length(rotated)
+    score = zeros(n_rotations)
+    best_poly = Vector(undef, n_rotations)
+    qc_flag = zeros(Int64, n_rotations)
+
+    for (j, r) in enumerate(rotated)
+        score[j] =
+            length(
+                rel_pix[
+                    GO.intersects.([r], rel_pix.geometry), :lon_idx
+                ]
+            ) / max_count
+        best_poly[j] = r
+
+        if score[j] < suit_threshold
+            # Early exit as there's no point in searching further.
+            # Changing the rotation is unlikely to improve the score.
+            qc_flag[j] = 1
+            break
+        end
+    end
+
+    return min(score[argmax(score)], 1),
+    argmax(score) - (n_per_side + 1),
+    best_poly[argmax(score)],
+    maximum(qc_flag)
+end
 
 """
     identify_edge_aligned_sites(
@@ -152,16 +187,36 @@ function identify_edge_aligned_sites(
     bounds = zeros(4)
     target_geoms = target_reefs[!, first(GI.geometrycolumns(target_reefs))]
     loc_constraint = BitVector(falses(nrow(env_lookup)))
+
+    search_box = initial_search_box(
+        (search_pixels.lons[1], search_pixels.lats[1]),
+        x_dist,
+        y_dist,
+        target_crs,
+        res
+    )
+    start_deg_angle = initial_search_rotation(
+        GO.Point(search_pixels.lons[1], search_pixels.lats[1]),
+        search_box,
+        target_geoms,
+        reef_lines
+    )
+    search_box = rotate_polygon(search_box, start_deg_angle)
+
+    # Precalculate rotations
+    rot_start = (start_deg_angle - (degree_step * n_rot_p_side))
+    rot_end = (start_deg_angle + (degree_step * n_rot_p_side))
+    rotations = rot_start:degree_step:rot_end
+    rotated_geoms = Vector{GI.Wrappers.Polygon}(undef, length(rotations))
+    for (j, r) in enumerate(rotations)
+        rotated_geoms[j] = rotate_polygon(search_box, r)
+    end
+
     for (i, pix) in enumerate(eachrow(search_pixels))
         lon = pix.lons
         lat = pix.lats
-        search_box = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
-        rot_angle = initial_search_rotation(
-            GO.Point(lon, lat),
-            search_box,
-            target_geoms,
-            reef_lines
-        )
+
+        rotated_geoms .= move_geom.(rotated_geoms, [(lon, lat)])
 
         max_offset = (
             abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
@@ -193,11 +248,8 @@ function identify_edge_aligned_sites(
 
         best_score[i], best_rotation[i], best_poly[i], quality_flag[i] = assess_reef_site(
             rel_pix,
-            search_box,
-            max_count,
-            target_crs;
-            degree_step=degree_step,
-            start_rot=rot_angle,
+            rotated_geoms,
+            max_count;
             n_per_side=n_rot_p_side,
             suit_threshold=suit_threshold
         )
