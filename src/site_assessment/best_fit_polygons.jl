@@ -93,11 +93,11 @@ function assess_reef_site(
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     # Implementation with pre-rotations
     n_rotations = length(rotated)
-    score = zeros(n_rotations)
+    score = @MVector zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
-    qc_flag = zeros(Int64, n_rotations)
+    qc_flag = @MVector zeros(Int64, n_rotations)
 
-    for (j, r) in enumerate(rotated)
+    @floop for (j, r) in enumerate(rotated)
         score[j] =
             length(
                 rel_pix[
