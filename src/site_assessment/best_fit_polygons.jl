@@ -223,7 +223,9 @@ function identify_edge_aligned_sites(
         ys = mean(inds[2, idx[sel]])
 
         # Find index of pixel closest to the center of the group
-        closest_idx = argmin(map(p2 -> sum((p2 .- (xs, ys)).^2), eachcol(inds[:, idx[sel]])))
+        closest_idx = argmin(
+            map(p2 -> sum((p2 .- (xs, ys)) .^ 2), eachcol(inds[:, idx[sel]]))
+        )
 
         to_keep = idx[sel][closest_idx]
         to_ignore = idx[sel][idx[sel] .!= to_keep]
