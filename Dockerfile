@@ -1,5 +1,5 @@
 # See https://hub.docker.com/_/julia for valid versions.
-ARG JULIA_VERSION="1.10.5"
+ARG JULIA_VERSION="1.11.1"
 
 #------------------------------------------------------------------------------
 # internal-base build target: julia with OS updates and an empty @reefguide
@@ -8,8 +8,9 @@ ARG JULIA_VERSION="1.10.5"
 FROM julia:${JULIA_VERSION}-bookworm AS internal-base
 
 # Record the actual base image used from the FROM command as label in the compiled image
-ARG BASE_IMAGE=$BASE_IMAGE
+ARG BASE_IMAGE="julia:${JULIA_VERSION}-bookworm" 
 LABEL org.opencontainers.image.base.name=${BASE_IMAGE}
+
 
 # Update all pre-installed OS packages (to get security updates)
 # and add a few extra utilities
@@ -21,9 +22,13 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     git \
     less \
     nano \
+    gdal-bin \
+    libgdal-dev \
+    libfftw3-dev \
     && apt-get clean \
     && apt-get autoremove --purge \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Tweak the JULIA_DEPOT_PATH setting so that our shared environments will end up
 # in a user-agnostic location, not in ~/.julia => /root/.julia which is the default.
@@ -101,9 +106,19 @@ ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 # those to set up the ReefGuideAPI source code as a development package in the
 # shared @reefguide environment, pre-installing and precompiling dependencies.
 WORKDIR "${REEFGUIDE_SRC_DIR}"
-COPY ./Project.toml ./Project.toml
-COPY ./Manifest.toml ./Manifest.toml
-RUN julia --project=@reefguide -e 'using Pkg;  Pkg.instantiate(verbose=true)'
+
+
+# Copy project and manifest - includes Manifest-v1.11 etc
+COPY Project.toml Manifest*.toml ./
+
+# Then fire up a julia execution just to dump out the version
+RUN echo $(julia --project=.  -e 'using Pkg; println(Pkg.dependencies()[Base.UUID("856f044c-d86e-5d09-b602-aeab76dc8ba7")].version)') | cut -d '+' -f 1 >> mkl.dep
+
+# Compile MKL_jll first - this improves build time significantly - unsure exactly why
+RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", version=ENV["MKL_VERSION"])); Pkg.precompile()'
+
+# Precompile Julia packages using BuildKit cache for better efficiency
+RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.

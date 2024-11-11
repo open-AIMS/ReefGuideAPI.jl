@@ -2,6 +2,7 @@
 # It is triggered when a push is made to the main branch.
 
 # Additional notes:
+# - Checks that MKL_jll dependency has been output before running
 # - The workflow uses the github.repository context to name the image, ensuring it's tied to your repository
 # - The GITHUB_TOKEN is automatically provided by GitHub Actions, no need to set it up manually
 # - The Docker metadata action automatically generates appropriate tags based on the release version
@@ -11,16 +12,13 @@ name: Build and Publish ReefGuideAPI.jl Docker Image
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - main
   release:
     types: [published]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/reefguide-src
-  JULIA_VERSION: 1.10.5
+  JULIA_VERSION: 1.11
   # Set to true to use a fixed ReefGuideAPI version for debugging, false to use the release version
   USE_FIXED_REEFGUIDEAPI_VERSION: true
   # TODO this doesn't make sense until the releasing is sorted out
