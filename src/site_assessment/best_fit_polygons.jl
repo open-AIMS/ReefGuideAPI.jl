@@ -1,5 +1,7 @@
 """Geometry-based assessment methods."""
 
+using NearestNeighbors
+
 # Tabular data assessment methods
 
 """
@@ -177,17 +179,6 @@ function identify_edge_aligned_sites(
     )
 
     reef_lines = polygon_to_lines.(buffer_simplify(target_reefs))
-
-    # Search each location to assess
-    n_pixels = nrow(search_pixels)
-    best_score = zeros(n_pixels)
-    best_poly = Vector(undef, n_pixels)
-    best_rotation = zeros(Int64, n_pixels)
-    quality_flag = zeros(Int64, n_pixels)
-    bounds = zeros(4)
-    target_geoms = target_reefs[!, first(GI.geometrycolumns(target_reefs))]
-    loc_constraint = BitVector(falses(nrow(env_lookup)))
-
     search_box = initial_search_box(
         (search_pixels.lons[1], search_pixels.lats[1]),
         x_dist,
@@ -198,7 +189,7 @@ function identify_edge_aligned_sites(
     start_deg_angle = initial_search_rotation(
         GO.Point(search_pixels.lons[1], search_pixels.lats[1]),
         search_box,
-        target_geoms,
+        target_reefs[!, first(GI.geometrycolumns(target_reefs))],
         reef_lines
     )
     search_box = rotate_polygon(search_box, start_deg_angle)
@@ -212,7 +203,47 @@ function identify_edge_aligned_sites(
         rotated_geoms[j] = rotate_polygon(search_box, r)
     end
 
-    for (i, pix) in enumerate(eachrow(search_pixels))
+    # Create KD-tree to identify pixels for assessment that are close to each other.
+    # We can then apply a heuristic to avoid near-identical assessments.
+    sp_inds = Tuple.(search_pixels.indices)
+    inds = Matrix{Float32}([first.(sp_inds) last.(sp_inds)]')
+    kdtree = KDTree(inds; leafsize=25)
+    ignore_idx = Int64[]
+    for (i, coords) in enumerate(eachcol(inds))
+        if i in ignore_idx
+            continue
+        end
+
+        # If there are a group of pixels close to each other, only assess the one closest to
+        # the center of the group.
+        # Select pixels within ~22 meters (1 pixel = 10m² ∴ 2.2 ≈ 22m horizontal distance)
+        idx, dists = knn(kdtree, coords, 30)  # retrieve 30 closest locations
+        sel = (dists == 0) .| (dists .< 2.2)
+        xs = mean(inds[1, idx[sel]])
+        ys = mean(inds[2, idx[sel]])
+
+        # Find index of pixel closest to the center of the group
+        closest_idx = argmin(map(p2 -> sum((p2 .- (xs, ys)).^2), eachcol(inds[:, idx[sel]])))
+
+        to_keep = idx[sel][closest_idx]
+        to_ignore = idx[sel][idx[sel] .!= to_keep]
+
+        append!(ignore_idx, to_ignore)
+    end
+
+    # Search each location to assess
+    ignore_idx = unique(ignore_idx)
+    assessment_locs = search_pixels[Not(ignore_idx), :]
+    n_pixels = nrow(assessment_locs)
+    @debug "KD-tree filtering : removed $(length(ignore_idx)), assessing $(n_pixels) locs"
+
+    best_score = zeros(n_pixels)
+    best_poly = Vector(undef, n_pixels)
+    best_rotation = zeros(Int64, n_pixels)
+    quality_flag = zeros(Int64, n_pixels)
+    bounds = @MVector zeros(4)
+    loc_constraint = BitVector(falses(nrow(env_lookup)))
+    for (i, pix) in enumerate(eachrow(assessment_locs))
         lon = pix.lons
         lat = pix.lats
 
