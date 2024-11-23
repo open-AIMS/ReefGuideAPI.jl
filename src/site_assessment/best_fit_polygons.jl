@@ -13,7 +13,7 @@ using NearestNeighbors
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
-        suit_threshold::Float64=0.3
+        suit_threshold::Float64=0.7
     )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
 
 Assesses the rotations of a search box `geom` for their suitability score (calculated as the
@@ -52,8 +52,8 @@ function assess_reef_site(
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
-    n_per_side::Int64=2,
-    suit_threshold::Float64=0.3
+    n_per_side::Int64=1,
+    suit_threshold::Float64=0.7
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     rot_start = (start_rot - (degree_step * n_per_side))
     rot_end = (start_rot + (degree_step * n_per_side))
@@ -90,23 +90,16 @@ function assess_reef_site(
     rel_pix::DataFrame,
     rotated::Vector{GI.Wrappers.Polygon},
     max_count::Float64;
-    n_per_side::Int64=2,
-    suit_threshold::Float64=0.3
+    n_per_side::Int64=1,
+    suit_threshold::Float64=0.7
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     # Implementation with pre-rotations
     n_rotations = length(rotated)
     score = @MVector zeros(n_rotations)
-    best_poly = Vector(undef, n_rotations)
     qc_flag = @MVector zeros(Int64, n_rotations)
 
-    @floop for (j, r) in enumerate(rotated)
-        score[j] =
-            length(
-                rel_pix[
-                    GO.intersects.([r], rel_pix.geometry), :lon_idx
-                ]
-            ) / max_count
-        best_poly[j] = r
+    for (j, r) in enumerate(rotated)
+        score[j] = count(GO.intersects.([r], rel_pix.geometry)) / max_count
 
         if score[j] < suit_threshold
             # Early exit as there's no point in searching further.
@@ -118,7 +111,7 @@ function assess_reef_site(
 
     return min(score[argmax(score)], 1),
     argmax(score) - (n_per_side + 1),
-    best_poly[argmax(score)],
+    rotated[argmax(score)],
     maximum(qc_flag)
 end
 
@@ -134,7 +127,7 @@ end
         region::String;
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2,
-        surr_threshold::Float64=0.33
+        suit_threshold::Float64=0.7
     )::DataFrame
 
 Identify the most suitable site polygons for each pixel in the `search_pixels` DataFrame.
@@ -154,7 +147,7 @@ Method is currently opperating for CRS in degrees units.
 - `region` : Region name, e.g. "Cairns-Cooktown" or "FarNorthern".
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `n_rot_p_side` : Number of rotations to perform clockwise and anticlockwise around the identified edge angle. Default 2 rotations.
-- `surr_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
+- `suit_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
 
 # Returns
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
@@ -169,13 +162,13 @@ function identify_edge_aligned_sites(
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
     region::String;
     degree_step::Float64=15.0,
-    n_rot_p_side::Int64=2,
-    suit_threshold::Float64=0.33
+    n_rot_p_side::Int64=1,
+    suit_threshold::Float64=0.7
 )::DataFrame
     region_long = REGIONAL_DATA["region_long_names"][region]
     target_reefs = reef_outlines[reef_outlines.management_area .== region_long, :]
     max_count = (
-        (x_dist * y_dist) / (degrees_to_meters(res, mean(search_pixels.lats))^2)
+        (x_dist * y_dist) / ceil(degrees_to_meters(res, mean(search_pixels.lats)))^2
     )
 
     reef_lines = polygon_to_lines.(buffer_simplify(target_reefs))
@@ -216,9 +209,9 @@ function identify_edge_aligned_sites(
 
         # If there are a group of pixels close to each other, only assess the one closest to
         # the center of the group.
-        # Select pixels within ~22 meters (1 pixel = 10m² ∴ 2.2 ≈ 22m horizontal distance)
+        # Select pixels within ~22 meters (1 pixel = 10m² ∴ 3.3 ≈ 33m horizontal distance)
         idx, dists = knn(kdtree, coords, 30)  # retrieve 30 closest locations
-        sel = (dists == 0) .| (dists .< 2.2)
+        sel = (dists == 0) .| (dists .< 3.3)  # select current pixel and those ~33m away
         xs = mean(inds[1, idx[sel]])
         ys = mean(inds[2, idx[sel]])
 
@@ -243,19 +236,17 @@ function identify_edge_aligned_sites(
     best_poly = Vector(undef, n_pixels)
     best_rotation = zeros(Int64, n_pixels)
     quality_flag = zeros(Int64, n_pixels)
-    bounds = @MVector zeros(4)
-    loc_constraint = BitVector(falses(nrow(env_lookup)))
-    for (i, pix) in enumerate(eachrow(assessment_locs))
+    @floop for (i, pix) in enumerate(eachrow(assessment_locs))
         lon = pix.lons
         lat = pix.lats
 
-        rotated_geoms .= move_geom.(rotated_geoms, [(lon, lat)])
+        rotated_copy::Vector{GI.Wrappers.Polygon} = move_geom.(rotated_geoms, [(lon, lat)])
 
         max_offset = (
             abs(meters_to_degrees(maximum([x_dist, y_dist]) / 2, lat)) +
             (2 * res)
         )
-        bounds .= Float64[
+        bounds = Float64[
             lon - max_offset,
             lon + max_offset,
             lat - max_offset,
@@ -263,7 +254,7 @@ function identify_edge_aligned_sites(
         ]
 
         # Identify relevant pixels to assess
-        loc_constraint .= (
+        loc_constraint = (
             (env_lookup.lons .>= bounds[1]) .&  # left
             (env_lookup.lons .<= bounds[2]) .&  # right
             (env_lookup.lats .>= bounds[3]) .&  # bottom
@@ -271,17 +262,19 @@ function identify_edge_aligned_sites(
         )
         rel_pix = env_lookup[loc_constraint, :]
 
-        if nrow(rel_pix) == 0
+        # Skip if no relevant pixels or if the number of suitable pixels are below required
+        # threshold
+        if nrow(rel_pix) == 0 || ((nrow(rel_pix) / max_count) < suit_threshold)
             best_score[i] = 0.0
             best_rotation[i] = 0
-            best_poly[i] = geom_buff
+            best_poly[i] = rotated_copy[1]
             quality_flag[i] = 1
             continue
         end
 
         best_score[i], best_rotation[i], best_poly[i], quality_flag[i] = assess_reef_site(
             rel_pix,
-            rotated_geoms,
+            rotated_copy,
             max_count;
             n_per_side=n_rot_p_side,
             suit_threshold=suit_threshold
@@ -396,7 +389,7 @@ function identify_edge_aligned_sites(
     target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
     region::String;
     degree_step::Float64=15.0,
-    n_rot_per_side::Int64=2
+    n_rot_per_side::Int64=1
 )::DataFrame
     gdf = gdf[gdf.management_area .== region, :]
     reef_lines = polygon_to_lines.(buffer_simplify(gdf))

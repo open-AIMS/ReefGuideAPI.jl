@@ -221,7 +221,7 @@ Where site polygons are overlapping, keep only the highest scoring site polygon.
 # Returns
 DataFrame containing only the highest scoring sites where site polygons intersect, and
 containing only sites with scores greater than the `surr_threshold` specified in
-`identify_edge_aligned_sites()` (default=0.33).
+`identify_edge_aligned_sites()` (default=0.6).
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)

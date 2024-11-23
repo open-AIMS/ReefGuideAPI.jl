@@ -157,7 +157,7 @@ function rotate_geom(
 end
 
 """
-    move_geom(geom, new_centroid::Tuple)
+    move_geom(geom, new_centroid::Tuple)::GI.Wrappers.Polygon
 
 Move a geom to a new centroid.
 
@@ -165,7 +165,7 @@ Move a geom to a new centroid.
 - `geom` : geometry to move
 - `new_centroid` : Centroid given in (lon, lat).
 """
-function move_geom(geom, new_centroid::Tuple)
+function move_geom(geom, new_centroid::Tuple)::GI.Wrappers.Polygon
     tf_lon, tf_lat = new_centroid .- GO.centroid(geom)
     f = CoordinateTransformations.Translation(tf_lon, tf_lat)
     return GO.transform(f, geom)
