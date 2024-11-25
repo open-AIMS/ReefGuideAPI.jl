@@ -111,7 +111,7 @@ function _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
     return nothing
 end
 
-function _write_tiff(file_path::String, data::Raster, config::Dict)::Nothing
+function _write_tiff(file_path::String, data::Raster)::Nothing
     Rasters.write(
         file_path,
         data;
@@ -186,7 +186,7 @@ function setup_region_routes(config, auth)
         assessed = assess_region(reg_assess_data, reg, qp, rtype)
 
         @debug "$(now()) : Writing to $(assessed_fn)"
-        _write_tiff(assessed_fn, assessed, config)
+        _write_tiff(assessed_fn, assessed)
 
         return file(assessed_fn; headers=COG_HEADERS)
     end
@@ -209,7 +209,7 @@ function setup_region_routes(config, auth)
             assessed = Raster(assessed_fn)
         else
             assessed = assess_region(reg_assess_data, reg, qp, rtype)
-            _write_tiff(assessed_fn, assessed, config)
+            _write_tiff(assessed_fn, assessed)
         end
 
         # Extract criteria and assessment
