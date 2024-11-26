@@ -9,6 +9,7 @@ import GeoDataFrames as GDF
 using Clustering, Random, BlackBoxOptim
 using Distances, Statistics, DataFrames
 
+include("site_assessment/geom_ops.jl")
 
 ## Functions for cluster scoring
 """
@@ -48,6 +49,7 @@ end
         max_area_bound,
         max_distance_bound,
         max_benthic_bound,
+        min_benthic_bound,
         min_reef_number;
         output_polygons=false
     )
@@ -62,7 +64,9 @@ cluster dimensions and area is based on rectangular shapes.
 - `max_side_bound` : Maximum length of a side of a cluster. (Units=km).
 - `max_area_bound` : Maximum are of a single cluster. (Units=squared km).
 - `max_distance_bound` : Maximum distance from one reef to it's nearest reef (Units=km).
-- `max_benthic_bound` : Maximum area of sutiable benthic habitat (Units=squared km).
+- `max_benthic_bound` : Maximum area of suitable benthic habitat (Units=squared km).
+- `min_benthic_bound` : Minimum area of suitable benthic habitat (Units=squared km).
+- `min_reef_number` : Minimum number of reef polygons per cluster.
 
 # Returns
 DataFrame with a score for each cluster. Scores == 0.0 mean a cluster satisfies all criteria,
@@ -75,6 +79,7 @@ function score_clusters(
     max_area_bound,
     max_distance_bound,
     max_benthic_bound,
+    min_benthic_bound,
     min_reef_number;
     output_polygons=false
 )
@@ -111,6 +116,7 @@ function score_clusters(
             proportionate_score(total_rectangular_area, max_area_bound) +
             proportionate_score(highest_reef_distance, max_distance_bound) +
             proportionate_score(benthic_area, max_benthic_bound) +
+            proportionate_score(benthic_area, min_benthic_bound; rev=true) +
             proportionate_score(size(groupdf, 1), min_reef_number; rev=true)
 
         cluster_scores[i, :clusters] = first(unique(groupdf.clusters))
@@ -215,6 +221,7 @@ end
         max_area_bound,
         max_distance_bound,
         max_benthic_bound,
+        min_benthic_bound,
         min_reef_number
     )
 
@@ -231,6 +238,7 @@ function opt_kmeans(
     max_area_bound,
     max_distance_bound,
     max_benthic_bound,
+    min_benthic_bound,
     min_reef_number
 )
     n_clusters = X[1]
@@ -274,6 +282,7 @@ function opt_kmeans(
             max_area_bound,
             max_distance_bound,
             max_benthic_bound,
+            min_benthic_bound,
             min_reef_number
         )
         sil_score = normalise(cluster_criteria_scores.score, (0,1)) .+ normalise(-sil_score.sil_score_mean, (0,1))
@@ -306,6 +315,7 @@ end
         max_area_bound,
         max_distance_bound,
         max_benthic_bound,
+        min_benthic_bound,
         min_reef_number;
         n_steps=100,
         epsilon=0.4,
@@ -319,6 +329,7 @@ function cluster(
     max_area_bound,
     max_distance_bound,
     max_benthic_bound,
+    min_benthic_bound,
     min_reef_number;
     n_steps=100,
     epsilon=0.4,
@@ -337,6 +348,7 @@ function cluster(
         max_area_bound,
         max_distance_bound,
         max_benthic_bound,
+        min_benthic_bound,
         min_reef_number
     )
 
