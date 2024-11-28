@@ -44,7 +44,11 @@ function create_bbox(xs::Tuple, ys::Tuple)::Vector{Tuple{Float64,Float64}}
     ]
 end
 
-"""Rotate the polygon by the given angle about its center."""
+"""
+    rotate_polygon(poly_points, centroid, degrees)
+
+Rotate target `poly_points` by `degrees` rotation about its center defined by `centroid`.
+"""
 function rotate_polygon(poly_points, centroid, degrees)
     if degrees == 0.0
         return poly_points
@@ -72,6 +76,25 @@ function rotate_polygon(poly_points, centroid, degrees)
 end
 
 """
+    rotate_polygon(geom, degrees)
+
+Rotate target `geom` by `degrees` rotation about its center.
+
+# Returns
+Rotated geometry.
+"""
+function rotate_polygon(geom, degrees)
+    return create_poly(
+        rotate_polygon(
+            get_points(geom),
+            GO.centroid(geom),
+            degrees
+        ),
+        GI.crs(geom)
+    )
+end
+
+"""
     get_points(geom)
 
 Helper method to retrieve points for a geometry.
@@ -80,7 +103,7 @@ function get_points(geom)
     try
         SVector{2,Float64}.(getfield.(GI.getpoint(geom), :geom))
     catch err
-        if !contains(err.msg, "type SArray has no field geom")
+        if !Base.contains(err.msg, "has no field geom")
             throw(err)
         end
         SVector{2,Float64}.(GI.getpoint(geom))
@@ -134,7 +157,7 @@ function rotate_geom(
 end
 
 """
-    move_geom(geom, new_centroid::Tuple)
+    move_geom(geom, new_centroid::Tuple)::GI.Wrappers.Polygon
 
 Move a geom to a new centroid.
 
@@ -142,7 +165,7 @@ Move a geom to a new centroid.
 - `geom` : geometry to move
 - `new_centroid` : Centroid given in (lon, lat).
 """
-function move_geom(geom, new_centroid::Tuple)
+function move_geom(geom, new_centroid::Tuple)::GI.Wrappers.Polygon
     tf_lon, tf_lat = new_centroid .- GO.centroid(geom)
     f = CoordinateTransformations.Translation(tf_lon, tf_lat)
     return GO.transform(f, geom)

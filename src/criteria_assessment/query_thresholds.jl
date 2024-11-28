@@ -213,7 +213,7 @@ function apply_criteria_lookup(
     reg_criteria::RegionalCriteria,
     rtype::Symbol,
     ruleset
-)
+)::DataFrame
     lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     lookup.all_crit .= 1
 
@@ -222,14 +222,13 @@ function apply_criteria_lookup(
     end
 
     lookup = lookup[BitVector(lookup.all_crit), :]
-    lookup.lon = first.(GI.coordinates.(lookup.geometry))
-    lookup.lat = last.(GI.coordinates.(lookup.geometry))
 
     return lookup
 end
 
 """
-    threshold_mask(reg::String, rtype::Symbol, crit_map)
+    threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
+    threshold_mask(reg_criteria, rtype::Symbol, crit_map, lons::Tuple, lats::Tuple)::Raster
 
 Generate mask for a given region and reef type (slopes or flats) according to thresholds
 applied to a set of criteria.
@@ -267,7 +266,7 @@ function threshold_mask(
 )::Raster
     lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
 
-    (lat1, lat2) = lats[1] > lats[2] ? (lats[2], lats[1]) : (lats[1], lats[2])
+    lat1, lat2 = lats[1] > lats[2] ? (lats[2], lats[1]) : (lats[1], lats[2])
 
     within_search = (
         (lons[1] .<= lookup.lons .<= lons[2]) .&

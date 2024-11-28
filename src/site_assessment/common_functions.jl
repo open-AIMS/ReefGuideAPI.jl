@@ -73,11 +73,11 @@ function line_angle(a::T, b::T)::Float64 where {T<:Vector{Tuple{Float64,Float64}
 end
 
 """
-    filter_far_polygons(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
+    filter_far_reefs(gdf::DataFrame, pixel::GIWrap.Point, lat::Float64, dist::Union{Int64,Float64})::BitVector
 
 Filter out reefs that are > `dist` (meters) from the target pixel (currently `dist` is hardcoded in `initial_search_rotation()`).
 """
-function filter_far_polygons(
+function filter_far_reefs(
     geoms,
     pixel::GeometryBasics.Point,
     lat::Float64,
@@ -146,8 +146,7 @@ function closest_reef_edge(
     reef_lines::Vector{GeometryBasics.Line{2,Float64}}
 )::Vector{Tuple{Float64,Float64}}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
-
-    return [tuple(x...) for x in nearest_edge]
+    return Tuple.(nearest_edge)
 end
 
 """
@@ -159,8 +158,8 @@ end
         search_buffer::Union{Int64,Float64}=20000.0
     )::Float64
 
-Identifies the closest edge to the target `pixel`/'`geom_buff`. The angle required to rotate
-geom_buff by to match this reef edge is calculated.
+Identifies the closest edge to the target `pixel`/`geom_buff`. The angle required to rotate
+`geom_buff` by to match this reef edge is calculated.
 
 # Extended help
 The returned angle is the angle relative to the default `geom_buff` horizontal orientation.
@@ -170,9 +169,8 @@ by 45 degrees to match the identified reef edge.
 # Arguments
 - `pixel` : Target point at the center of the search polygon.
 - `geom_buff` : Initial search box with zero rotation.
-- `gdf` : GeoDataFrame containing a geometry column used for pixel masking.
+- `reef_geoms` : Geometries representing reefs
 - `reef_outlines` : Line segments for the outlines of each reef in `gdf`.
-- `search_buffer` : Distance to search from pixel to find closest reef.
 
 # Returns
 Rotation angle required to match reef edge when used in `rotate_geom(geom_buff, rot_angle)`.
@@ -180,30 +178,24 @@ Rotation angle required to match reef edge when used in `rotate_geom(geom_buff, 
 function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
-    gdf::DataFrame,
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
-    search_buffer::Union{Int64,Float64}=20000.0
+    reef_geoms::Vector{ArchGDAL.IGeometry},
+    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
 )::Float64
-    geoms = gdf[!, first(GI.geometrycolumns(gdf))]
-    distance_indices = filter_far_polygons(geoms, pixel, pixel[2], search_buffer)
-    reef_lines = reef_outlines[distance_indices]
-    reef_lines = reef_lines[
-    GO.within.([pixel], geoms[distance_indices])
-]
-    reef_lines = vcat(reef_lines...)
+    # Get closest reef outline
+    closest_reef_outline_idx = try
+        in_reef = findall(GO.within.([pixel], reef_geoms))
+        first(in_reef)
+    catch err
+        if !(err isa BoundsError)
+            rethrow(err)
+        end
 
-    # If a pixel is outside of a polygon, use the closest polygon instead.
-    if isempty(reef_lines)
-        reef_distances =
-            GO.distance.(
-                [pixel],
-                gdf[distance_indices, first(GI.geometrycolumns(gdf))]
-            )
-        reef_lines = reef_outlines[distance_indices]
-        reef_lines = reef_lines[argmin(reef_distances)]
-        reef_lines = vcat(reef_lines...)
+        # Pixel is outside a reef outline so get the closest one instead
+        # Note: distance will be 0 if point is inside the geometry
+        argmin(GO.distance.([pixel], reef_geoms))
     end
 
+    reef_lines = reef_outlines[closest_reef_outline_idx]
     edge_line = closest_reef_edge(pixel, reef_lines)
 
     # Calculate the angle between the two lines
@@ -219,7 +211,7 @@ end
 """
     filter_sites(res_df::DataFrame)::DataFrame
 
-Filter out sites where the qc_flag indicates a suitabiltiy < `surr_threshold` in searching.
+Filter out sites where the qc_flag indicates a suitability < `surr_threshold` in searching.
 Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
@@ -229,28 +221,30 @@ Where site polygons are overlapping, keep only the highest scoring site polygon.
 # Returns
 DataFrame containing only the highest scoring sites where site polygons intersect, and
 containing only sites with scores greater than the `surr_threshold` specified in
-`identify_edge_aligned_sites()` (default=0.33).
+`identify_edge_aligned_sites()` (default=0.6).
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     res_df.row_ID = 1:size(res_df, 1)
-    ignore_list = []
+    ignore_list = Int64[]
 
-    for (row) in eachrow(res_df)
+    for row in eachrow(res_df)
         if row.row_ID ∈ ignore_list
             continue
         end
 
+        not_ignored = res_df.row_ID .∉ [ignore_list]
         poly = row.geometry
-        if any(GO.intersects.([poly], res_df[:, :geometry]))
-            intersecting_polys = res_df[(GO.intersects.([poly], res_df[:, :geometry])), :]
-            if maximum(intersecting_polys.score) <= row.score
-                for x_row in
-                    eachrow(intersecting_polys[intersecting_polys.row_ID .!= row.row_ID, :])
-                    push!(ignore_list, x_row.row_ID)
-                end
-            else
-                push!(ignore_list, row.row_ID)
-            end
+        poly_interx = GO.intersects.([poly], res_df[not_ignored, :geometry])
+
+        if count(poly_interx) > 1
+            intersecting_polys = res_df[not_ignored, :][poly_interx, :]
+
+            # Find the ID of the polygon with the best score.
+            # Add polygon IDs with non-maximal score to the ignore list
+            best_poly_idx = argmax(intersecting_polys.score)
+            best_ID = intersecting_polys[best_poly_idx, :row_ID]
+            not_best_ID = intersecting_polys.row_ID .!= best_ID
+            append!(ignore_list, intersecting_polys[not_best_ID, :row_ID])
         end
     end
 
@@ -294,17 +288,12 @@ Identifies all pixels in an input raster that return true for the function `crit
 DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
 """
 function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = criteria_function(input_raster)
-    indices = findall(pixels)
-    indices_lon = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
-    indices_lat = Vector{Union{Missing,Float64}}(missing, size(indices, 1))
+    pixels = map(criteria_function, input_raster)
+    indices::Vector{CartesianIndex{2}} = findall(pixels)
+    indices_lon::Vector{Float64} = lookup(pixels, X)[first.(Tuple.(indices))]
+    indices_lat::Vector{Float64} = lookup(pixels, Y)[last.(Tuple.(indices))]
 
-    for (j, index) in enumerate(indices)
-        indices_lon[j] = dims(pixels, X)[index[1]]
-        indices_lat[j] = dims(pixels, Y)[index[2]]
-    end
-
-    return DataFrame(; indices=indices, lon=indices_lon, lat=indices_lat)
+    return DataFrame(; indices=indices, lons=indices_lon, lats=indices_lat)
 end
 
 """

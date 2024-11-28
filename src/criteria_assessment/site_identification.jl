@@ -26,7 +26,7 @@ function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix
     subsection_dims = size(x)
     target_area = zeros(Int16, subsection_dims)
 
-    @floop for row_col in ThreadsX.findall(x)
+    for row_col in findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col + square_offset[1], 1)
         x_right = min(col + square_offset[2], subsection_dims[2])
@@ -141,7 +141,7 @@ Perform raster suitability assessment based on user defined criteria.
 GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
 by a user.
 """
-function assess_region(reg_assess_data, reg, qp, rtype)
+function assess_region(reg_assess_data, reg, qp, rtype)::Raster
     @debug "Assessing region's suitability score"
 
     # Make mask of suitable locations
@@ -198,25 +198,23 @@ function assess_sites(
     target_crs = convert(EPSG, crs(assess_locs))
 
     suitability_threshold = parse(Int64, (site_criteria["SuitabilityThreshold"]))
-    assess_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
+
+    target_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
 
     # Need reef outlines to indicate direction of the reef edge
     gdf = REGIONAL_DATA["reef_outlines"]
-    reef_outlines = buffer_simplify(gdf)
-    reef_outlines = polygon_to_lines.(reef_outlines)
 
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "Assessing site polygons for $(size(assess_locs, 1)) locations."
+    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations."
     initial_polygons = identify_edge_aligned_sites(
         crit_pixels,
-        assess_locs,
+        target_locs,
         res,
         gdf,
         x_dist,
         y_dist,
         target_crs,
-        reef_outlines,
         reg
     )
 
