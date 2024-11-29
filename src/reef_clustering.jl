@@ -75,6 +75,7 @@ are increasing, away from the criteria bounds.
 """
 function score_clusters(
     cluster_dataframe,
+    polygon_distance_matrix,
     max_side_bound,
     max_area_bound,
     max_distance_bound,
@@ -104,17 +105,10 @@ function score_clusters(
 
         total_rectangular_area = cluster_rectangular_area(groupdf)
 
-        if size(groupdf,1) == 1
-            highest_reef_distance = max_distance_bound + 1
-        else
-            highest_reef_distance = maximum(distances_between_reefs(groupdf.AG_geometry))
-        end
-
         benthic_area = sum(groupdf.benthic_area)
 
         cluster_score = proportionate_score(side_length, max_side_bound) +
             proportionate_score(total_rectangular_area, max_area_bound) +
-            proportionate_score(highest_reef_distance, max_distance_bound) +
             proportionate_score(benthic_area, max_benthic_bound) +
             proportionate_score(benthic_area, min_benthic_bound; rev=true) +
             proportionate_score(size(groupdf, 1), min_reef_number; rev=true)
@@ -126,6 +120,24 @@ function score_clusters(
             cluster_scores[i, :cluster_poly] = cluster_polygons(groupdf)
         end
     end
+
+    cluster_distances = [
+        distance_to_next_reef(
+            cluster_i,
+            cluster_dataframe.clusters,
+            polygon_distance_matrix
+        ) for cluster_i in cluster_scores.clusters
+    ]
+    cluster_scores.score = cluster_scores.score .+ proportionate_score.(cluster_distances, [max_distance_bound])
+
+    external_touching_reefs = [
+        touching_polygon_cluster_scoring(
+            cluster_i,
+            cluster_dataframe.clusters,
+            polygon_distance_matrix
+        ) for cluster_i in cluster_scores.clusters
+    ]
+    cluster_scores.score = cluster_scores.score .+ external_touching_reefs
 
     return cluster_scores
 end
@@ -194,36 +206,6 @@ function cluster_polygons(groupdf; target_crs=EPSG(9473))
     return polygons
 end
 
-"""
-    distances_between_reefs(geometries)
-
-Returns the distance from each reef to its nearest neighbouring reef.
-"""
-function distances_between_reefs(geometries; ArchGDAL_method=true)
-    if ArchGDAL_method
-        adjacent_distances = []
-        for polygon_j in geometries
-            distances_j = ArchGDAL.distance.([polygon_j], geometries)
-            if all(distances_j .== 0.0)
-                push!(adjacent_distances, 0.0)
-            else
-                push!(adjacent_distances, minimum(distances_j[distances_j .!= 0.0]))
-            end
-        end
-
-        return vcat(adjacent_distances...) / 1000
-    end
-
-    centroids = GO.centroid.(geometries)
-    adjacent_distances = []
-    for centroid_j in centroids
-        distances_j = euclidean.([centroid_j], centroids)
-        push!(adjacent_distances, minimum(distances_j[distances_j .!= 0.0]))
-    end
-
-    return vcat(adjacent_distances...) / 1000
-end
-
 # Functions to apply clustering and scoring to datasets
 
 """
@@ -247,7 +229,7 @@ Lower scores are preferred by BlackBoxOptim.
 function opt_kmeans(
     X,
     reef_df,
-    clustering_cols,
+    clustering_matrix,
     max_side_bound,
     max_area_bound,
     max_distance_bound,
@@ -259,7 +241,7 @@ function opt_kmeans(
 
         local clusters
     try
-        clusters = kmeans(Matrix(reef_df[:, clustering_cols])', floor(Int64, n_clusters), display=:none)
+        clusters = kmeans(clustering_matrix, floor(Int64, n_clusters), display=:none)
         if !clusters.converged
             # Return worst score if k-means has not converged
             return 1.0
@@ -276,7 +258,7 @@ function opt_kmeans(
 
     sil_score = -1.0
     try
-        sil_score = silhouettes(reef_df.clusters, Matrix(reef_df[:, clustering_cols])'; metric=Euclidean())
+        sil_score = silhouettes(reef_df.clusters, clustering_matrix)
     catch err
         if !(err isa ArgumentError)
             rethrow(err)
@@ -292,6 +274,7 @@ function opt_kmeans(
 
         cluster_criteria_scores = score_clusters(
             reef_df,
+            clustering_matrix,
             max_side_bound,
             max_area_bound,
             max_distance_bound,
@@ -373,6 +356,89 @@ function opt_kmedoids(
 
         cluster_criteria_scores = score_clusters(
             reef_df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+        sil_score = normalise(cluster_criteria_scores.score, (0,1)) .+ normalise(-sil_score.sil_score_mean, (0,1))
+        #sil_score = normalise(sil_score, (-1, 1))
+    end
+
+    # Optimization direction is toward the minimum, so invert score.
+    return mean(sil_score)
+end
+
+"""
+    opt_kmedoids(
+        X,
+        reef_df,
+        clustering_matrix::Matrix,
+        max_side_bound,
+        max_area_bound,
+        max_distance_bound,
+        max_benthic_bound,
+        min_benthic_bound,
+        min_reef_number
+    )
+
+Objective function that applies `X` number of clusters to the `clustering_matrix` from
+`reef_df`. These clusters are scored based on their side distance, area, distance between reefs,
+benthic area and number of reefs. Clusters are also scored based on sillhouette scores (reef cluster similarity).
+Lower scores are preferred by BlackBoxOptim.
+"""
+function opt_dbscan(
+    X,
+    reef_df,
+    clustering_matrix::Matrix,
+    max_side_bound,
+    max_area_bound,
+    max_distance_bound,
+    max_benthic_bound,
+    min_benthic_bound,
+    min_reef_number
+)
+    n_clusters = X[1]
+
+        local clusters
+    try
+        clusters = dbscan(clustering_matrix, n_clusters; metric=nothing)
+        # if !clusters.converged
+        #     # Return worst score if k-means has not converged
+        #     return 1.0
+        # end
+    catch err
+        if err isa BoundsError
+            return 1.0
+        else
+            rethrow(err)
+        end
+    end
+
+    reef_df.clusters = clusters.assignments
+
+    sil_score = -1.0
+    try
+        sil_score = silhouettes(reef_df.clusters, clustering_matrix)
+    catch err
+        if !(err isa ArgumentError)
+            rethrow(err)
+        else
+        # All locations assigned to a single cluster so assign worst score
+        sil_score = -1.0
+        end
+    end
+
+    if size(sil_score, 1) > 1
+        sil_score = DataFrame(clusters = reef_df.clusters, sil_score = sil_score)
+        sil_score = DataFrames.combine(groupby(sil_score, :clusters), :sil_score => mean)
+
+        cluster_criteria_scores = score_clusters(
+            reef_df,
+            clustering_matrix,
             max_side_bound,
             max_area_bound,
             max_distance_bound,
@@ -424,55 +490,8 @@ end
 """
 function cluster(
     df,
-    clustering_cols::Vector{Symbol},
-    max_side_bound,
-    max_area_bound,
-    max_distance_bound,
-    max_benthic_bound,
-    min_benthic_bound,
-    min_reef_number;
-    n_steps=100,
-    epsilon=0.4,
-    min_clusters=1
-)
-    Random.seed!(101)
-
-    n_locs = length(unique(df.UNIQUE_ID))
-    dist_bnds = [(min_clusters, n_locs)]
-
-    opt_func = x -> opt_kmeans(
-        x,
-        df,
-        clustering_cols,
-        max_side_bound,
-        max_area_bound,
-        max_distance_bound,
-        max_benthic_bound,
-        min_benthic_bound,
-        min_reef_number
-    )
-
-    res = bboptimize(
-        opt_func;
-        SearchRange=dist_bnds,
-        MaxSteps=n_steps,
-        ϵ=epsilon,
-    )
-    best_params = best_candidate(res)
-
-    clusters = kmeans(Matrix(df[:, clustering_cols])', floor(Int64, best_params[1]))
-
-    assignments = clusters.assignments
-    sil_score = silhouettes(assignments, Matrix(df[:, clustering_cols])'; metric=Euclidean())
-
-    df.silhouette_score = sil_score
-    df.clusters = assignments
-    return df
-end
-
-function cluster(
-    df,
     clustering_matrix::Matrix,
+    cluster_function::Symbol,
     max_side_bound,
     max_area_bound,
     max_distance_bound,
@@ -486,19 +505,49 @@ function cluster(
     Random.seed!(101)
 
     n_locs = length(unique(df.UNIQUE_ID))
-    dist_bnds = [(min_clusters, 3460)]
 
-    opt_func = x -> opt_kmedoids(
-        x,
-        df,
-        clustering_matrix,
-        max_side_bound,
-        max_area_bound,
-        max_distance_bound,
-        max_benthic_bound,
-        min_benthic_bound,
-        min_reef_number
-    )
+    if cluster_function == :kmeans
+        dist_bnds = [(min_clusters, n_locs)]
+        opt_func = x -> opt_kmeans(
+            x,
+            df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+    elseif cluster_function == :dbscan
+        dist_bnds = [(0.001, 1000)]
+        opt_func = x -> opt_dbscan(
+            x,
+            df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+    elseif cluster_function == :kmedoids
+        dist_bnds = [(min_clusters, n_locs)]
+        opt_func = x -> opt_kmeans(
+            x,
+            df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+    else
+        throw("$(cluster_function) clustering algorithm not implemented. Functions include :kmeans, :dbscan, :kmedoids.")
+    end
 
     res = bboptimize(
         opt_func;
@@ -508,7 +557,7 @@ function cluster(
     )
     best_params = best_candidate(res)
 
-    clusters = kmedoids(clustering_matrix, floor(Int64, best_params[1]))
+    clusters = dbscan(clustering_matrix, best_params[1]; metric=nothing)
 
     assignments = clusters.assignments
     sil_score = silhouettes(assignments, clustering_matrix)
@@ -597,14 +646,14 @@ function create_distance_matrix(site_data::Vector)::Matrix{Float64}
         end
 
         return dist
-    elseif typeof(site_data) == Vector{ArchGDAL.IGeometry{ArchGDAL.wkbPolygon}}
+    elseif typeof(site_data) == Vector{AG.IGeometry}
         for ii in axes(dist, 1)
             for jj in axes(dist, 2)
                 if ii == jj
                     continue
                 end
 
-                @views dist[ii, jj] = ArchGDAL.distance(
+                @views dist[ii, jj] = GI.distance(
                     (site_data[ii]), (site_data[jj])
                 )
             end
@@ -626,4 +675,62 @@ function create_distance_matrix(site_data::Vector)::Matrix{Float64}
     end
 
     return dist
+end
+
+"""
+    touching_polygon_cluster_scoring(
+        cluster::Int64,
+        clusters::Vector{Int64},
+        distance_matrix::Matrix{Float64}
+    )
+
+Find the number of external polygons that are touching polygons within the target cluster.
+
+# Arguments
+- `cluster` : Target cluster to investigate.
+- `clusters` : Vector of all clusters assigned to each reef.
+- `distance_matrix` : n*n distance matrix of distances between reef polygons.
+"""
+function touching_polygon_cluster_scoring(
+    cluster::Int64,
+    clusters::Vector{Int64},
+    distance_matrix::Matrix{Float64}
+)
+    ind = clusters .== cluster
+    if any(distance_matrix[ind, Not(ind)] .== 0.0) # Check if any of the reefs in the target cluster are touching any reefs outside of the cluster
+        n_touching = sum(distance_matrix[ind, Not(ind)] .== 0.0)
+
+        return n_touching
+    else
+        return 0.0
+    end
+end
+
+"""
+    distance_to_next_reef(
+        cluster::Int64,
+        clusters::Vector{Int64},
+        distance_matrix::Matrix{Float64}
+    )
+
+Find the maximum neighbouring reef distance that occurs within the target cluster.
+
+# Arguments
+- `cluster` : Target cluster to investigate.
+- `clusters` : Vector containing all clusters assigned to each reef.
+- `distance_matrix` : n*n matrix containing distances between each reef polygon.
+"""
+function distance_to_next_reef(
+    cluster::Int64,
+    clusters::Vector{Int64},
+    distance_matrix::Matrix{Float64}
+)
+    ind = clusters .== cluster
+    distances = distance_matrix[ind, ind]
+    if size(distances, 1) > 1
+        reef_distances = [minimum(distances[i, Not(i)]) for i in 1:size(distances,1)]
+    else
+        reef_distances = [1.0]
+    end
+    return maximum(reef_distances) ./ 1000
 end
