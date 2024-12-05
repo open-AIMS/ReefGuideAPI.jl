@@ -2,12 +2,18 @@
 Clustering approach that includes functions for scoring and assigning optimal clusters.
 """
 
+using Random
+using Statistics
+
+import ArchGDAL as AG
 import GeometryOps as GO
 import GeoInterface as GI
+
+using BlackBoxOptim, Distances, Clustering
+
+using DataFrames
 import GeoDataFrames as GDF
 
-using Clustering, Random, BlackBoxOptim
-using Distances, Statistics, DataFrames
 
 include("site_assessment/geom_ops.jl")
 
