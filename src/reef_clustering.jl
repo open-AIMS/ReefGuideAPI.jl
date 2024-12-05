@@ -577,9 +577,9 @@ end
 function reef_proportion_in_criteria(x)
     if (length(collect(x)) > 0)# & (sum(x) > 0)
         return sum(collect(x) .> 0) / length(collect(x))
-    else
-        return 0.0
     end
+
+    return 0.0
 end
 
 """
@@ -594,37 +594,36 @@ function reef_benthic_areas(geometry, bool_raster)
     return (benthic_areas .* (res*res)) / 1e6
 end
 
+function GeoInterface_to_ArchGDAL_polygon(polygon::GeoInterface.Wrappers.MultiPolygon)
+    polygon = GI.getgeom(polygon)
+    ArchGDAL_polygon = ArchGDAL.createpolygon()
+    for sub_polygon in polygon
+        points = collect.(GO.Point.(GI.getpoint(sub_polygon)))
+        ring = ArchGDAL.createlinearring(points)
+        ArchGDAL.addgeom!(ArchGDAL_polygon, ring)
+    end
+
+    return ArchGDAL_polygon
+end
 function GeoInterface_to_ArchGDAL_polygon(polygon)
-    if isa(polygon, GeoInterface.Wrappers.MultiPolygon) # Check if a polygon is a MultiPolygon
-        polygon = GI.getgeom(polygon)
+    n_holes = GI.nhole(polygon)
+    if n_holes > 0 # Check if a polygon is a single polygon containing holes (> 1 ring)
+        rings = n_holes + 1
         ArchGDAL_polygon = ArchGDAL.createpolygon()
-        for sub_polygon in polygon
-            points = collect.(GO.Point.(GI.getpoint(sub_polygon)))
-            ring = ArchGDAL.createlinearring(points)
-            ArchGDAL.addgeom!(ArchGDAL_polygon, ring)
+        for subpolygon in 1:rings
+            sub_ring = GI.getring(polygon, subpolygon)
+            points = collect.(GO.Point.(GI.getpoint(sub_ring)))
+            AG_ring = ArchGDAL.createlinearring(points)
+            ArchGDAL.addgeom!(ArchGDAL_polygon, AG_ring)
         end
 
         return ArchGDAL_polygon
-    else
-        n_holes = GI.nhole(polygon)
-        if n_holes > 0 # Check if a polygon is a single polygon containing holes (> 1 ring)
-            rings = n_holes + 1
-            ArchGDAL_polygon = ArchGDAL.createpolygon()
-            for subpolygon in 1:rings
-                sub_ring = GI.getring(polygon, subpolygon)
-                points = collect.(GO.Point.(GI.getpoint(sub_ring)))
-                AG_ring = ArchGDAL.createlinearring(points)
-                ArchGDAL.addgeom!(ArchGDAL_polygon, AG_ring)
-            end
-
-            return ArchGDAL_polygon
-        end
-
-        points = GO.Point.(GI.getpoint(polygon))
-        points = collect.(points)
-
-        return ArchGDAL.createpolygon(points)
     end
+
+    points = GO.Point.(GI.getpoint(polygon))
+    points = collect.(points)
+
+    return ArchGDAL.createpolygon(points)
 end
 
 """
