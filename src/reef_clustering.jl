@@ -627,59 +627,51 @@ function GeoInterface_to_ArchGDAL_polygon(polygon)
 end
 
 """
-    create_distance_matrix(site_data::Vector)::Matrix
+    distance_matrix!(reef_geoms::Vector, dist::Matrix{Float64}, func::Function)::Nothing
 
-Calculate matrix of unique distances between locations.
+Create a distance matrix using the provided function.
 
-# Returns
-Distance between locations in meters
+# Arguments
+- `reef_geoms` : Geometries to calculate distances between
+- `dist` : distanec/adjacency matrix
+- `func` : Distance calculation function
 """
-function create_distance_matrix(site_data::Vector)::Matrix{Float64}
-    n_sites = size(site_data, 1)
-    dist = zeros(n_sites, n_sites)
-    if typeof(site_data) == Vector{Tuple{Float64, Float64}}
-        for ii in axes(dist, 1)
-            for jj in axes(dist, 2)
-                if ii == jj
-                    continue
-                end
-
-                @views dist[ii, jj] = haversine(
-                    (site_data[ii]), (site_data[jj])
-                )
-            end
-        end
-
-        return dist
-    elseif typeof(site_data) == Vector{AG.IGeometry}
-        for ii in axes(dist, 1)
-            for jj in axes(dist, 2)
-                if ii == jj
-                    continue
-                end
-
-                @views dist[ii, jj] = GI.distance(
-                    (site_data[ii]), (site_data[jj])
-                )
-            end
-        end
-
-        return dist
-    end
-
+function distance_matrix!(reef_geoms::Vector, dist::Matrix{Float64}, func::Function)::Nothing
     for ii in axes(dist, 1)
-        for jj in axes(dist, 2)
-            if ii == jj
+        Threads.@threads for jj in axes(dist, 2)
+            if ii == jj || !iszero(dist[ii, jj])
                 continue
             end
 
-            @views dist[ii, jj] = euclidean(
-            (site_data[ii]), (site_data[jj])
-            )
+            @views dist[ii, jj] = func(reef_geoms[ii], reef_geoms[jj])
         end
+
+        dist[:, ii] .= dist[ii, :]
     end
 
+    return nothing
+end
+
+"""
+    create_distance_matrix(reef_geoms::Vector)::Matrix
+
+Calculate matrix of unique distances between reefs.
+
+# Returns
+Distance between reefs in meters
+"""
+function create_distance_matrix(reef_geoms::Vector)::Matrix{Float64}
+    n_reefs = size(reef_geoms, 1)
+    dist = zeros(n_reefs, n_reefs)
+    distance_matrix!(reef_geoms, dist)
+
     return dist
+end
+@inline function distance_matrix!(reef_geoms::Vector{Tuple{Float64, Float64}}, dist::Matrix{Float64})::Nothing
+    return distance_matrix!(reef_geoms, dist, haversine)
+end
+@inline function distance_matrix!(reef_geoms::Vector{AG.IGeometry{AG.wkbPolygon}}, dist::Matrix{Float64})::Nothing
+    return distance_matrix!(reef_geoms, dist, AG.distance)
 end
 
 """
