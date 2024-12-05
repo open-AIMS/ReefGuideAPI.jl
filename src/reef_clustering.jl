@@ -461,6 +461,88 @@ function opt_dbscan(
 end
 
 """
+    opt_kmedoids(
+        X,
+        reef_df,
+        clustering_matrix::Matrix,
+        max_side_bound,
+        max_area_bound,
+        max_distance_bound,
+        max_benthic_bound,
+        min_benthic_bound,
+        min_reef_number
+    )
+
+Objective function that applies `X` number of clusters to the `clustering_matrix` from
+`reef_df`. These clusters are scored based on their side distance, area, distance between reefs,
+benthic area and number of reefs. Clusters are also scored based on sillhouette scores (reef cluster similarity).
+Lower scores are preferred by BlackBoxOptim.
+"""
+function opt_hclust(
+    X,
+    reef_df,
+    clustering_matrix::Matrix,
+    max_side_bound,
+    max_area_bound,
+    max_distance_bound,
+    max_benthic_bound,
+    min_benthic_bound,
+    min_reef_number
+)
+    n_clusters = X[1]
+
+        local clusters
+    try
+        clusters = cutree(hclust(clustering_matrix); k=floor(Int64, n_clusters))
+        # if !clusters.converged
+        #     # Return worst score if k-means has not converged
+        #     return 1.0
+        # end
+    catch err
+        if err isa BoundsError
+            return 1.0
+        else
+            rethrow(err)
+        end
+    end
+
+    reef_df.clusters = clusters
+
+    sil_score = -1.0
+    try
+        sil_score = silhouettes(reef_df.clusters, clustering_matrix)
+    catch err
+        if !(err isa ArgumentError)
+            rethrow(err)
+        else
+        # All locations assigned to a single cluster so assign worst score
+        sil_score = -1.0
+        end
+    end
+
+    if size(sil_score, 1) > 1
+        sil_score = DataFrame(clusters = reef_df.clusters, sil_score = sil_score)
+        sil_score = DataFrames.combine(groupby(sil_score, :clusters), :sil_score => mean)
+
+        cluster_criteria_scores = score_clusters(
+            reef_df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+        sil_score = normalise(cluster_criteria_scores.score, (0,1)) .+ normalise(-sil_score.sil_score_mean, (0,1))
+        #sil_score = normalise(sil_score, (-1, 1))
+    end
+
+    # Optimization direction is toward the minimum, so invert score.
+    return mean(sil_score)
+end
+
+"""
     normalise(x, (a, b))
 
 Normalise the vector `x` so that it's minimum value is `a` and its maximum value is `b`.
@@ -540,7 +622,20 @@ function cluster(
         )
     elseif cluster_function == :kmedoids
         dist_bnds = [(min_clusters, n_locs)]
-        opt_func = x -> opt_kmeans(
+        opt_func = x -> opt_kmedoids(
+            x,
+            df,
+            clustering_matrix,
+            max_side_bound,
+            max_area_bound,
+            max_distance_bound,
+            max_benthic_bound,
+            min_benthic_bound,
+            min_reef_number
+        )
+    elseif cluster_function == :hclust
+        dist_bnds = [(min_clusters, n_locs)]
+        opt_func = x -> opt_hclust(
             x,
             df,
             clustering_matrix,
@@ -552,7 +647,7 @@ function cluster(
             min_reef_number
         )
     else
-        throw("$(cluster_function) clustering algorithm not implemented. Functions include :kmeans, :dbscan, :kmedoids.")
+        throw("$(cluster_function) clustering algorithm not implemented. Functions include :kmeans, :dbscan, :kmedoids, :hclust.")
     end
 
     res = bboptimize(
@@ -563,9 +658,16 @@ function cluster(
     )
     best_params = best_candidate(res)
 
-    clusters = dbscan(clustering_matrix, best_params[1]; metric=nothing)
+    if cluster_function == :kmeans
+        assignments = kmeans(clustering_matrix, floor(Int64, best_params[1])).assignments
+    elseif cluster_function == :dbscan
+        assignments = dbscan(clustering_matrix, best_params; metric=nothing).assignments
+    elseif cluster_function == :kmedoids
+        assignments = kmedoids(clustering_matrix, floor(Int64, best_params[1])).assignments
+    elseif cluster_function == :hclust
+        assignments = cutree(hclust(clustering_matrix); k=floor(Int64, best_params[1]))
+    end
 
-    assignments = clusters.assignments
     sil_score = silhouettes(assignments, clustering_matrix)
 
     df.silhouette_score = sil_score
@@ -724,10 +826,11 @@ function distance_to_next_reef(
 )
     ind = clusters .== cluster
     distances = distance_matrix[ind, ind]
-    if size(distances, 1) > 1
-        reef_distances = [minimum(distances[i, Not(i)]) for i in 1:size(distances,1)]
+    n_clusters = size(distances, 1)
+    if n_clusters > 1
+        reef_distances = maximum([minimum(distances[i, Not(i)]) for i in 1:n_clusters])
     else
-        reef_distances = [1.0]
+        reef_distances = 1.0
     end
-    return maximum(reef_distances) ./ 1000
+    return reef_distances ./ 1000
 end
