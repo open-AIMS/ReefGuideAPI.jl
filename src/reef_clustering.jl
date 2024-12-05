@@ -49,7 +49,7 @@ function proportionate_score(x, bound; rev=false)
 end
 
 """
-    function score_clusters(
+    score_clusters(
         cluster_dataframe,
         max_side_bound,
         max_area_bound,
@@ -351,8 +351,8 @@ function opt_kmedoids(
         if !(err isa ArgumentError)
             rethrow(err)
         else
-        # All locations assigned to a single cluster so assign worst score
-        sil_score = -1.0
+            # All locations assigned to a single cluster so assign worst score
+            sil_score = -1.0
         end
     end
 
@@ -489,10 +489,10 @@ end
         min_clusters=1
     )
 
-    Finds the optimal clustering solution for the `clustering_cols` or `clustering_matrix` within
-    `n_steps`. Clusters are scored based on the specified criteria in the function. If `clustering_cols`
-    is used (n*d matrix) then kmeans() is used for clustering. If `clustering_matrix` is used (n*n distance matrix)
-    then kmedoids() is used for clustering.
+Finds the optimal clustering solution for the `clustering_cols` or `clustering_matrix` within
+`n_steps`. Clusters are scored based on the specified criteria in the function. If `clustering_cols`
+is used (n*d matrix) then kmeans() is used for clustering. If `clustering_matrix` is used (n*n distance matrix)
+then kmedoids() is used for clustering.
 """
 function cluster(
     df,
