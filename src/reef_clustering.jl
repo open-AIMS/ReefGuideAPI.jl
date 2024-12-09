@@ -10,6 +10,13 @@ using DataFrames
 include("cluster_scoring.jl")
 
 # Functions for preprocessing data before clustering is applied.
+
+"""
+    reef_proportion_in_criteria(x)
+
+Intended to calculate the proportion of a reef outline that is suitable for deployment. Use with
+Rasters.zonal() on the suitability raster files to calculate suitable proportions for each reef.
+"""
 function reef_proportion_in_criteria(x)
     if (length(collect(x)) > 0)# & (sum(x) > 0)
         return sum(collect(x) .> 0) / length(collect(x))
@@ -31,6 +38,11 @@ function reef_benthic_areas(geometry, bool_raster)
     return (benthic_areas .* (res*res)) / 1e6
 end
 
+"""
+    GeoInterface_to_ArchGDAL_polygon(polygon)
+
+Convert `GeoInterface` polygon objects into `ArchGDAL` objects to be compatible with ArchGDAL functions.
+"""
 function GeoInterface_to_ArchGDAL_polygon(polygon::GeoInterface.Wrappers.MultiPolygon)
     polygon = GI.getgeom(polygon)
     ArchGDAL_polygon = ArchGDAL.createpolygon()
@@ -117,11 +129,11 @@ end
 # Functions to apply clustering and scoring to datasets
 
 """
-    _define_clustering(clustering_type)
+    _define_clustering(clustering_type::Symbol)
 
 Define the clustering function to use in assessment based on available algorithms in Clustering.jl.
 """
-function _define_clustering(clustering_type)
+function _define_clustering(clustering_type::Symbol)::Function
     if clustering_type == :kmeans
         return (clust_matrix, cluster_param) -> assignments(kmeans(clust_matrix, floor(Int64, cluster_param)))
     elseif clustering_type == :kmedoids
@@ -138,16 +150,16 @@ end
 """
     optimisation_func(
         X,
-        clustering_function,
-        reef_df,
-        clustering_matrix,
-        max_side_bound,
-        max_area_bound,
-        max_distance_bound,
-        max_benthic_bound,
-        min_benthic_bound,
-        min_reef_number
-    )
+        clustering_function::Function,
+        reef_df::DataFrame,
+        clustering_matrix::Matrix{Float64},
+        max_side_bound::Union{Float64, Int64},
+        max_area_bound::Union{Float64, Int64},
+        max_distance_bound::Union{Float64, Int64},
+        max_benthic_bound::Union{Float64, Int64},
+        min_benthic_bound::Union{Float64, Int64},
+        min_reef_number::Int64
+    )::Float64
 
 Optimisation function for application of `clustering_function` method to `clustering_matrix`.
 `X` is the parameter for optimisation with BlackBoxOptim.jl.
@@ -157,16 +169,16 @@ Mean cluster score based on physical and ecological parameters combined with sil
 """
 function optimisation_func(
     X,
-    clustering_function,
-    reef_df,
-    clustering_matrix,
-    max_side_bound,
-    max_area_bound,
-    max_distance_bound,
-    max_benthic_bound,
-    min_benthic_bound,
-    min_reef_number
-)
+    clustering_function::Function,
+    reef_df::DataFrame,
+    clustering_matrix::Matrix{Float64},
+    max_side_bound::Union{Float64, Int64},
+    max_area_bound::Union{Float64, Int64},
+    max_distance_bound::Union{Float64, Int64},
+    max_benthic_bound::Union{Float64, Int64},
+    min_benthic_bound::Union{Float64, Int64},
+    min_reef_number::Int64
+)::Float64
     cluster_param = X[1]
 
         local clusters
@@ -229,24 +241,25 @@ Normalise the vector `x` so that it's minimum value is `a` and its maximum value
 - `normalise([1, 5, 10, 78] (0,1))` to return a vector with min=0 and max=1.
 - `normalise([1, 5, 10, 78] (-1,1))` to return a vector with min=-1 and max=1.
 """
-function normalise(x, (a, b))
+function normalise(x::Vector{Union{Float64, Int64}}, (a::Union{Float64, Int64}, b::Union{Float64, Int64}))::Vector{Float64}
     x_norm = (b - a) .* ((x .- minimum(x)) ./ (maximum(x) .- minimum(x))) .+ a
     return x_norm
 end
 
 """
     cluster(
-        df,
-        clustering_cols,
-        max_side_bound,
-        max_area_bound,
-        max_distance_bound,
-        max_benthic_bound,
-        min_benthic_bound,
-        min_reef_number;
-        n_steps=100,
-        epsilon=0.4,
-        min_clusters=1
+        df::DataFrame,
+        clustering_matrix::Matrix,
+        cluster_type::Symbol,
+        max_side_bound::Union{Float64, Int64},
+        max_area_bound::Union{Float64, Int64},
+        max_distance_bound::Union{Float64, Int64},
+        max_benthic_bound::Union{Float64, Int64},
+        min_benthic_bound::Union{Float64, Int64},
+        min_reef_number::Int64;
+        n_steps::Int64=100,
+        epsilon::Float64=0.4,
+        min_clusters::Int64=1
     )
 
 Finds the optimal clustering solution for the `clustering_cols` or `clustering_matrix` within
@@ -255,19 +268,19 @@ is used (n*d matrix) then kmeans() is used for clustering. If `clustering_matrix
 then kmedoids() is used for clustering.
 """
 function cluster(
-    df,
+    df::DataFrame,
     clustering_matrix::Matrix,
     cluster_type::Symbol,
-    max_side_bound,
-    max_area_bound,
-    max_distance_bound,
-    max_benthic_bound,
-    min_benthic_bound,
-    min_reef_number;
-    n_steps=100,
-    epsilon=0.4,
-    min_clusters=1
-)
+    max_side_bound::Union{Float64, Int64},
+    max_area_bound::Union{Float64, Int64},
+    max_distance_bound::Union{Float64, Int64},
+    max_benthic_bound::Union{Float64, Int64},
+    min_benthic_bound::Union{Float64, Int64},
+    min_reef_number::Int64;
+    n_steps::Int64=100,
+    epsilon::Float64=0.4,
+    min_clusters::Int64=1
+)::Vector{Int64}
     Random.seed!(101)
 
     n_locs = length(unique(df.UNIQUE_ID))
