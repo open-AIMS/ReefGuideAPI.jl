@@ -262,10 +262,11 @@ end
         min_clusters::Int64=1
     )
 
-Finds the optimal clustering solution for the `clustering_cols` or `clustering_matrix` within
+Finds the optimal clustering solution for the `clustering_`clustering_matrix` within
 `n_steps`. Clusters are scored based on the specified criteria in the function. If `clustering_cols`
 is used (n*d matrix) then kmeans() is used for clustering. If `clustering_matrix` is used (n*n distance matrix)
 then kmedoids() is used for clustering.
+* Note: The function is designed for max/min distance and area bounds to be specified in km/sqkm units. *
 """
 function cluster(
     df::DataFrame,
