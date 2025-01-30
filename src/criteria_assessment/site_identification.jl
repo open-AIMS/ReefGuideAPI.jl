@@ -199,6 +199,7 @@ function assess_sites(
 
     suitability_threshold = parse(Int64, (site_criteria["SuitabilityThreshold"]))
 
+    @debug "$(now()) : Identifying search pixels"
     target_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
 
     # Need reef outlines to indicate direction of the reef edge
