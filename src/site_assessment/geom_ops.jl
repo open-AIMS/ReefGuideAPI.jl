@@ -179,11 +179,11 @@ end
 Extract the individual lines between vertices that make up the outline of a polygon.
 
 # Returns
-Vector of GeometryBasics.Line{2, Float64} with one line for each adjacent vertex pair in `polygon`.
+Vector of GeometryBasics.LineString{2, Float64} with one line for each adjacent vertex pair in `polygon`.
 """
 function polygon_to_lines(
     polygon::Union{Vector{T},T,GIWrap.MultiPolygon}
-) where {T<:GIWrap.Polygon}
+)::Vector{GeometryBasics.LineString{2, Float64}} where {T<:GIWrap.Polygon}
     poly_lines = [
         GO.LineString(GO.Point.(vcat(GI.getpoint(geometry)...)))
         for geometry in polygon.geom
