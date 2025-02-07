@@ -309,7 +309,7 @@ in the reef outlines.
 # Arguments
 - `gdf` : GeoDataFrame containing the reef polygons in `gdf.geometry`.
 - `number_verts` : Number of vertices to simplify the reefs to. Default is 30 vertices.
-- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 40m.
+- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 20m.
 
 # Returns
 Vector containing buffered and simplified reef polygons
@@ -317,7 +317,7 @@ Vector containing buffered and simplified reef polygons
 function buffer_simplify(
     gdf::DataFrame;
     number_verts::Int64=30,
-    buffer_dist_m::Int64=40
+    buffer_dist_m::Int64=20
 )::Vector{GIWrap.WrapperGeometry}
     reef_buffer = GO.simplify(gdf.geometry; number=number_verts)
     for row in eachrow(reef_buffer)
