@@ -202,6 +202,16 @@ function assess_sites(
     @debug "$(now()) : Identifying search pixels"
     target_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
 
+    if size(target_locs, 1) == 0
+        # No viable set of locations, return empty dataframe
+        return DataFrame(;
+            score=[],
+            orientation=[],
+            qc_flag=[],
+            geometry=[]
+        )
+    end
+
     # Need reef outlines to indicate direction of the reef edge
     gdf = REGIONAL_DATA["reef_outlines"]
 
