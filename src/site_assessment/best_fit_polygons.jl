@@ -230,7 +230,7 @@ function identify_edge_aligned_sites(
     ignore_idx = unique(ignore_idx)
     assessment_locs = search_pixels[Not(ignore_idx), :]
     n_pixels = nrow(assessment_locs)
-    @debug "KD-tree filtering : removed $(length(ignore_idx)), assessing $(n_pixels) locs"
+    @debug "KD-tree filtering : removed $(length(ignore_idx)) near-identical locations, assessing $(n_pixels) locations"
 
     best_score = zeros(n_pixels)
     best_poly = Vector(undef, n_pixels)

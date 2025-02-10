@@ -129,8 +129,8 @@ end
 """
     closest_reef_edge(
         pixel::GeometryBasics.Point{2, Float64},
-        reef_lines::Vector{GeometryBasics.Line{2, Float64}}
-    )::Vector{Tuple{Float64, Float64}}
+        reef_lines::Vector{T}
+    )::Vector{Tuple{Float64, Float64}} where {T}
 
 Find the nearest line in `reef_lines` to a point `pixel`.
 
@@ -143,10 +143,10 @@ Coordinates of the reef edge line that is closest to the target `pixel`. Returne
 """
 function closest_reef_edge(
     pixel::GeometryBasics.Point{2,Float64},
-    reef_lines::Vector{GeometryBasics.Line{2,Float64}}
-)::Vector{Tuple{Float64,Float64}}
+    reef_lines::Vector{T}
+)::Vector{Tuple{Float64,Float64}} where {T}
     nearest_edge = reef_lines[argmin(GO.distance.([pixel], reef_lines))]
-    return Tuple.(nearest_edge)
+    return Tuple.(coordinates(nearest_edge))
 end
 
 """
@@ -154,9 +154,9 @@ end
         pixel::GeometryBasics.Point{2, Float64},
         geom_buff::GI.Wrappers.Polygon,
         gdf::DataFrame,
-        reef_outlines::Vector{Vector{GeometryBasics.Line{2, Float64}}};
+        reef_outlines::Vector{Vector{T}};
         search_buffer::Union{Int64,Float64}=20000.0
-    )::Float64
+    )::Float64 where {T}
 
 Identifies the closest edge to the target `pixel`/`geom_buff`. The angle required to rotate
 `geom_buff` by to match this reef edge is calculated.
@@ -179,8 +179,8 @@ function initial_search_rotation(
     pixel::GeometryBasics.Point{2,Float64},
     geom_buff::GI.Wrappers.Polygon,
     reef_geoms::Vector{ArchGDAL.IGeometry},
-    reef_outlines::Vector{Vector{GeometryBasics.Line{2,Float64}}}
-)::Float64
+    reef_outlines::Vector{Vector{T}}
+)::Float64 where {T}
     # Get closest reef outline
     closest_reef_outline_idx = try
         in_reef = findall(GO.within.([pixel], reef_geoms))
@@ -309,7 +309,7 @@ in the reef outlines.
 # Arguments
 - `gdf` : GeoDataFrame containing the reef polygons in `gdf.geometry`.
 - `number_verts` : Number of vertices to simplify the reefs to. Default is 30 vertices.
-- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 40m.
+- `buffer_dist_m` : Buffering distance in meters to account for innacuracies in reef outlines. Default distance is 20m.
 
 # Returns
 Vector containing buffered and simplified reef polygons
@@ -317,7 +317,7 @@ Vector containing buffered and simplified reef polygons
 function buffer_simplify(
     gdf::DataFrame;
     number_verts::Int64=30,
-    buffer_dist_m::Int64=40
+    buffer_dist_m::Int64=20
 )::Vector{GIWrap.WrapperGeometry}
     reef_buffer = GO.simplify(gdf.geometry; number=number_verts)
     for row in eachrow(reef_buffer)
