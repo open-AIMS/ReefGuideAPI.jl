@@ -11,6 +11,12 @@ The Julia version is specified by the `JULIA_VERSION` arg. The full version is s
 to maintain build stability, but should be bumped to the latest version of Julia when a
 release is published.
 
+## Publish Release
+
+1. Bump version in Project.toml and [PublishDockerImage.yml](../../.github/workflows/PublishDockerImage.yml)
+2. Create PR, merge to `main` branch
+3. Publish Release on GitHub (this triggers the PublishDockerImage workflow)
+
 ## A note about MKL_jll
 
 Due to how Julia (particularly v1.11) handles precompilation, it significantly reduces the build time by explicitly installed MKL_jll before installing any of explicit project dependencies.
