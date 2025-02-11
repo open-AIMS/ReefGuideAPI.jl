@@ -1,5 +1,5 @@
 # See https://hub.docker.com/_/julia for valid versions.
-ARG JULIA_VERSION="1.11.1"
+ARG JULIA_VERSION="1.11.3"
 
 #------------------------------------------------------------------------------
 # internal-base build target: julia with OS updates and an empty @reefguide
@@ -8,7 +8,7 @@ ARG JULIA_VERSION="1.11.1"
 FROM julia:${JULIA_VERSION}-bookworm AS internal-base
 
 # Record the actual base image used from the FROM command as label in the compiled image
-ARG BASE_IMAGE="julia:${JULIA_VERSION}-bookworm" 
+ARG BASE_IMAGE="julia:${JULIA_VERSION}-bookworm"
 LABEL org.opencontainers.image.base.name=${BASE_IMAGE}
 
 

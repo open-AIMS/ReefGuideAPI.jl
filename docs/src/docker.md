@@ -5,6 +5,12 @@ means you can run an instance of the ReefGuideAPI.jl package without needing to
 compile/build it with a local `Julia` installation. You will be able to view the latest
 published versions of the Docker image on the repository packages page.
 
+## Dockerfile Configuration
+
+The Julia version is specified by the `JULIA_VERSION` arg. The full version is specified
+to maintain build stability, but should be bumped to the latest version of Julia when a
+release is published.
+
 ## A note about MKL_jll
 
 Due to how Julia (particularly v1.11) handles precompilation, it significantly reduces the build time by explicitly installed MKL_jll before installing any of explicit project dependencies.
