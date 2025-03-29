@@ -161,7 +161,7 @@ function apply_criteria_thresholds(
     ruleset::NamedTuple
 )::Raster
     # Result store
-    res = Raster(criteria_stack.Depth; data=falses(size(criteria_stack)), missingval=0)
+    data = falses(size(criteria_stack))
 
     res_lookup = trues(nrow(lookup))
     for rule_name in keys(ruleset)
@@ -169,8 +169,9 @@ function apply_criteria_thresholds(
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
 
+    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
     return res
 end
 function apply_criteria_thresholds(
@@ -179,7 +180,7 @@ function apply_criteria_thresholds(
     ruleset::Vector{CriteriaBounds{Function}}
 )::Raster where {T}
     # Result store
-    res = Raster(criteria_stack.Depth; data=falses(size(criteria_stack)), missingval=0)
+    data = falses(size(criteria_stack))
 
     res_lookup = trues(nrow(lookup))
     for threshold in ruleset
@@ -187,14 +188,16 @@ function apply_criteria_thresholds(
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    res[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+
+    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
 
     return res
 end
 
 """
     apply_criteria_lookup(
-        reg_criteria,
+        reg_criteria::RegionalCriteria,
         rtype::Symbol,
         ruleset::Vector{CriteriaBounds{Function}}
     )
