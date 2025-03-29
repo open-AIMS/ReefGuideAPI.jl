@@ -275,23 +275,23 @@ function output_geojson(
 end
 
 """
-    identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
+    search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
 
-Identifies all pixels in an input raster that return true for the function `criteria_function`.
+Build a look up table identifying all pixels in a raster that meet a suitability threshold.
 
 # Arguments
-- `input_raster` : Raster containing pixels for the target region.
-- `criteria_function` : Function that returns a boolean value for each pixel in `input_raster`.
-                        Pixels that return true will be targetted in analysis.
+- `raster` : Raster of regional data
+- `threshold` : Suitability threshold value (greater or equal than)
 
 # Returns
-DataFrame containing indices, lon and lat for each pixel that is intended for further analysis.
+DataFrame containing indices, lon and lat for each pixel that is intended for further
+analysis.
 """
-function identify_search_pixels(input_raster::Raster, criteria_function)::DataFrame
-    pixels = map(criteria_function, input_raster)
-    indices::Vector{CartesianIndex{2}} = findall(pixels)
-    indices_lon::Vector{Float64} = lookup(pixels, X)[first.(Tuple.(indices))]
-    indices_lat::Vector{Float64} = lookup(pixels, Y)[last.(Tuple.(indices))]
+function search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
+    criteria_matches::BitMatrix = read(raster .>= threshold)
+    indices::Vector{CartesianIndex{2}} = findall(criteria_matches)
+    indices_lon::Vector{Float64} = lookup(raster, X)[first.(Tuple.(indices))]
+    indices_lat::Vector{Float64} = lookup(raster, Y)[last.(Tuple.(indices))]
 
     return DataFrame(; indices=indices, lons=indices_lon, lats=indices_lat)
 end
