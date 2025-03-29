@@ -250,7 +250,11 @@ applied to a set of criteria.
 # Returns
 True/false mask indicating locations within desired thresholds.
 """
-function threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
+function threshold_mask(
+    reg_criteria::RegionalCriteria,
+    rtype::Symbol,
+    crit_map::Vector{CriteriaBounds{Function}}
+)::Raster
     valid_lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
     mask_layer = apply_criteria_thresholds(
         reg_criteria.stack,
@@ -261,9 +265,9 @@ function threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
     return mask_layer
 end
 function threshold_mask(
-    reg_criteria,
+    reg_criteria::RegionalCriteria,
     rtype::Symbol,
-    crit_map,
+    crit_map::Vector{CriteriaBounds{Function}},
     lons::Tuple,
     lats::Tuple
 )::Raster
