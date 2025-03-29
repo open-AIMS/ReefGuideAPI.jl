@@ -91,7 +91,7 @@ end
         (lon::Float64, lat::Float64),
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        target_crs::GeoFormatTypes.EPSG,
         res::Float64
     )::GI.Wrappers.Polygon
 
@@ -112,7 +112,7 @@ function initial_search_box(
     (lon, lat),
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    target_crs::GeoFormatTypes.EPSG,
     res::Float64
 )::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
