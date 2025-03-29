@@ -182,11 +182,43 @@ function setup_tile_routes(config, auth)
         reg = qp["region"]
         rtype = qp["rtype"]
 
-        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
-
         # Calculate tile bounds
         lon_min, lon_max, lat_max, lat_min = _tile_bounds(z, x, y)
+        lons, lats = (lon_min, lon_max), (lat_max, lat_min)
         @debug "Thread $(thread_id) - $(now()) : Calculated bounds (z/x/y, lon bounds, lat bounds): $z $x $y | $(_tile_to_lon_lat(z, x, y)) | ($(lon_min), $(lon_max)), ($(lat_min), $(lat_max))"
+
+        # Check if request is within target region
+        # return empty tile if not.
+        lookup = getfield(reg_assess_data[reg], Symbol(:valid_, rtype))
+        lat1, lat2 = lats[1] > lats[2] ? (lats[2], lats[1]) : (lats[1], lats[2])
+
+        within_search = (
+            (lons[1] .<= lookup.lons .<= lons[2]) .&
+            (lat1 .<= lookup.lats .<= lat2)
+        )
+
+        if !any(within_search)
+            no_data_path = cache_filename(
+                Dict("no_data" => "none"), config, "no_data", "png"
+            )
+
+            @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
+            return file(no_data_path; headers=TILE_HEADERS)
+        end
+
+        # TODO: Re-use pre-existing cache for entire region if available
+        # Get mask data if available
+        # assessed_fn = cache_filename(
+        #     extract_criteria(qp, suitability_criteria()), config, "$(reg)_suitable", "tiff"
+        # )
+        #
+        # if isfile(assessed_fn)
+        #     # Load regional data, subset to area of interest and assess
+        # else
+        #     # Otherwise, assess the target area directly
+        # end
+
+        criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
 
         # Extract relevant data based on tile coordinates
         @debug "Thread $(thread_id) - $(now()) : Extracting tile data"
@@ -197,15 +229,6 @@ function setup_tile_routes(config, auth)
             (lon_min, lon_max),
             (lat_min, lat_max)
         )
-
-        if any(size(mask_data) .== 0)
-            no_data_path = cache_filename(
-                Dict("no_data" => "none"), config, "no_data", "png"
-            )
-
-            @debug "Thread $(thread_id) - No data for $reg ($rtype) at $z/$x/$y"
-            return file(no_data_path; headers=TILE_HEADERS)
-        end
 
         @debug "Thread $(thread_id) - Extracted data size: $(size(mask_data))"
 
