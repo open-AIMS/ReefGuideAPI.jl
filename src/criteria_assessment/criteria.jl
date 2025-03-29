@@ -35,6 +35,24 @@ function criteria_data_map()
     )
 end
 
+function search_criteria()::Vector{String}
+    return string.(keys(criteria_data_map()))
+end
+
+function site_criteria()::Vector{String}
+    return ["SuitabilityThreshold", "xdist", "ydist"]
+end
+
+function suitability_criteria()::Vector{String}
+    return vcat(search_criteria(), ["SuitabilityThreshold"])
+end
+
+function extract_criteria(qp::T, criteria::Vector{String})::T where {T<:Dict{String,String}}
+    return filter(
+        k -> string(k.first) ∈ criteria, qp
+    )
+end
+
 struct RegionalCriteria{T}
     stack::RasterStack
     valid_slopes::T
