@@ -56,6 +56,7 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         String,Union{RegionalCriteria,DataFrame,Dict}
     }()
     for reg in get_regions()
+        @debug "$(now()) : Initializing cache for $reg"
         data_paths = String[]
         data_names = String[]
 
@@ -77,7 +78,8 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
                 if occursin("slope", string(dp))
                     slope_table = GeoParquet.read(parq_file)
                 elseif occursin("flat", string(dp))
-                    flat_table = GeoParquet.read(parq_file)
+                    @warn "Skipping data for reef flats as it is currently unused"
+                    # flat_table = GeoParquet.read(parq_file)
                 else
                     msg = "Unknown lookup found: $(parq_file). Must be 'slope' or 'flat'"
                     throw(ArgumentError(msg))
@@ -90,9 +92,9 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         slope_table[!, :lons] .= first.(coords)
         slope_table[!, :lats] .= last.(coords)
 
-        coords = GI.coordinates.(flat_table.geometry)
-        flat_table[!, :lons] .= first.(coords)
-        flat_table[!, :lats] .= last.(coords)
+        # coords = GI.coordinates.(flat_table.geometry)
+        # flat_table[!, :lons] .= first.(coords)
+        # flat_table[!, :lats] .= last.(coords)
 
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
 
@@ -106,8 +108,10 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
             slope_table,
-            flat_table
+            slope_table[[1], :]  # flat_table
         )
+
+        @debug "$(now()) : Finished initialization for $reg"
     end
 
     regional_assessment_data["region_long_names"] = Dict(

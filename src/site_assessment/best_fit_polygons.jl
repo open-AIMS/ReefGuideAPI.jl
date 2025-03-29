@@ -9,7 +9,7 @@ using NearestNeighbors
         rel_pix::DataFrame,
         geom::GI.Wrappers.Polygon,
         max_count::Float64,
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+        target_crs::GeoFormatTypes.EPSG;
         degree_step::Float64=15.0,
         start_rot::Float64=0.0,
         n_per_side::Int64=2,
@@ -49,7 +49,7 @@ function assess_reef_site(
     rel_pix::DataFrame,
     geom::GI.Wrappers.Polygon,
     max_count::Float64,
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat;
+    target_crs::GeoFormatTypes.EPSG;
     degree_step::Float64=15.0,
     start_rot::Float64=0.0,
     n_per_side::Int64=1,
@@ -123,7 +123,7 @@ end
         gdf::DataFrame,
         x_dist::Union{Int64,Float64},
         y_dist::Union{Int64,Float64},
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        target_crs::GeoFormatTypes.EPSG,
         region::String;
         degree_step::Float64=15.0,
         n_rot_p_side::Int64=2,
@@ -159,7 +159,7 @@ function identify_edge_aligned_sites(
     reef_outlines::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    target_crs::GeoFormatTypes.EPSG,
     region::String;
     degree_step::Float64=15.0,
     n_rot_p_side::Int64=1,
@@ -236,6 +236,7 @@ function identify_edge_aligned_sites(
     best_poly = Vector(undef, n_pixels)
     best_rotation = zeros(Int64, n_pixels)
     quality_flag = zeros(Int64, n_pixels)
+    FLoops.assistant(false)
     @floop for (i, pix) in enumerate(eachrow(assessment_locs))
         lon = pix.lons
         lat = pix.lats
@@ -330,7 +331,7 @@ function assess_reef_site(
     score = zeros(n_rotations)
     best_poly = Vector(undef, n_rotations)
 
-    target_crs = GI.crs(rst)
+    target_crs = convert(EPSG, GI.crs(rst))
     for (j, r) in enumerate(rotations)
         rot_geom = rotate_geom(geom, r, target_crs)
         c_rst = crop(rst; to=rot_geom)
@@ -348,12 +349,12 @@ end
 
 """
     identify_edge_aligned_sites(
-        rst_stack::RasterStack,
+        rst_stack::Raster,
         search_pixels::DataFrame,
         gdf::DataFrame,
         x_dist::Union{Int64,Float64},
         y_dist::Union{Int64,Float64},
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+        target_crs::GeoFormatTypes.EPSG,
         region::String,
         reef_lines::Vector{Vector{GeometryBasics.Line{2,Float64}}};
         degree_step::Float64=15.0,
@@ -366,7 +367,7 @@ resolution is applied to the search box. And angle from a pixel to a reef edge i
 and used for searching with custom rotation parameters.
 
 # Arguments
-- `rst_stack` : RasterStack containing environmental variables for assessment.
+- `rst_stack` : Raster containing environmental variables for assessment.
 - `search_pixels` : DataFrame containing lon and lat values for each pixel intended for
 - `gdf` : GeoDataFrame containing the reef outlines used to align the search box edge.
 - `x_dist` : Length of horizontal side of search box.
@@ -381,17 +382,18 @@ and used for searching with custom rotation parameters.
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
 function identify_edge_aligned_sites(
-    rst_stack::RasterStack,
+    rst_stack::Raster,
     search_pixels::DataFrame,
     gdf::DataFrame,
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat,
+    target_crs::GeoFormatTypes.EPSG,
     region::String;
     degree_step::Float64=15.0,
     n_rot_per_side::Int64=1
 )::DataFrame
-    gdf = gdf[gdf.management_area .== region, :]
+    gdf = gdf[gdf.management_area_short .== region, :]
+
     reef_lines = polygon_to_lines.(buffer_simplify(gdf))
 
     res = abs(step(dims(rst_stack, X)))
@@ -406,7 +408,7 @@ function identify_edge_aligned_sites(
         geom_buff = initial_search_box((lon, lat), x_dist, y_dist, target_crs, res)
 
         pixel = GO.Point(lon, lat)
-        rot_angle = initial_search_rotation(pixel, geom_buff, gdf, reef_lines)
+        rot_angle = initial_search_rotation(pixel, geom_buff, gdf.geometry, reef_lines)
 
         b_score, b_rot, b_poly = assess_reef_site(
             rst_stack,

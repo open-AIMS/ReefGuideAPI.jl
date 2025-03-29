@@ -35,6 +35,24 @@ function criteria_data_map()
     )
 end
 
+function search_criteria()::Vector{String}
+    return string.(keys(criteria_data_map()))
+end
+
+function site_criteria()::Vector{String}
+    return ["SuitabilityThreshold", "xdist", "ydist"]
+end
+
+function suitability_criteria()::Vector{String}
+    return vcat(search_criteria(), ["SuitabilityThreshold"])
+end
+
+function extract_criteria(qp::T, criteria::Vector{String})::T where {T<:Dict{String,String}}
+    return filter(
+        k -> string(k.first) ∈ criteria, qp
+    )
+end
+
 struct RegionalCriteria{T}
     stack::RasterStack
     valid_slopes::T
@@ -175,18 +193,9 @@ function setup_region_routes(config, auth)
         # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
         # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
         # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95
-
+        # 127.0.0.1:8000/suitability/assess/Mackay-Capricorn/slopes?Depth=-12.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95
         qp = queryparams(req)
-        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
-        if isfile(assessed_fn)
-            return file(assessed_fn; headers=COG_HEADERS)
-        end
-
-        @debug "$(now()) : Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, qp, rtype)
-
-        @debug "$(now()) : Writing to $(assessed_fn)"
-        _write_tiff(assessed_fn, assessed)
+        assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
 
         return file(assessed_fn; headers=COG_HEADERS)
     end
@@ -195,6 +204,7 @@ function setup_region_routes(config, auth)
         req::Request, reg::String, rtype::String
     )
         # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
+        # 127.0.0.1:8000/suitability/site-suitability/Mackay-Capricorn/slopes?Depth=-12.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=100&ydist=100
         qp = queryparams(req)
         suitable_sites_fn = cache_filename(
             qp, config, "$(reg)_potential_sites", "geojson"
@@ -204,24 +214,16 @@ function setup_region_routes(config, auth)
         end
 
         # Assess location suitability if needed
-        assessed_fn = cache_filename(qp, config, "$(reg)_suitable", "tiff")
-        if isfile(assessed_fn)
-            assessed = Raster(assessed_fn)
-        else
-            assessed = assess_region(reg_assess_data, reg, qp, rtype)
-            _write_tiff(assessed_fn, assessed)
-        end
+        assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
+        assessed = Raster(assessed_fn; lazy=true)
 
         # Extract criteria and assessment
-        criteria_names = string.(keys(criteria_data_map()))
-        pixel_criteria = filter(k -> k.first ∈ criteria_names, qp)
-        site_criteria = filter(
-            k -> string(k.first) ∈ ["SuitabilityThreshold", "xdist", "ydist"], qp
-        )
+        pixel_criteria = extract_criteria(qp, search_criteria())
+        deploy_site_criteria = extract_criteria(qp, site_criteria())
 
         best_sites = filter_sites(
             assess_sites(
-                reg_assess_data, reg, rtype, pixel_criteria, site_criteria, assessed
+                reg_assess_data, reg, rtype, pixel_criteria, deploy_site_criteria, assessed
             )
         )
 

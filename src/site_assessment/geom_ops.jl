@@ -114,7 +114,7 @@ end
     rotate_geom(
         geom,
         degrees::Float64,
-        target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+        target_crs::GeoFormatTypes.EPSG
     )
 
 Rotate target `geom` by `degrees` rotation in clockwise direction. `target_crs` is applied
@@ -126,7 +126,7 @@ Rotated geometry.
 function rotate_geom(
     geom,
     degrees::Float64,
-    target_crs::GeoFormatTypes.CoordinateReferenceSystemFormat
+    target_crs::GeoFormatTypes.EPSG
 )
     degrees == 0.0 && return geom
 
