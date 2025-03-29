@@ -1,7 +1,9 @@
 """Methods for identifying potential deployment locations."""
 
 """
-    proportion_suitable(subsection::BitMatrix, square_offset::Tuple=(-4,5))::Matrix{Int16}
+    proportion_suitable(
+        x::Union{BitMatrix,SparseMatrixCSC{Bool,Int64}}; square_offset::Tuple=(-4, 5)
+    )::SparseMatrixCSC{UInt8,Int64}
 
 Calculate the the proportion of the subsection that is suitable for deployments.
 The `subsection` is the surrounding a rough hectare area centred on each cell of a raster
@@ -22,9 +24,11 @@ close to the edge due to the use of buffer areas.
 Matrix of values 0 - 100 indicating the percentage of the area around the target pixel that
 meet suitability criteria.
 """
-function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix{Int16}
+function proportion_suitable(
+    x::Union{BitMatrix,SparseMatrixCSC{Bool,Int64}}; square_offset::Tuple=(-4, 5)
+)::SparseMatrixCSC{UInt8,Int64}
     subsection_dims = size(x)
-    target_area = zeros(Int16, subsection_dims)
+    target_area = spzeros(UInt8, subsection_dims)
 
     for row_col in findall(x)
         (row, col) = Tuple(row_col)
@@ -34,7 +38,7 @@ function proportion_suitable(x::BitMatrix; square_offset::Tuple=(-4, 5))::Matrix
         y_top = max(row + square_offset[1], 1)
         y_bottom = min(row + square_offset[2], subsection_dims[1])
 
-        target_area[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
+        target_area[row, col] = UInt8(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
 
     return target_area
