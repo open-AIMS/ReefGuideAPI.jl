@@ -119,10 +119,9 @@ function mask_region(reg_assess_data, reg, qp, rtype)
     criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(qp)...)
 
     # Otherwise, create the file
-    @debug "$(now()) : Assessing criteria"
-    assess = reg_assess_data[reg]
+    @debug "$(now()) : Masking area based on criteria"
     mask_data = threshold_mask(
-        assess,
+        reg_assess_data[reg],
         Symbol(rtype),
         CriteriaBounds.(criteria_names, lbs, ubs)
     )
@@ -291,24 +290,11 @@ function assess_sites(
     site_criteria::Dict,
     assess_locs::Raster
 )
-    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(pixel_criteria)...)
-
-    # Otherwise, create the file
-    @debug "$(now()) : Assessing criteria table"
-    assess = reg_assess_data[reg]
-    crit_pixels = apply_criteria_lookup(
-        assess,
-        Symbol(rtype),
-        CriteriaBounds.(criteria_names, lbs, ubs)
-    )
-
-    res = abs(step(dims(assess_locs, X)))
     target_crs = convert(EPSG, crs(assess_locs))
+    suitability_threshold = parse(Int64, site_criteria["SuitabilityThreshold"])
 
-    suitability_threshold = parse(Int64, (site_criteria["SuitabilityThreshold"]))
-
-    @debug "$(now()) : Identifying search pixels"
-    target_locs = identify_search_pixels(assess_locs, x -> x .> suitability_threshold)
+    @debug "$(now()) : Identifying search pixels for $(reg)"
+    target_locs = search_lookup(assess_locs, suitability_threshold)
 
     if size(target_locs, 1) == 0
         # No viable set of locations, return empty dataframe
@@ -320,12 +306,23 @@ function assess_sites(
         )
     end
 
+    criteria_names, lbs, ubs = remove_rugosity(reg, parse_criteria_query(pixel_criteria)...)
+
+    # Otherwise, create the file
+    @debug "$(now()) : Assessing criteria table for $(reg)"
+    crit_pixels::DataFrame = apply_criteria_lookup(
+        reg_assess_data[reg],
+        Symbol(rtype),
+        CriteriaBounds.(criteria_names, lbs, ubs)
+    )
+
     # Need reef outlines to indicate direction of the reef edge
     gdf = REGIONAL_DATA["reef_outlines"]
 
+    res = abs(step(dims(assess_locs, X)))
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations."
+    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations in $(reg)."
     initial_polygons = identify_edge_aligned_sites(
         crit_pixels,
         target_locs,
