@@ -224,6 +224,10 @@ containing only sites with scores greater than the `surr_threshold` specified in
 `identify_edge_aligned_sites()` (default=0.6).
 """
 function filter_sites(res_df::DataFrame)::DataFrame
+    if nrow(res_df) == 0
+        return res_df
+    end
+
     res_df.row_ID = 1:size(res_df, 1)
     ignore_list = Int64[]
 
