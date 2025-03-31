@@ -230,8 +230,12 @@ function setup_region_routes(config, auth)
         # Specifically clear from memory to invoke garbage collector
         assessed = nothing
 
-        if size(best_sites, 1) == 0
-            return json(nothing)
+        if nrow(best_sites) == 0
+            open(suitable_sites_fn, "w") do f
+                JSON.print(f, nothing)
+            end
+
+            return file(suitable_sites_fn)
         end
 
         output_geojson(suitable_sites_fn, best_sites)
