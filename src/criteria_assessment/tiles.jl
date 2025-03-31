@@ -211,9 +211,13 @@ function setup_tile_routes(config, auth)
         # assessed_fn = cache_filename(
         #     extract_criteria(qp, suitability_criteria()), config, "$(reg)_suitable", "tiff"
         # )
-        #
+
+        # TODO: Use previously generated results
+        # assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
         # if isfile(assessed_fn)
+        #     # assessed = Raster(assessed_fn; lazy=true)
         #     # Load regional data, subset to area of interest and assess
+        #     mask_data =
         # else
         #     # Otherwise, assess the target area directly
         # end
