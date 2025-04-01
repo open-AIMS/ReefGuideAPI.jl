@@ -215,7 +215,7 @@ function setup_region_routes(config, auth)
 
         # Assess location suitability if needed
         assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
-        assessed = Raster(assessed_fn; lazy=true)
+        assessed = Raster(assessed_fn; lazy=true, missingval=0)
 
         # Extract criteria and assessment
         pixel_criteria = extract_criteria(qp, search_criteria())

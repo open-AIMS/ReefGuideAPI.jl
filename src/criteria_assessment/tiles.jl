@@ -215,7 +215,7 @@ function setup_tile_routes(config, auth)
         # TODO: Use previously generated results
         # assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
         # if isfile(assessed_fn)
-        #     # assessed = Raster(assessed_fn; lazy=true)
+        #     # assessed = Raster(assessed_fn; lazy=true, missingval=0)
         #     # Load regional data, subset to area of interest and assess
         #     mask_data =
         # else
