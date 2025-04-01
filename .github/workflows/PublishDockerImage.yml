@@ -23,7 +23,7 @@ env:
   USE_FIXED_REEFGUIDEAPI_VERSION: true
   # TODO this doesn't make sense until the releasing is sorted out
   # The fixed ReefGuideAPI version to use when USE_FIXED_REEFGUIDEAPI_VERSION is true
-  FIXED_REEFGUIDEAPI_VERSION: "0.1.3"
+  FIXED_REEFGUIDEAPI_VERSION: "0.1.4"
 
 jobs:
   build-and-push-image:
