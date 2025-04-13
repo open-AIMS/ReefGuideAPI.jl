@@ -292,7 +292,8 @@ DataFrame containing indices, lon and lat for each pixel that is intended for fu
 analysis.
 """
 function search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
-    criteria_matches::BitMatrix = Rasters.read(raster .>= threshold)
+    criteria_matches::SparseMatrixCSC{Bool,Int64} = sparse(falses(size(raster)))
+    Rasters.read!(raster .>= threshold, criteria_matches)
     indices::Vector{CartesianIndex{2}} = findall(criteria_matches)
     indices_lon::Vector{Float64} = lookup(raster, X)[first.(Tuple.(indices))]
     indices_lat::Vector{Float64} = lookup(raster, Y)[last.(Tuple.(indices))]
