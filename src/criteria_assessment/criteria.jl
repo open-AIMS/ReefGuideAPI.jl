@@ -29,9 +29,11 @@ function criteria_data_map()
         :WavesTp => "_waves_Tp",
         :Rugosity => "_rugosity",
         :ValidSlopes => "_valid_slopes",
-        :ValidFlats => "_valid_flats",
-        :PortDistSlopes => "_PortDistSlopes",
-        :PortDistFlats => "_PortDistFlats"
+        :ValidFlats => "_valid_flats"
+
+        # Unused datasets
+        # :PortDistSlopes => "_PortDistSlopes",
+        # :PortDistFlats => "_PortDistFlats"
     )
 end
 
