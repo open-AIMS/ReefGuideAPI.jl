@@ -240,6 +240,7 @@ end
 
 Convenience method wrapping around the analysis conducted by `assess_region()`.
 Checks for previous assessment of indicated region and returns filename of cache if found.
+If corresponding job is found, wait for results.
 
 """
 function assess_region(
@@ -252,11 +253,45 @@ function assess_region(
         return assessed_fn
     end
 
-    @debug "$(now()) : Assessing region $(reg)"
-    assessed = assess_region(reg_assess_data, reg, qp, rtype)
+    srv = DiskService(_cache_location(config))
+    job_id = create_job_id(qp) * "$(reg)_suitable"
 
-    @debug "$(now()) : Writing to $(assessed_fn)"
-    _write_tiff(assessed_fn, assessed)
+    job_state = job_status(srv, job_id)
+    if (job_state != "no job") && (job_state != "completed")
+        @debug "$(now()) : Waiting for $(reg) job to finish"
+        # Job exists, wait for job to finish
+        wait_time = 20.0
+        max_wait = 60.0
+
+        while true
+            st = job_status(srv, job_id)
+            if (st == "completed") || (st == "error")
+                break
+            end
+
+            sleep(wait_time)
+
+            # Exponential backoff (increase wait time every loop)
+            wait_time = min(wait_time * 2.0, max_wait)
+        end
+
+        if job_status(srv, job_id) == "error"
+            throw(ArgumentError("Job $(job_id) errored."))
+        end
+    else
+        @debug "$(now()) : Submitting job for $(reg)"
+        job_details = submit_job(srv, job_id, assessed_fn)
+
+        @debug "$(now()) : Assessing region $(reg)"
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+        @debug "$(now()) : Writing to $(assessed_fn)"
+        _write_tiff(assessed_fn, assessed)
+
+        @debug "$(now()) : Marking job for $(reg) as completed"
+        job_details.status = "completed"
+        update_job!(srv, job_id, job_details)
+    end
 
     return assessed_fn
 end

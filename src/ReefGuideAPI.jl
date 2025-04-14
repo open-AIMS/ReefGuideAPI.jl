@@ -24,14 +24,18 @@ using
     HTTP,
     Oxygen
 
+include("Middleware.jl")
+include("admin.jl")
+
+include("job_management/JobInterface.jl")
+include("job_management/DiskService.jl")
+
 include("criteria_assessment/criteria.jl")
 include("criteria_assessment/query_thresholds.jl")
+include("criteria_assessment/regional_assessment.jl")
 
 include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
-
-include("Middleware.jl")
-include("admin.jl")
 
 function get_regions()
     # TODO: Comes from config?
@@ -215,7 +219,7 @@ Generate a filename for a cache.
 - `ext` : file extension to use
 """
 function cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
-    file_id = string(hash(qp))
+    file_id = create_job_id(qp)
     temp_path = _cache_location(config)
     cache_file_path = joinpath(temp_path, "$(file_id)$(suffix).$(ext)")
 
@@ -292,6 +296,9 @@ function start_server(config_path)
 
     @info "Setting up tile routes..."
     setup_tile_routes(config, auth)
+
+    @info "Setting up job routes..."
+    setup_job_routes(config, auth)
 
     @info "Setting up admin routes..."
     setup_admin_routes(config)
