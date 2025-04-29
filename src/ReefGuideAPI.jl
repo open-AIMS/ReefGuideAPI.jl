@@ -308,7 +308,7 @@ function start_server(config_path)
 
     return serve(;
         middleware=[CorsMiddleware],
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=port,
         parallel=Threads.nthreads() > 1,
         is_prioritized=(req::HTTP.Request) -> req.target == "/health"
