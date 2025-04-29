@@ -78,10 +78,16 @@ Retrieve status of a job.
 function job_status(srv::DiskService, job_id::String)::String
     details = job_details(srv, job_id)
 
-    return details.status
+    return job_status(details)
 end
 
 function job_status(details::JobAttributes)
+    minutes_taken = (now() - details.init_datetime) / Millisecond(1000) / 60
+    if minutes_taken > 10.0
+        # Likely something has hung
+        return "error"
+    end
+
     return details.status
 end
 
