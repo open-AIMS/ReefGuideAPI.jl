@@ -29,9 +29,11 @@ function criteria_data_map()
         :WavesTp => "_waves_Tp",
         :Rugosity => "_rugosity",
         :ValidSlopes => "_valid_slopes",
-        :ValidFlats => "_valid_flats",
-        :PortDistSlopes => "_PortDistSlopes",
-        :PortDistFlats => "_PortDistFlats"
+        :ValidFlats => "_valid_flats"
+
+        # Unused datasets
+        # :PortDistSlopes => "_PortDistSlopes",
+        # :PortDistFlats => "_PortDistFlats"
     )
 end
 
@@ -234,11 +236,10 @@ function setup_region_routes(config, auth)
             open(suitable_sites_fn, "w") do f
                 JSON.print(f, nothing)
             end
-
-            return file(suitable_sites_fn)
+        else
+            output_geojson(suitable_sites_fn, best_sites)
         end
 
-        output_geojson(suitable_sites_fn, best_sites)
         return file(suitable_sites_fn)
     end
 

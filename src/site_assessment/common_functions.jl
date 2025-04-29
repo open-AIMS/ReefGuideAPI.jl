@@ -91,19 +91,16 @@ end
         (lon::Float64, lat::Float64),
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        target_crs::GeoFormatTypes.EPSG,
-        res::Float64
+        target_crs::GeoFormatTypes.EPSG
     )::GI.Wrappers.Polygon
 
-Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`,
-and is buffered by `res` distance.
+Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`.
 
 # Arguments
 - `(lon, lat)` : Longitude and latitude coordinates of the center target pixel.
 - `x_dist` : x (longitude) dimension length of initial search box.
 - `y_dist` : y (latitude) dimension length of initial search box.
 - `target_crs` : Target CRS of box to match input data types.
-- `res` : Buffer distance (resolution of input raster search data).
 
 # Returns
 Initial search box geometry.
@@ -112,8 +109,7 @@ function initial_search_box(
     (lon, lat),
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.EPSG,
-    res::Float64
+    target_crs::GeoFormatTypes.EPSG
 )::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist / 2, lon + lon_dist / 2)
@@ -121,9 +117,8 @@ function initial_search_box(
     ys = (lat - lat_dist / 2, lat + lat_dist / 2)
 
     search_plot = create_poly(create_bbox(xs, ys), target_crs)
-    geom_buff = GO.buffer(search_plot, res)
 
-    return geom_buff
+    return search_plot
 end
 
 """
@@ -236,9 +231,9 @@ function filter_sites(res_df::DataFrame)::DataFrame
             continue
         end
 
-        not_ignored = res_df.row_ID .∉ [ignore_list]
+        not_ignored = res_df.row_ID .∉ Ref(ignore_list)
         poly = row.geometry
-        poly_interx = GO.intersects.([poly], res_df[not_ignored, :geometry])
+        poly_interx = GO.intersects.(Ref(poly), res_df[not_ignored, :geometry])
 
         if count(poly_interx) > 1
             intersecting_polys = res_df[not_ignored, :][poly_interx, :]
@@ -246,9 +241,19 @@ function filter_sites(res_df::DataFrame)::DataFrame
             # Find the ID of the polygon with the best score.
             # Add polygon IDs with non-maximal score to the ignore list
             best_poly_idx = argmax(intersecting_polys.score)
+            best_score = intersecting_polys[best_poly_idx, :score]
+            if best_score < 0.7
+                # Ignore everything as they are below useful threshold
+                append!(ignore_list, intersecting_polys[:, :row_ID])
+                continue
+            end
+
             best_ID = intersecting_polys[best_poly_idx, :row_ID]
             not_best_ID = intersecting_polys.row_ID .!= best_ID
             append!(ignore_list, intersecting_polys[not_best_ID, :row_ID])
+        elseif count(poly_interx) == 1 && (row.score < 0.7)
+            # Remove current poly if below useful threshold
+            append!(ignore_list, Ref(row.row_ID))
         end
     end
 
@@ -292,7 +297,8 @@ DataFrame containing indices, lon and lat for each pixel that is intended for fu
 analysis.
 """
 function search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
-    criteria_matches::BitMatrix = Rasters.read(raster .>= threshold)
+    criteria_matches::SparseMatrixCSC{Bool,Int64} = sparse(falses(size(raster)))
+    Rasters.read!(raster .>= threshold, criteria_matches)
     indices::Vector{CartesianIndex{2}} = findall(criteria_matches)
     indices_lon::Vector{Float64} = lookup(raster, X)[first.(Tuple.(indices))]
     indices_lat::Vector{Float64} = lookup(raster, Y)[last.(Tuple.(indices))]

@@ -180,8 +180,7 @@ function lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_d
         (assess_locs[1, :lons], assess_locs[1, :lats]),  # center point
         x_dist,                # x distance in meters
         y_dist,                # y distance in meters
-        target_crs,
-        0.0
+        target_crs
     )
 
     # Create KD-tree to identify `n` nearest pixels
@@ -240,6 +239,7 @@ end
 
 Convenience method wrapping around the analysis conducted by `assess_region()`.
 Checks for previous assessment of indicated region and returns filename of cache if found.
+If corresponding job is found, wait for results.
 
 """
 function assess_region(
@@ -252,11 +252,45 @@ function assess_region(
         return assessed_fn
     end
 
-    @debug "$(now()) : Assessing region $(reg)"
-    assessed = assess_region(reg_assess_data, reg, qp, rtype)
+    srv = DiskService(_cache_location(config))
+    job_id = create_job_id(qp) * "$(reg)_suitable"
 
-    @debug "$(now()) : Writing to $(assessed_fn)"
-    _write_tiff(assessed_fn, assessed)
+    job_state = job_status(srv, job_id)
+    if (job_state != "no job") && (job_state != "completed") && (job_state != "error")
+        @debug "$(now()) : Waiting for $(reg) job to finish : ($(job_id))"
+        # Job exists, wait for job to finish
+        wait_time = 20.0  # seconds
+        max_wait = 60.0  # max time to wait per loop
+
+        while true
+            st = job_status(srv, job_id)
+            if st ∈ ["completed", "error"]
+                break
+            end
+
+            sleep(wait_time)
+
+            # Exponential backoff (increase wait time every loop)
+            wait_time = min(wait_time * 2.0, max_wait)
+        end
+
+        if job_status(srv, job_id) == "error"
+            throw(ArgumentError("Job $(job_id) errored."))
+        end
+    else
+        @debug "$(now()) : Submitting job for $(reg)"
+        job_details = submit_job(srv, job_id, assessed_fn)
+
+        @debug "$(now()) : Assessing region $(reg)"
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+        @debug "$(now()) : Writing to $(assessed_fn)"
+        _write_tiff(assessed_fn, assessed)
+
+        @debug "$(now()) : Marking job for $(reg) as completed"
+        job_details.status = "completed"
+        update_job!(srv, job_id, job_details)
+    end
 
     return assessed_fn
 end
@@ -316,22 +350,17 @@ function assess_sites(
         CriteriaBounds.(criteria_names, lbs, ubs)
     )
 
-    # Need reef outlines to indicate direction of the reef edge
-    gdf = REGIONAL_DATA["reef_outlines"]
-
     res = abs(step(dims(assess_locs, X)))
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations in $(reg)."
-    initial_polygons = identify_edge_aligned_sites(
+    @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(reg)."
+    initial_polygons = find_optimal_site_alignment(
         crit_pixels,
         target_locs,
         res,
-        gdf,
         x_dist,
         y_dist,
-        target_crs,
-        reg
+        target_crs
     )
 
     return initial_polygons

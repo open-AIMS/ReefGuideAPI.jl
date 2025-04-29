@@ -111,6 +111,24 @@ function get_points(geom)
 end
 
 """
+    rotate_point(p)
+
+Transform the given point `p` to the newly rotated position.
+
+# Returns
+Rotated point.
+"""
+function rotate_point(p)
+    x, y = p
+    x -= cx
+    y -= cy
+    new_x = x * cosang - y * sinang + cx
+    new_y = x * sinang + y * cosang + cy
+
+    return SVector(new_x, new_y)
+end
+
+"""
     rotate_geom(
         geom,
         degrees::Float64,
@@ -138,15 +156,6 @@ function rotate_geom(
 
     # Extract points
     new_points = collect(GI.coordinates(geom)...)
-
-    rotate_point(p) = begin
-        x, y = p
-        x -= cx
-        y -= cy
-        new_x = x * cosang - y * sinang + cx
-        new_y = x * sinang + y * cosang + cy
-        SVector(new_x, new_y)
-    end
 
     # Calculate new coordinates of each vertex
     @inbounds @simd for i in eachindex(new_points)

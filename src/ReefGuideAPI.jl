@@ -24,14 +24,18 @@ using
     HTTP,
     Oxygen
 
+include("Middleware.jl")
+include("admin.jl")
+
+include("job_management/JobInterface.jl")
+include("job_management/DiskService.jl")
+
 include("criteria_assessment/criteria.jl")
 include("criteria_assessment/query_thresholds.jl")
+include("criteria_assessment/regional_assessment.jl")
 
 include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
-
-include("Middleware.jl")
-include("admin.jl")
 
 function get_regions()
     # TODO: Comes from config?
@@ -97,14 +101,6 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         # flat_table[!, :lats] .= last.(coords)
 
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
-
-        # Constrain to just the areas with valid data (with a 0.05 degree buffer)
-        # min_lon = min(minimum(slope_table.lons), minimum(flat_table.lons)) - 0.05
-        # max_lon = max(maximum(slope_table.lons), maximum(flat_table.lons)) + 0.05
-        # min_lat = min(minimum(slope_table.lats), minimum(flat_table.lats)) - 0.05
-        # max_lat = max(maximum(slope_table.lats), maximum(flat_table.lats)) + 0.05
-        # rst_stack = view(rst_stack, X(min_lon .. max_lon), Y(min_lat .. max_lat))
-
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
             slope_table,
@@ -223,7 +219,7 @@ Generate a filename for a cache.
 - `ext` : file extension to use
 """
 function cache_filename(qp::Dict, config::Dict, suffix::String, ext::String)
-    file_id = string(hash(qp))
+    file_id = create_job_id(qp)
     temp_path = _cache_location(config)
     cache_file_path = joinpath(temp_path, "$(file_id)$(suffix).$(ext)")
 
@@ -301,6 +297,9 @@ function start_server(config_path)
     @info "Setting up tile routes..."
     setup_tile_routes(config, auth)
 
+    @info "Setting up job routes..."
+    setup_job_routes(config, auth)
+
     @info "Setting up admin routes..."
     setup_admin_routes(config)
 
@@ -309,7 +308,7 @@ function start_server(config_path)
 
     return serve(;
         middleware=[CorsMiddleware],
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=port,
         parallel=Threads.nthreads() > 1,
         is_prioritized=(req::HTTP.Request) -> req.target == "/health"
