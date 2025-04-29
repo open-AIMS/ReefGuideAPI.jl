@@ -257,15 +257,15 @@ function assess_region(
     job_id = create_job_id(qp) * "$(reg)_suitable"
 
     job_state = job_status(srv, job_id)
-    if (job_state != "no job") && (job_state != "completed")
-        @debug "$(now()) : Waiting for $(reg) job to finish"
+    if (job_state != "no job") && (job_state != "completed") && (job_state != "error")
+        @debug "$(now()) : Waiting for $(reg) job to finish : ($(job_id))"
         # Job exists, wait for job to finish
-        wait_time = 20.0
-        max_wait = 60.0
+        wait_time = 20.0  # seconds
+        max_wait = 60.0  # max time to wait per loop
 
         while true
             st = job_status(srv, job_id)
-            if (st == "completed") || (st == "error")
+            if st ∈ ["completed", "error"]
                 break
             end
 
