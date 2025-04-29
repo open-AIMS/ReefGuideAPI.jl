@@ -112,8 +112,7 @@ function initial_search_box(
     (lon, lat),
     x_dist::Union{Int64,Float64},
     y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.EPSG,
-    res::Float64
+    target_crs::GeoFormatTypes.EPSG
 )::GI.Wrappers.Polygon
     lon_dist = meters_to_degrees(x_dist, lat)
     xs = (lon - lon_dist / 2, lon + lon_dist / 2)
@@ -121,9 +120,8 @@ function initial_search_box(
     ys = (lat - lat_dist / 2, lat + lat_dist / 2)
 
     search_plot = create_poly(create_bbox(xs, ys), target_crs)
-    geom_buff = GO.buffer(search_plot, res)
 
-    return geom_buff
+    return search_plot
 end
 
 """
