@@ -49,7 +49,12 @@ Submit a job by writing state to disk.
 """
 function submit_job(srv::DiskService, job_id::String, result_loc::String)::JobAttributes
     fn = _job_location(srv, job_id)
-    attr = JobAttributes(job_id, "processing", result_loc, create_job_url(job_id))
+    attr = JobAttributes(job_id, "processing", result_loc, create_job_url(job_id), now())
+
+    if isfile(fn)
+        rm(fn; force=true)
+    end
+
     open(fn, "w") do f
         JSON.print(f, attr)
     end
