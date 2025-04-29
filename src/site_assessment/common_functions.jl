@@ -234,9 +234,9 @@ function filter_sites(res_df::DataFrame)::DataFrame
             continue
         end
 
-        not_ignored = res_df.row_ID .∉ [ignore_list]
+        not_ignored = res_df.row_ID .∉ Ref(ignore_list)
         poly = row.geometry
-        poly_interx = GO.intersects.([poly], res_df[not_ignored, :geometry])
+        poly_interx = GO.intersects.(Ref(poly), res_df[not_ignored, :geometry])
 
         if count(poly_interx) > 1
             intersecting_polys = res_df[not_ignored, :][poly_interx, :]
@@ -244,9 +244,19 @@ function filter_sites(res_df::DataFrame)::DataFrame
             # Find the ID of the polygon with the best score.
             # Add polygon IDs with non-maximal score to the ignore list
             best_poly_idx = argmax(intersecting_polys.score)
+            best_score = intersecting_polys[best_poly_idx, :score]
+            if best_score < 0.7
+                # Ignore everything as they are below useful threshold
+                append!(ignore_list, intersecting_polys[:, :row_ID])
+                continue
+            end
+
             best_ID = intersecting_polys[best_poly_idx, :row_ID]
             not_best_ID = intersecting_polys.row_ID .!= best_ID
             append!(ignore_list, intersecting_polys[not_best_ID, :row_ID])
+        elseif count(poly_interx) == 1 && (row.score < 0.7)
+            # Remove current poly if below useful threshold
+            append!(ignore_list, Ref(row.row_ID))
         end
     end
 
