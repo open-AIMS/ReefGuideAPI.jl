@@ -91,19 +91,16 @@ end
         (lon::Float64, lat::Float64),
         x_dist::Union{Int64, Float64},
         y_dist::Union{Int64, Float64},
-        target_crs::GeoFormatTypes.EPSG,
-        res::Float64
+        target_crs::GeoFormatTypes.EPSG
     )::GI.Wrappers.Polygon
 
-Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`,
-and is buffered by `res` distance.
+Create an initial search box that is centered around the point `(lon, lat)` in `target_crs`.
 
 # Arguments
 - `(lon, lat)` : Longitude and latitude coordinates of the center target pixel.
 - `x_dist` : x (longitude) dimension length of initial search box.
 - `y_dist` : y (latitude) dimension length of initial search box.
 - `target_crs` : Target CRS of box to match input data types.
-- `res` : Buffer distance (resolution of input raster search data).
 
 # Returns
 Initial search box geometry.

@@ -180,8 +180,7 @@ function lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_d
         (assess_locs[1, :lons], assess_locs[1, :lats]),  # center point
         x_dist,                # x distance in meters
         y_dist,                # y distance in meters
-        target_crs,
-        0.0
+        target_crs
     )
 
     # Create KD-tree to identify `n` nearest pixels
@@ -351,22 +350,17 @@ function assess_sites(
         CriteriaBounds.(criteria_names, lbs, ubs)
     )
 
-    # Need reef outlines to indicate direction of the reef edge
-    gdf = REGIONAL_DATA["reef_outlines"]
-
     res = abs(step(dims(assess_locs, X)))
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
-    @debug "$(now()) : Assessing site polygons for $(size(target_locs, 1)) locations in $(reg)."
-    initial_polygons = identify_edge_aligned_sites(
+    @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(reg)."
+    initial_polygons = find_optimal_site_alignment(
         crit_pixels,
         target_locs,
         res,
-        gdf,
         x_dist,
         y_dist,
-        target_crs,
-        reg
+        target_crs
     )
 
     return initial_polygons
