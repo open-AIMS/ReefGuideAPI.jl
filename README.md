@@ -97,6 +97,7 @@ Pay attention to the issuer and wkt endpoints. The first should exactly match th
 
 ## Publishing a new version
 
+1. Bump the version in `Project.toml`
 1. Identify the previous version
 2. Identify the intended version bump (new tag)
 3. Create tag
