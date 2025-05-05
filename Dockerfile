@@ -1,5 +1,5 @@
 # See https://hub.docker.com/_/julia for valid versions.
-ARG JULIA_VERSION="1.11.3"
+ARG JULIA_VERSION="1.11.5"
 
 #------------------------------------------------------------------------------
 # internal-base build target: julia with OS updates and an empty @reefguide
@@ -116,10 +116,6 @@ RUN echo $(julia --project=.  -e 'using Pkg; println(Pkg.dependencies()[Base.UUI
 
 # Compile MKL_jll first - this improves build time significantly - unsure exactly why
 RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", version=ENV["MKL_VERSION"])); Pkg.precompile()'
-
-# Precompile Julia packages using BuildKit cache for better efficiency
-# Install the custom Oxygen dependency
-RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.add(PackageSpec(url="https://github.com/arlowhite/Oxygen.jl", rev="prioritized-request")); Pkg.precompile()'
 
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
