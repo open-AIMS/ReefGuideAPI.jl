@@ -36,6 +36,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
 # This allows apps derived from this image to drop privileges and run as non-root
 # user accounts, but still activate environments configured by this dockerfile.
 ENV JULIA_DEPOT_PATH="/usr/local/share/julia"
+ENV JULIA_PKG_USE_CLI_GIT=true
 
 # Prepare an empty @reefguide Julia environment for derived images to use - this is created in the shared depot path
 RUN mkdir -p "${JULIA_DEPOT_PATH}" && \
@@ -97,7 +98,8 @@ ENTRYPOINT ["julia", "--project=@reefguide"]
 FROM internal-base AS reefguide-src
 
 ENV REEFGUIDE_ENV_DIR="${JULIA_DEPOT_PATH}/environments/reefguide" \
-    REEFGUIDE_SRC_DIR="/usr/local/src/reefguide"
+    REEFGUIDE_SRC_DIR="/usr/local/src/reefguide" \
+    JULIA_PKG_USE_CLI_GIT=true
 
 # Try to coerce Julia to build across multiple targets
 ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
@@ -106,7 +108,6 @@ ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 # those to set up the ReefGuideAPI source code as a development package in the
 # shared @reefguide environment, pre-installing and precompiling dependencies.
 WORKDIR "${REEFGUIDE_SRC_DIR}"
-
 
 # Copy project and manifest - includes Manifest-v1.11 etc
 COPY Project.toml Manifest*.toml ./
