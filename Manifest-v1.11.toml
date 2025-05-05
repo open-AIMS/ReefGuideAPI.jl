@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "2fedfed1a6778f2c6a9786e09d9c2dba19766491"
+project_hash = "faab037e3e8b36cbd9717a75e3eca22ff819c401"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -1721,13 +1721,28 @@ uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.8.0"
 
 [[deps.Oxygen]]
-deps = ["DataStructures", "Dates", "HTTP", "JSON3", "MIMEs", "Reexport", "RelocatableFolders", "Requires", "Sockets", "Statistics", "StructTypes"]
-git-tree-sha1 = "4eab0b6d8b5050a6d9ff71bdeccb616afa320f48"
-pinned = true
-repo-rev = "prioritized-request"
-repo-url = "https://github.com/arlowhite/Oxygen.jl"
+deps = ["DataStructures", "Dates", "HTTP", "JSON3", "MIMEs", "Reexport", "RelocatableFolders", "Sockets", "Statistics", "StructTypes"]
+git-tree-sha1 = "bec2031bcea6aed32e70d85eb127e64cff1d8a94"
 uuid = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
-version = "1.5.14"
+version = "1.7.1"
+
+    [deps.Oxygen.extensions]
+    BonitoExt = "Bonito"
+    CairoMakieExt = "CairoMakie"
+    MustacheExt = "Mustache"
+    OteraEngineExt = "OteraEngine"
+    ProtoBufExt = "ProtoBuf"
+    TimeZonesExt = "TimeZones"
+    WGLMakieExt = ["WGLMakie", "Bonito"]
+
+    [deps.Oxygen.weakdeps]
+    Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+    CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+    Mustache = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
+    OteraEngine = "b2d7f28f-acd6-4007-8b26-bc27716e5513"
+    ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
+    TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
+    WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
