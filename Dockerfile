@@ -118,7 +118,8 @@ RUN echo $(julia --project=.  -e 'using Pkg; println(Pkg.dependencies()[Base.UUI
 RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", version=ENV["MKL_VERSION"])); Pkg.precompile()'
 
 # Precompile Julia packages using BuildKit cache for better efficiency
-RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+# Install the custom Oxygen dependency
+RUN julia --project=@reefguide -e 'using Pkg; Pkg.instantiate(); Pkg.add(PackageSpec(url="https://github.com/arlowhite/Oxygen.jl", rev="prioritized-request")); Pkg.precompile()'
 
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
