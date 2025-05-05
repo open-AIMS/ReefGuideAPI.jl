@@ -15,3 +15,7 @@ JWT_ENABLED = false
 JWT_ISS = 'https://issuer.com'
 # WKT JWKS endpoint where public key can be retrieved
 WKT_ENDPOINT = 'https://issuer.com/.well-known/jwks.json'
+
+[job_runner]
+# This should refer to the reefguide-web-api base API
+JOB_API_ENDPOINT = 'https://api.example.com'

@@ -315,6 +315,29 @@ function start_server(config_path)
     )
 end
 
+function runner_loop(config)
+    # What endpoint are we using?
+    job_endpoint = config["job_runner"]["JOB_API_ENDPOINT"]
+
+    @info "Job runner awaiting jobs at job_endpoint $job_endpoint"
+end
+
+function start_runner(config_path)
+    @info "Launching job runner... please wait"
+
+    @info "Warming up cache"
+    warmup_cache(config_path)
+
+    @info "Parsing configuration from $(config_path)..."
+    config = TOML.parsefile(config_path)
+
+    @info "Setting up regional assessment data"
+    reg_assess_data = setup_regional_data(config)
+
+    @info "Initialisation complete. Initiating job runner."
+    runner_loop(config)
+end
+
 export
     RegionalCriteria,
     criteria_data_map
@@ -340,9 +363,5 @@ export
     valid_slope_lat_inds,
     valid_flat_lon_inds,
     valid_flat_lat_inds
-
-# Ruleset thresholds
-export
-    within_thresholds
 
 end
