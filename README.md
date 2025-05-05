@@ -4,7 +4,6 @@ API for supporting reef suitability assessments.
 
 [![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://open-aims.github.io/ReefGuideAPI.jl/dev/)
 
-
 ## Table of Contents
 
 - [Quick Start](#quick-start)
@@ -96,6 +95,25 @@ Pay attention to the issuer and wkt endpoints. The first should exactly match th
 - Tokens must be included in the Authorisation header format: `Authorization: Bearer <token>`
 - For testing purposes, you can disable authentication by setting `JWT_ENABLED = false`
 
+## Publishing a new version
+
+1. Identify the previous version
+2. Identify the intended version bump (new tag)
+3. Create tag
+
+```bash
+git tag v1.x.y -a
+# Then fill in description
+```
+
+4. Push to remote
+
+```bash
+git push origin --tags
+```
+
+5. On GitHub - draft the new release targeting this as the new version
+
 ## API Usage
 
 ### Dynamic COG Generation
@@ -172,8 +190,8 @@ The following processing is required before use:
 - A parquet GeoDataFrame must be loaded and filtered for unsuitable pixels based on user criteria thresholds using a Dict and `within_thresholds()`.
 - `lons` and `lats` columns (FLoat64) must be added to the GeoDataFrame.
   - E.g. `valid_pixels.lons = first.(GI.coordinates.(valid_pixels.geometry))`
-  The column used for masking should be the same as the column specified as geometry_col in
-  `identify_edge_aligned_sites` (default = `:geometry`).
+    The column used for masking should be the same as the column specified as geometry_col in
+    `identify_edge_aligned_sites` (default = `:geometry`).
 
 ## Docker Build and Run
 
@@ -217,11 +235,13 @@ When running the commands below, it is assumed you have `data` available locally
 #### Build from Source Files
 
 Using Docker:
+
 ```bash
 docker build . --target reefguide-src -t reefguide
 ```
 
 Using Docker Compose:
+
 ```bash
 docker compose build reefguide-src
 # Or to build and run in one command:
@@ -231,11 +251,13 @@ docker compose up --build reefguide-src
 #### Run Server with Mounted Files
 
 Using Docker:
+
 ```bash
 docker run -p 8000:8000 -v ./data:/data/reefguide reefguide
 ```
 
 Using Docker Compose:
+
 ```bash
 docker compose up reefguide-src
 ```
@@ -262,32 +284,37 @@ ReefGuideAPI.start_server("/data/reefguide/config.toml")
 #### Configuration Problems
 
 **Issue**: Server fails to start with configuration error
+
 - **Solution**: Double-check that your config file has the correct path format for your OS (Windows uses backslashes, Unix uses forward slashes)
 - **Solution**: Ensure all required directories specified in the config actually exist on your system
 
 **Issue**: Data not found
+
 - **Solution**: Verify the `PREPPED_DATA_DIR` path is correct and contains the required MPA dataset files
 - **Solution**: When using Docker, check that the volume mount path (`-v ./data:/data/reefguide`) is correct and the `data` directory contains your files
 
 #### Docker-Specific Issues
 
 **Issue**: Docker container exits immediately after starting
+
 - **Solution**: Check Docker logs with `docker logs <container-id>` to see the specific error
 - **Solution**: Verify that your `config.toml` is named correctly (not `.config.toml`) in the data directory
 
 **Issue**: "Permission denied" errors when accessing data directory
+
 - **Solution**: Check file permissions on your data directory and ensure the Docker user has read/write access
 
 #### Performance Issues
 
 **Issue**: Slow COG generation
+
 - **Solution**: Increase the `COG_THREADS` value in your config (recommend 2-4)
 - **Solution**: Ensure the server has sufficient memory for processing (minimum 4GB recommended)
-
 
 #### Authentication Issues
 
 **Issue**: JWT token rejected as invalid
+
 - **Solution**: Verify the token's issuer (`iss` claim) matches exactly what's in your config
 - **Solution**: Check that the token is not expired
 - **Solution**: Ensure the `WKT_ENDPOINT` is accessible from the server
@@ -297,5 +324,5 @@ ReefGuideAPI.start_server("/data/reefguide/config.toml")
 If you encounter issues not covered here, please:
 
 1. Check the Julia REPL output for specific error messages
-2. Enable debug logs with `ENV["JULIA_DEBUG"] = "ReefGuideAPI"` 
+2. Enable debug logs with `ENV["JULIA_DEBUG"] = "ReefGuideAPI"`
 3. Open an issue on the GitHub repository with a detailed description of the problem
