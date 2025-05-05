@@ -2064,7 +2064,7 @@ version = "1.3.4"
 deps = ["ArchGDAL", "CSV", "CoordinateTransformations", "DataFrames", "Dates", "DiskArrays", "Distances", "FLoops", "GeoDataFrames", "GeoFormatTypes", "GeoInterface", "GeoJSON", "GeoParquet", "GeometryBasics", "GeometryOps", "Glob", "HTTP", "ImageIO", "Images", "Interpolations", "JSON", "JSONWebTokens", "LibGEOS", "LinearAlgebra", "MKL_jll", "Memoization", "Mmap", "NearestNeighbors", "NetCDF", "OrderedCollections", "Oxygen", "Proj", "ProtoBuf", "Rasters", "Serialization", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StructTypes", "TOML", "ThreadsX", "YAXArrays"]
 path = ".."
 uuid = "45c573e6-5605-41d1-a10b-0e5ac5982b4e"
-version = "0.1.4"
+version = "0.1.5"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
