@@ -54,3 +54,6 @@ MKL_jll = "2024.2.0"
 NearestNeighbors = "0.4.20"
 Oxygen = "1.5.14"
 YAXArrays = "0.6"
+
+[sources]
+Oxygen = {url = "https://github.com/arlowhite/Oxygen.jl", rev="prioritized-request"}
