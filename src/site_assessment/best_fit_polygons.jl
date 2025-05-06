@@ -89,9 +89,9 @@ end
 function assess_reef_site(
     rel_pix::DataFrame,
     rotated::Vector{GI.Wrappers.Polygon},
-    max_count::Float64;
-    n_per_side::Int64=1,
-    suit_threshold::Float64=0.7
+    max_count::Float64,
+    n_per_side::Int64,
+    suit_threshold::Float64
 )::Tuple{Float64,Int64,GI.Wrappers.Polygon,Int64}
     # Implementation with pre-rotations
     n_rotations = length(rotated)
@@ -338,9 +338,9 @@ function identify_edge_aligned_sites(
         best_score[i], best_rotation[i], best_poly[i], quality_flag[i] = assess_reef_site(
             rel_pix,
             rotated_copy,
-            max_count;
-            n_per_side=n_rot_p_side,
-            suit_threshold=suit_threshold
+            max_count,
+            n_rot_p_side,
+            suit_threshold
         )
     end
 
