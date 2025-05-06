@@ -24,6 +24,9 @@ using
     HTTP,
     Oxygen
 
+include("job_worker/Worker.jl")
+include("job_worker/Config.jl")
+
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")
@@ -99,27 +102,34 @@ function start_server(config_path)
     )
 end
 
-function runner_loop(config)
-    # What endpoint are we using?
-    job_endpoint = config["job_runner"]["JOB_API_ENDPOINT"]
+"""
+    initialize_worker(config::Dict)
 
-    @info "Job runner awaiting jobs at job_endpoint $job_endpoint"
+Create and initialize a worker from the given configuration.
+This instantiates the needed modules and configures the worker
+for job processing.
+
+# Arguments
+- `config`: Dictionary with configuration values from TOML
+
+# Returns
+- `Worker.WorkerService`: A configured worker ready to process jobs
+"""
+function initialize_worker()
+    @info "Initializing worker from environment variables..."
+    worker = create_worker_from_env()
+    start(worker)
+    return worker
 end
 
 function start_runner(config_path)
     @info "Launching job runner... please wait"
 
-    @info "Warming up cache"
-    warmup_cache(config_path)
-
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
 
-    @info "Setting up regional assessment data"
-    reg_assess_data = setup_regional_data(config)
-
     @info "Initialisation complete. Initiating job runner."
-    runner_loop(config)
+    return runner_loop(config)
 end
 
 export

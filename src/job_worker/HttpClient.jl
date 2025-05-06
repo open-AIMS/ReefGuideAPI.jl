@@ -1,7 +1,7 @@
 using HTTP
 using JSON3
 using Dates
-using JWT
+using JSONWebTokens
 
 """
 Custom error type for API errors
@@ -10,12 +10,15 @@ struct ApiError <: Exception
     message::String
     status_code::Int
     response::Any
-    
-    ApiError(message::String, status_code::Int, response=nothing) = new(message, status_code, response)
+
+    ApiError(message::String, status_code::Int, response=nothing) =
+        new(message, status_code, response)
 end
 
 """
-Represents JWT payload structure
+Represents JWT payload structure 
+
+(This is what's in the token)
 """
 struct JWTPayload
     id::String
@@ -37,7 +40,7 @@ Authentication tokens
 """
 struct AuthTokens
     token::String
-    refresh_token::Union{String, Nothing}
+    refresh_token::Union{String,Nothing}
 end
 
 """
@@ -46,10 +49,10 @@ Client for authenticated API requests
 mutable struct AuthApiClient
     base_url::String
     credentials::Credentials
-    tokens::Union{AuthTokens, Nothing}
-    http_headers::Dict{String, String}
+    tokens::Union{AuthTokens,Nothing}
+    http_headers::Dict{String,String}
     token_refresh_threshold::Int
-    
+
     function AuthApiClient(base_url::String, credentials::Credentials)
         return new(
             base_url,
@@ -64,22 +67,23 @@ end
 """
 Get a valid token, refreshing if necessary
 """
-function get_valid_token(client::AuthApiClient)::Union{String, Nothing}
+function get_valid_token(client::AuthApiClient)::Union{String,Nothing}
     if isnothing(client.tokens)
         login!(client)
         return isnothing(client.tokens) ? nothing : client.tokens.token
     end
-    
-    # Decode token to check expiration
-    decoded_token = JWT.decode(client.tokens.token, verify=false)
+
+    # Decode token to check expiration (no need to validate so we specify no encoding)
+    decoded_token = JSONWebTokens.decode(nothing, client.tokens.token)
+
     exp_time = decoded_token["exp"]
     expires_in = exp_time - floor(Int, datetime2unix(now()))
-    
+
     # Refresh if close to expiration
     if expires_in <= client.token_refresh_threshold
         refresh_token!(client)
     end
-    
+
     return isnothing(client.tokens) ? nothing : client.tokens.token
 end
 
@@ -91,12 +95,14 @@ function login!(client::AuthApiClient)
         response = HTTP.post(
             "$(client.base_url)/auth/login",
             client.http_headers,
-            JSON3.write(Dict(
-                "email" => client.credentials.email,
-                "password" => client.credentials.password
-            ))
+            JSON3.write(
+                Dict(
+                    "email" => client.credentials.email,
+                    "password" => client.credentials.password
+                )
+            )
         )
-        
+
         if response.status == 200
             response_data = JSON3.read(String(response.body))
             client.tokens = AuthTokens(
@@ -119,16 +125,16 @@ end
 Refresh the authentication token
 """
 function refresh_token!(client::AuthApiClient)
-    println("Token refresh started at: ", Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))
-    
+    @info "Token refresh started at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
+
     try
         # If no refresh token available, try logging in
         if isnothing(client.tokens) || isnothing(client.tokens.refresh_token)
-            println("No refresh token, logging in...")
+            @info "No refresh token, logging in..."
             login!(client)
-            return
+            return nothing
         end
-        
+
         response = HTTP.post(
             "$(client.base_url)/auth/token",
             client.http_headers,
@@ -136,25 +142,25 @@ function refresh_token!(client::AuthApiClient)
                 "refreshToken" => client.tokens.refresh_token
             ))
         )
-        
+
         if response.status != 200
-            println("Non 200 response from refresh token endpoint: ", response.status)
+            @info "Non 200 response from refresh token endpoint: " response.status
             throw(ApiError("Non 200 response from refresh token", response.status))
         end
-        
+
         response_data = JSON3.read(String(response.body))
         client.tokens = AuthTokens(
             response_data.token,
             client.tokens.refresh_token
         )
     catch e
-        println("Error caught during refresh")
+        @info "Error caught during refresh"
         # If refresh fails, try logging in again
         client.tokens = nothing
         login!(client)
     end
-    
-    println("Token refresh completed at: ", Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))
+
+    @info "Token refresh completed at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
 end
 
 """
@@ -173,28 +179,35 @@ end
 Determine if path requires authentication
 """
 function requires_auth(path::String)::Bool
-    return !(endswith(path, "/auth/login") || 
-             endswith(path, "/auth/register") || 
-             endswith(path, "/auth/token"))
+    return !(
+        endswith(path, "/auth/login") ||
+        endswith(path, "/auth/register") ||
+        endswith(path, "/auth/token")
+    )
 end
 
 # HTTP Methods
 
-function get(client::AuthApiClient, path::String; params::Dict = Dict())::Any
-    url = "$(client.base_url)$path"
-    headers = requires_auth(path) ? auth_headers(client) : client.http_headers
-    
+function setupHeaders(client::AuthApiClient, path::String)
+    return (
+        url="$(client.base_url)$path",
+        headers=requires_auth(path) ? auth_headers(client) : client.http_headers
+    )
+end
+
+function get(client::AuthApiClient, path::String; params::Dict=Dict())::Any
+    url, headers = setupHeaders(client, path)
+
     response = HTTP.get(url, headers; query=params)
     return JSON3.read(String(response.body))
 end
 
-function post(client::AuthApiClient, path::String, data::Union{Dict, Nothing} = nothing)::Any
-    url = "$(client.base_url)$path"
-    headers = requires_auth(path) ? auth_headers(client) : client.http_headers
-    
+function post(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+    url, headers = setupHeaders(client, path)
+
     body = isnothing(data) ? "" : JSON3.write(data)
     response = HTTP.post(url, headers, body)
-    
+
     if isempty(String(response.body))
         return nothing
     else
@@ -202,13 +215,12 @@ function post(client::AuthApiClient, path::String, data::Union{Dict, Nothing} = 
     end
 end
 
-function put(client::AuthApiClient, path::String, data::Union{Dict, Nothing} = nothing)::Any
-    url = "$(client.base_url)$path"
-    headers = requires_auth(path) ? auth_headers(client) : client.http_headers
-    
+function put(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+    url, headers = setupHeaders(client, path)
+
     body = isnothing(data) ? "" : JSON3.write(data)
     response = HTTP.put(url, headers, body)
-    
+
     if isempty(String(response.body))
         return nothing
     else
@@ -216,13 +228,12 @@ function put(client::AuthApiClient, path::String, data::Union{Dict, Nothing} = n
     end
 end
 
-function patch(client::AuthApiClient, path::String, data::Union{Dict, Nothing} = nothing)::Any
-    url = "$(client.base_url)$path"
-    headers = requires_auth(path) ? auth_headers(client) : client.http_headers
-    
+function patch(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+    url, headers = setupHeaders(client, path)
+
     body = isnothing(data) ? "" : JSON3.write(data)
     response = HTTP.patch(url, headers, body)
-    
+
     if isempty(String(response.body))
         return nothing
     else
@@ -231,11 +242,10 @@ function patch(client::AuthApiClient, path::String, data::Union{Dict, Nothing} =
 end
 
 function delete(client::AuthApiClient, path::String)::Any
-    url = "$(client.base_url)$path"
-    headers = requires_auth(path) ? auth_headers(client) : client.http_headers
-    
+    url, headers = setupHeaders(client, path)
+
     response = HTTP.delete(url, headers)
-    
+
     if isempty(String(response.body))
         return nothing
     else
