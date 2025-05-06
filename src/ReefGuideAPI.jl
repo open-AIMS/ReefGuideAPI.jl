@@ -303,12 +303,16 @@ function start_server(config_path)
     @info "Setting up admin routes..."
     setup_admin_routes(config)
 
+    # Which host should we listen on?
+    host = config["server_config"]["HOST"]
+    # Which port should we listen on?
     port = 8000
-    @info "Initialisation complete, starting server on port $(port) with $(Threads.nthreads()) threads."
+
+    @info "Initialisation complete, starting server listening on host: $(host) at port $(port) with $(Threads.nthreads()) threads."
 
     return serve(;
         middleware=[CorsMiddleware],
-        host="127.0.0.1",
+        host=host,
         port=port,
         parallel=Threads.nthreads() > 1,
         is_prioritized=(req::HTTP.Request) -> req.target == "/health"

@@ -2,6 +2,9 @@
 PREPPED_DATA_DIR = '/data'
 
 [server_config]
+# This is the server listening host - recommended to use 0.0.0.0 in deployed
+# environments, but 127.0.0.1 might be more suitable for local environments
+HOST = '0.0.0.0'
 TIFF_CACHE_DIR = '<some location to cache geotiffs>'
 REGIONAL_CACHE_DIR = '<some location to cache regional datasets>'
 DEBUG_MODE = 'false'

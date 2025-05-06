@@ -1,7 +1,7 @@
 name = "ReefGuideAPI"
 uuid = "45c573e6-5605-41d1-a10b-0e5ac5982b4e"
 authors = ["Takuya Iwanaga", "Benjamin Grier", "Arlo White", "Peter Baker"]
-version = "0.1.4"
+version = "0.1.6"
 
 [deps]
 ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
@@ -52,4 +52,5 @@ YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 DiskArrays = "0.4.9"
 MKL_jll = "2024.2.0"
 NearestNeighbors = "0.4.20"
+Oxygen = "1.7.1"
 YAXArrays = "0.6"
