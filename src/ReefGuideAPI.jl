@@ -68,6 +68,9 @@ function start_server(config_path)
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)
 
+    @info "Setting up criteria routes..."
+    setup_criteria_routes(config, auth)
+
     @info "Setting up region routes..."
     setup_region_routes(config, auth)
 
