@@ -104,7 +104,7 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         regional_assessment_data[reg] = RegionalCriteria(
             rst_stack,
             slope_table,
-            slope_table[[1], :]  # flat_table
+            slope_table[[1], :]  # Dummy entry for flat_table
         )
 
         @debug "$(now()) : Finished initialization for $reg"
