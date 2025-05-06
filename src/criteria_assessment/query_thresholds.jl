@@ -1,5 +1,4 @@
-"""
-"""
+"""Methods to support querying data layers."""
 
 """
     within_thresholds(ctype::Val, data::Raster, lb::T, ub::T) where {T}
