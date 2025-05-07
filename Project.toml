@@ -4,6 +4,7 @@ authors = ["Takuya Iwanaga", "Benjamin Grier", "Arlo White", "Peter Baker"]
 version = "0.1.6"
 
 [deps]
+AWS = "fbe9abb3-538b-5e4e-ba9e-bc94f4f92ebc"
 AWSS3 = "1c724243-ef5b-51ab-93f4-b0a88ac62a95"
 ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -53,6 +54,7 @@ ThreadsX = "ac1d9e8a-700a-412c-b207-f0111f4b6c0d"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
+AWS = "1.92.0"
 AWSS3 = "0.11.2"
 DiskArrays = "0.4.9"
 JSON3 = "1.14.2"

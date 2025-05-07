@@ -3,6 +3,12 @@ using Random
 using Logging
 using JSON3
 
+include("Config.jl")
+include("ECS.jl")
+include("HttpClient.jl")
+include("Jobs.jl")
+include("Storage.jl")
+
 """
 Represents a job that needs to be processed
 """
@@ -23,6 +29,13 @@ struct JobAssignment
     job_id::Int64
     # Path to where the data can be stored (in s3)
     storage_uri::String
+end
+
+"""
+API Response after an assignment
+"""
+struct JobAssignmentResponse
+    assignment::JobAssignment
 end
 
 """
@@ -79,9 +92,8 @@ function process(::TypedJobHandler, context::JobContext)
         job_type_str = context.job.type
 
         # Convert string to JobType enum (safely)
-        job_type = try
-            getproperty(Jobs, Symbol(job_type_str))
-        catch e
+        job_type = symbol_to_job_type[Symbol(job_type_str)]
+        if isnothing(job_type)
             @error "Unknown job type: $job_type_str" exception = (e, catch_backtrace())
             return (false, nothing)
         end
@@ -91,52 +103,28 @@ function process(::TypedJobHandler, context::JobContext)
 
         # Process the job using the Jobs framework
         @info "Processing job $(context.job.id) with type $(job_type_str)"
-        output = Jobs.process_job(job_type, context.job.input_payload, storage_uri)
+        output::AbstractJobOutput = process_job(
+            job_type, context.job.input_payload, storage_uri
+        )
 
-        # Convert output to a dictionary for the worker framework
-        result_payload = JSON3.read(JSON3.write(output), Dict)
+        @debug "Result from process_job $(output)"
+
+        # Convert output to a dictionary for the worker framework If not
+        # possible then try to just send empty payload
+        result_payload::Dict = Dict()
+        try
+            result_payload = JSON3.read(JSON3.write(output), Dict)
+        catch
+            @debug "Error occurred while trying to convert a task output payload into a dictionary - presumably this is due to an empty result payload struct."
+        end
+
+        @debug "Parsed payload $(result_payload)"
 
         # Return success and the result
         return (true, result_payload)
     catch e
         @error "Error processing job: $e" exception = (e, catch_backtrace())
         return (false, nothing)
-    end
-end
-
-"""
-Worker configuration
-"""
-struct WorkerConfig
-    # API connection settings
-    api_endpoint::String
-
-    # Worker behavior
-    job_types::Vector{String}
-    poll_interval_ms::Int
-    idle_timeout_ms::Int
-
-    # Auth settings
-    username::String
-    password::String
-
-    # Constructor with defaults to handle optional fields
-    function WorkerConfig(
-        api_endpoint::String,
-        job_types::Vector{String},
-        username::String,
-        password::String;
-        poll_interval_ms::Int=1000,
-        idle_timeout_ms::Int=2 * 60 * 1000
-    )
-        return new(
-            api_endpoint,
-            job_types,
-            poll_interval_ms,
-            idle_timeout_ms,
-            username,
-            password
-        )
     end
 end
 
@@ -153,8 +141,8 @@ mutable struct WorkerService
     # HTTP client for API calls
     http_client::Any
 
-    # Task metadata
-    metadata::Any
+    # Task identifiers
+    metadata::TaskIdentifiers
 
     # Last activity timestamp
     last_activity_timestamp::DateTime
@@ -163,12 +151,12 @@ mutable struct WorkerService
     job_handlers::Dict{String,JobHandler}
 
     # Constructor
-    function WorkerService(config::WorkerConfig, http_client, metadata)
+    function WorkerService(config::WorkerConfig, http_client, identifiers)
         worker = new(
             config,
             false,
             http_client,
-            metadata,
+            identifiers,
             now(),
             Dict{String,JobHandler}()
         )
@@ -185,7 +173,7 @@ Register the TypedJobHandler for all job types supported by the Jobs module
 """
 function register_typed_handlers!(worker::WorkerService)
     # Loop through all values in the JobType enum
-    for job_type in instances(Jobs.JobType)
+    for job_type in instances(JobType)
         # Convert enum to string
         job_type_str = string(job_type)
 
@@ -207,7 +195,7 @@ end
 Get the appropriate handler for a job type
 """
 function get_handler(worker::WorkerService, job_type::String)::JobHandler
-    return get(worker.job_handlers, job_type, DefaultJobHandler())
+    return Base.get(worker.job_handlers, job_type, DefaultJobHandler())
 end
 
 """
@@ -251,14 +239,17 @@ function run_worker_loop(worker::WorkerService)
     while worker.is_running
         try
             # Poll for a job
+            @info "Polling for a job"
             job = poll_for_job(worker)
 
             # Process job if found
             if !isnothing(job)
+                @info "Found a job"
                 process_job_completely(worker, job)
             end
 
             # Check for idle timeout
+            @info "Checking for idle timeout"
             check_idle_timeout(worker)
 
             # Sleep before next poll
@@ -292,11 +283,14 @@ Poll for a single available job
 function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
     try
         # Get available jobs
-        response = worker.http_client.get(
-            "/jobs/poll"; params=Dict("jobType" => worker.config.job_types[1])
+        response = HTTPGet(
+            worker.http_client, "/jobs/poll";
+            params=Dict("jobType" => worker.config.job_types[1])
         )
 
         jobs = response.jobs
+
+        @debug "Response from jobs poll: $(response)"
 
         if isempty(jobs)
             return nothing
@@ -306,7 +300,10 @@ function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
         update_last_activity!(worker)
 
         # Return the first available job
-        return jobs[1]
+        @debug "Job[1] = $(jobs[1])"
+        parsed = JSON3.read(JSON3.write(jobs[1]), Job)
+        @debug "Result of parsing: $(parsed)"
+        return parsed
     catch e
         @error "Error polling for jobs: $e" exception = (e, catch_backtrace())
         return nothing
@@ -358,7 +355,8 @@ function claim_job(worker::WorkerService, job::Job)::Union{JobAssignment,Nothing
             isnothing(worker.metadata.cluster_arn) ? "Unknown - metadata lookup failure" :
             worker.metadata.cluster_arn
 
-        assignment_response = worker.http_client.post(
+        assignment_response = HTTPPost(
+            worker.http_client,
             "/jobs/assign",
             Dict(
                 "jobId" => job.id,
@@ -367,7 +365,20 @@ function claim_job(worker::WorkerService, job::Job)::Union{JobAssignment,Nothing
             )
         )
 
-        assignment = assignment_response.assignment
+        @debug "Assignment response $(assignment_response)"
+
+        if isnothing(assignment_response)
+            @error "Failed job assignment, there was no response."
+            return nothing
+        end
+
+        # parse into assignment
+        assignment_data::JobAssignmentResponse = JSON3.read(
+            JSON3.write(assignment_response), JobAssignmentResponse
+        )
+
+        assignment = assignment_data.assignment
+
         @info "Claimed job $(job.id), assignment $(assignment.id)"
 
         # Update activity timestamp when we claim a job
@@ -393,7 +404,8 @@ function complete_job(
     try
         @info "Completing job $(job.id)"
 
-        worker.http_client.post(
+        HTTPPost(
+            worker.http_client,
             "/jobs/assignments/$(assignment_id)/result",
             Dict(
                 "status" => success ? "SUCCEEDED" : "FAILED",

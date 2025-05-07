@@ -1,7 +1,3 @@
-"""
-Helper methods to support tiling
-"""
-
 using Images, ImageIO, Interpolations
 
 # HTTP response headers for tile images
