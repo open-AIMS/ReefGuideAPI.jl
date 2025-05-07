@@ -24,15 +24,13 @@ struct WorkerConfig
 
     # Constructor with defaults to handle optional fields
     WorkerConfig(
-        api_endpoint::String,
-        job_types::Vector{String},
-        username::String,
-        password::String;
-        # Polling interval 2 second by default
-        poll_interval_ms::Int64=2000,
-        # Idle timeout 5 minutes by default
-        idle_timeout_ms::Int64=5 * 60 * 1000
-    ) = new(
+    api_endpoint::String,
+    job_types::Vector{String},
+    username::String,
+    password::String;     # Polling interval 2 second by default
+    poll_interval_ms::Int64=2000,     # Idle timeout 5 minutes by default
+    idle_timeout_ms::Int64=5 * 60 * 1000
+) = new(
         api_endpoint,
         job_types,
         username,
@@ -50,8 +48,9 @@ struct ConfigValidationError <: Exception
     message::String
 end
 
-Base.showerror(io::IO, e::ConfigValidationError) =
-    print(io, "ConfigValidationError: $(e.field) - $(e.message)")
+Base.showerror(io::IO, e::ConfigValidationError) = print(
+    io, "ConfigValidationError: $(e.field) - $(e.message)"
+)
 
 """
 Validates a URL string
