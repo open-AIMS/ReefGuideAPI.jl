@@ -78,7 +78,7 @@ function register_job_handler!(
     JOB_REGISTRY.input_types[job_type] = input_type
     JOB_REGISTRY.output_types[job_type] = output_type
 
-    @info "Registered handler for job type: $job_type"
+    @debug "Registered handler for job type: $job_type"
     return nothing
 end
 
@@ -151,7 +151,7 @@ function process_job(
     typed_input = validate_job_input(job_type, input_payload)
 
     # Process the job
-    @info "Processing job of type: $job_type"
+    @debug "Processing job of type: $job_type"
     output = handle_job(handler, typed_input, storage_uri)
 
     # Validate output
@@ -191,13 +191,13 @@ Process a CRITERIA_POLYGONS job
 function handle_job(
     ::CriteriaPolygonsHandler, input::CriteriaPolygonsInput, storage_uri::String
 )::CriteriaPolygonsOutput
-    @info "Processing criteria polygons job with id: $(input.id)"
+    @debug "Processing criteria polygons job with id: $(input.id)"
 
     # Simulate processing time
     sleep(10)
 
-    @info "Finished criteria polygons job with id: $(input.id)"
-    @info "Could write something to $(storage_uri) if desired."
+    @debug "Finished criteria polygons job with id: $(input.id)"
+    @debug "Could write something to $(storage_uri) if desired."
 
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
@@ -222,5 +222,5 @@ function __init__()
         CriteriaPolygonsOutput
     )
 
-    @info "Jobs module initialized with handlers"
+    @debug "Jobs module initialized with handlers"
 end

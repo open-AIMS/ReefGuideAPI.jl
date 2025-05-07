@@ -55,23 +55,25 @@ Uses the ECS Task Metadata Endpoint V4 to fetch task information.
 - `Exception`: If metadata cannot be retrieved or parsed
 """
 function get_task_metadata()::TaskIdentifiers
+    # ECS Fargate runtime provides this endpoint
     metadata_uri = Base.get(ENV, "ECS_CONTAINER_METADATA_URI_V4", nothing)
+
+    # We may not have it locally - but the web API is currently tolerant of this
     if isnothing(metadata_uri)
         throw(ErrorException("Not running in ECS environment - metadata URI not found"))
     end
 
     try
+        # Get the result from the endpoint
         response = HTTP.get("$(metadata_uri)/task")
         if response.status != 200
             throw(ErrorException("HTTP error! status: $(response.status)"))
         end
 
-        task_metadata = JSON3.read(String(response.body))
-
-        # Quick validation of critical fields
-        if !haskey(task_metadata, :TaskARN)
-            throw(ErrorException("Invalid metadata response: missing required fields"))
-        end
+        # Cast stream -> string and then parse 
+        task_metadata::TaskMetadataResponse = JSON3.read(
+            String(response.body), TaskMetadataResponse
+        )
 
         # Extract task ID from ARN
         task_arn_parts = split(task_metadata.TaskARN, '/')

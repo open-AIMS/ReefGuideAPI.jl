@@ -57,7 +57,7 @@ function upload_file(
             throw(ArgumentError("Expected S3 URI, got $scheme"))
         end
 
-        @info "Uploading file from $(local_path) to $(storage_path)"
+        @debug "Uploading file from $(local_path) to $(storage_path)"
 
         aws = AWS.AWSConfig(; region=client.region)
 
@@ -68,7 +68,7 @@ function upload_file(
         AWSS3.s3_put(aws, bucket, key, file_data)
 
         # For demonstration purposes only - simulate the upload
-        @info "Uploaded file to $storage_path"
+        @debug "Uploaded file to $storage_path"
 
         return storage_path
     catch e

@@ -102,7 +102,7 @@ function process(::TypedJobHandler, context::JobContext)
         storage_uri = context.assignment.storage_uri
 
         # Process the job using the Jobs framework
-        @info "Processing job $(context.job.id) with type $(job_type_str)"
+        @debug "Processing job $(context.job.id) with type $(job_type_str)"
         output::AbstractJobOutput = process_job(
             job_type, context.job.input_payload, storage_uri
         )
@@ -187,7 +187,7 @@ Register a job handler for a specific job type
 """
 function register_handler!(worker::WorkerService, job_type::String, handler::JobHandler)
     worker.job_handlers[job_type] = handler
-    @info "Registered handler for job type: $job_type"
+    @debug "Registered handler for job type: $job_type"
     return worker
 end
 
@@ -210,7 +210,7 @@ end
 Start the worker
 """
 function start(worker::WorkerService)
-    @info "Starting worker with config:" job_types = worker.config.job_types poll_interval_ms =
+    @debug "Starting worker with config:" job_types = worker.config.job_types poll_interval_ms =
         worker.config.poll_interval_ms idle_timeout_ms = worker.config.idle_timeout_ms
 
     worker.is_running = true
@@ -239,17 +239,17 @@ function run_worker_loop(worker::WorkerService)
     while worker.is_running
         try
             # Poll for a job
-            @info "Polling for a job"
+            @debug "Polling for a job"
             job = poll_for_job(worker)
 
             # Process job if found
             if !isnothing(job)
-                @info "Found a job"
+                @debug "Found a job"
                 process_job_completely(worker, job)
             end
 
             # Check for idle timeout
-            @info "Checking for idle timeout"
+            @debug "Checking for idle timeout"
             check_idle_timeout(worker)
 
             # Sleep before next poll
@@ -274,7 +274,7 @@ function check_idle_timeout(worker::WorkerService)
         )
         @debug "Idle time (milliseconds) $(idle_time_ms). Configured idle timeout is $(worker.config.idle_timeout_ms)"
         if idle_time_ms >= worker.config.idle_timeout_ms
-            @info "Worker idle for $(idle_time_ms)ms, shutting down..."
+            @debug "Worker idle for $(idle_time_ms)ms, shutting down..."
             worker.is_running = false
         end
     end
