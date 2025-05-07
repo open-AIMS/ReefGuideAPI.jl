@@ -2,6 +2,9 @@ using Dates
 
 """
 Configuration for the worker
+
+These are populated from the environment and are only loaded when the worker
+component is launched.
 """
 struct WorkerConfig
     # API connection settings
@@ -25,8 +28,10 @@ struct WorkerConfig
         job_types::Vector{String},
         username::String,
         password::String;
-        poll_interval_ms::Int64=1000,
-        idle_timeout_ms::Int64=2 * 60 * 1000
+        # Polling interval 2 second by default
+        poll_interval_ms::Int64=2000,
+        # Idle timeout 5 minutes by default
+        idle_timeout_ms::Int64=5 * 60 * 1000
     ) = new(
         api_endpoint,
         job_types,
@@ -116,13 +121,14 @@ function load_config_from_env()::WorkerConfig
         throw(ConfigValidationError("PASSWORD", "Password cannot be empty"))
     end
 
-    # Optional environment variables with defaults
+    # Optional environment variables with defaults (2 min)
     poll_interval_ms::Int64 = parse(
-        Int64, something(get_env("POLL_INTERVAL_MS", false), "1000")
+        Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 60 * 1000))
     )
 
+    # (5 min)
     idle_timeout_ms::Int64 = parse(
-        Int64, something(get_env("IDLE_TIMEOUT_MS", false), string(2 * 60 * 1000))
+        Int64, something(get_env("IDLE_TIMEOUT_MS", false), string(5 * 60 * 1000))
     )
 
     # Create and return the config object
@@ -148,7 +154,7 @@ function create_worker_from_env()::WorkerService
     http_client = AuthApiClient(config.api_endpoint, credentials)
 
     # Get the ECS task metadata
-    identifiers :: TaskIdentifiers = get_task_metadata_safe()
+    identifiers::TaskIdentifiers = get_task_metadata_safe()
 
     # Create and return worker instance
     return WorkerService(config, http_client, identifiers)
