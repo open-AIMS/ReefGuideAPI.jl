@@ -98,7 +98,7 @@ Load configuration from environment variables
 """
 function load_config_from_env()::WorkerConfig
     # Fetch and validate required environment variables
-    api_endpoint = get_env("API_ENDPOINT")
+    api_endpoint = "$(get_env("API_ENDPOINT"))/api"
     validate_url(api_endpoint, "API_ENDPOINT")
 
     job_types_str = get_env("JOB_TYPES")
@@ -121,9 +121,9 @@ function load_config_from_env()::WorkerConfig
         throw(ConfigValidationError("PASSWORD", "Password cannot be empty"))
     end
 
-    # Optional environment variables with defaults (2 min)
+    # Optional environment variables with defaults (2 seconds)
     poll_interval_ms::Int64 = parse(
-        Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 60 * 1000))
+        Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 1000))
     )
 
     # (5 min)

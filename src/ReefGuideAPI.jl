@@ -322,22 +322,14 @@ function start_server(config_path)
 end
 
 """
-    initialize_worker(config::Dict)
+Create and initialize a worker from the environment.
 
-Create and initialize a worker from the given configuration.
-This instantiates the needed modules and configures the worker
-for job processing.
-
-# Arguments
-- `config`: Dictionary with configuration values from TOML
-
-# Returns
-- `Worker.WorkerService`: A configured worker ready to process jobs
+This is a blocking operation until the worker times out.
 """
 function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
-    start(worker)
+    return start(worker)
 end
 
 export

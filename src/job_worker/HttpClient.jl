@@ -69,7 +69,7 @@ Get a valid token, refreshing if necessary
 """
 function get_valid_token(client::AuthApiClient)::Union{String,Nothing}
     if isnothing(client.tokens)
-        @info "Logging in"
+        @debug "Logging in"
         login!(client)
         return isnothing(client.tokens) ? nothing : client.tokens.token
     end
@@ -133,12 +133,12 @@ end
 Refresh the authentication token
 """
 function refresh_token!(client::AuthApiClient)
-    @info "Token refresh started at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
+    @debug "Token refresh started at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
 
     try
         # If no refresh token available, try logging in
         if isnothing(client.tokens) || isnothing(client.tokens.refresh_token)
-            @info "No refresh token, logging in..."
+            @debug "No refresh token, logging in..."
             login!(client)
             return nothing
         end
@@ -168,7 +168,7 @@ function refresh_token!(client::AuthApiClient)
         login!(client)
     end
 
-    @info "Token refresh completed at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
+    @debug "Token refresh completed at: " Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
 end
 
 """
@@ -176,7 +176,7 @@ Get authorization headers with token
 """
 function auth_headers(client::AuthApiClient)
     headers = copy(client.http_headers)
-    @info "Getting valid token"
+    @debug "Getting valid token"
     token = get_valid_token(client)
     if !isnothing(token)
         headers["Authorization"] = "Bearer $token"
