@@ -11,8 +11,9 @@ struct ApiError <: Exception
     status_code::Int
     response::Any
 
-    ApiError(message::String, status_code::Int, response=nothing) =
-        new(message, status_code, response)
+    ApiError(message::String, status_code::Int, response=nothing) = new(
+        message, status_code, response
+    )
 end
 
 """

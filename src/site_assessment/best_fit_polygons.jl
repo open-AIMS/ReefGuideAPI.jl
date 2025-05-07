@@ -457,11 +457,10 @@ function find_optimal_site_alignment(
         lon = pix.lons
         lat = pix.lats
 
-        rotated_copy::Vector{GI.Wrappers.Polygon} =
-            move_geom.(
-                rotated_geoms,
-                Ref((lon, lat))
-            )
+        rotated_copy::Vector{GI.Wrappers.Polygon} = move_geom.(
+            rotated_geoms,
+            Ref((lon, lat))
+        )
 
         max_offset = (
             abs(meters_to_degrees(max_x_y_dist * 0.5, lat)) +
