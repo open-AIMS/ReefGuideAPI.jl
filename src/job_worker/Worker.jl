@@ -217,8 +217,6 @@ function start(worker::WorkerService)
 
     # Run the main loop in the current thread
     run_worker_loop(worker)
-
-    return worker
 end
 
 """
