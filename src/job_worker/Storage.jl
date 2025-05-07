@@ -82,7 +82,7 @@ Factory function to create an S3 storage client based on environment variables
 """
 function create_s3_client()::S3StorageClient
     # Get configuration from environment
-    region = get(ENV, "AWS_REGION", "ap-southeast-2")
+    region = Base.get(ENV, "AWS_REGION", "ap-southeast-2")
     return S3StorageClient(;
         region=region
     )

@@ -51,7 +51,7 @@ mutable struct AuthApiClient
     credentials::Credentials
     tokens::Union{AuthTokens,Nothing}
     http_headers::Dict{String,String}
-    token_refresh_threshold::Int
+    token_refresh_threshold_ms::Int
 
     function AuthApiClient(base_url::String, credentials::Credentials)
         return new(
@@ -69,18 +69,26 @@ Get a valid token, refreshing if necessary
 """
 function get_valid_token(client::AuthApiClient)::Union{String,Nothing}
     if isnothing(client.tokens)
+        @info "Logging in"
         login!(client)
         return isnothing(client.tokens) ? nothing : client.tokens.token
     end
 
     # Decode token to check expiration (no need to validate so we specify no encoding)
-    decoded_token = JSONWebTokens.decode(nothing, client.tokens.token)
+    decoded_token = JSONWebTokens.decode(JSONWebTokens.None(), client.tokens.token)
 
     exp_time = decoded_token["exp"]
-    expires_in = exp_time - floor(Int, datetime2unix(now()))
+
+    # Get current unix timestamp 
+    current_unix = floor(Int64, Dates.datetime2unix(Dates.now(Dates.UTC)))
+
+    # convert to ms
+    expires_in = exp_time - current_unix
 
     # Refresh if close to expiration
-    if expires_in <= client.token_refresh_threshold
+    @debug "Token expires in $(expires_in) seconds..."
+    if expires_in <= client.token_refresh_threshold_ms
+        @debug "Refreshing now"
         refresh_token!(client)
     end
 
@@ -168,6 +176,7 @@ Get authorization headers with token
 """
 function auth_headers(client::AuthApiClient)
     headers = copy(client.http_headers)
+    @info "Getting valid token"
     token = get_valid_token(client)
     if !isnothing(token)
         headers["Authorization"] = "Bearer $token"
@@ -195,27 +204,37 @@ function setupHeaders(client::AuthApiClient, path::String)
     )
 end
 
-function get(client::AuthApiClient, path::String; params::Dict=Dict())::Any
+function HTTPGet(client::AuthApiClient, path::String; params::Dict=Dict())::Any
     url, headers = setupHeaders(client, path)
 
     response = HTTP.get(url, headers; query=params)
     return JSON3.read(String(response.body))
 end
 
-function post(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+function HTTPPost(
+    client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing
+)::Union{Any,Nothing}
     url, headers = setupHeaders(client, path)
 
     body = isnothing(data) ? "" : JSON3.write(data)
     response = HTTP.post(url, headers, body)
 
-    if isempty(String(response.body))
+    @debug "Response inside HTTPPost $(response)"
+    @debug "Response.body inside HTTPPost $(response.body)"
+
+    response_content = String(response.body)
+    @debug "Response content = $(response_content)"
+
+    if isempty(response_content)
         return nothing
     else
-        return JSON3.read(String(response.body))
+        return JSON3.read(response_content)
     end
 end
 
-function put(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+function HTTPPut(
+    client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing
+)::Any
     url, headers = setupHeaders(client, path)
 
     body = isnothing(data) ? "" : JSON3.write(data)
@@ -228,7 +247,9 @@ function put(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=noth
     end
 end
 
-function patch(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing)::Any
+function HTTPPatch(
+    client::AuthApiClient, path::String, data::Union{Dict,Nothing}=nothing
+)::Any
     url, headers = setupHeaders(client, path)
 
     body = isnothing(data) ? "" : JSON3.write(data)
@@ -241,7 +262,7 @@ function patch(client::AuthApiClient, path::String, data::Union{Dict,Nothing}=no
     end
 end
 
-function delete(client::AuthApiClient, path::String)::Any
+function HTTPDelete(client::AuthApiClient, path::String)::Any
     url, headers = setupHeaders(client, path)
 
     response = HTTP.delete(url, headers)

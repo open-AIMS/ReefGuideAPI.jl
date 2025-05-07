@@ -13,6 +13,8 @@ Enum for job types matching the API definition
     CRITERIA_POLYGONS
 end
 
+symbol_to_job_type = Dict(zip(Symbol.(instances(JobType)), instances(JobType)))
+
 """
 Enum for storage schemes matching the API definition
 """
@@ -139,7 +141,9 @@ end
 """
 Process a job using the appropriate handler
 """
-function process_job(job_type::JobType, input_payload::Any, storage_uri::String)
+function process_job(
+    job_type::JobType, input_payload::Any, storage_uri::String
+)::AbstractJobOutput
     # Get the registered handler
     handler = get_job_handler(job_type)
 
@@ -197,7 +201,6 @@ function handle_job(
 
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
-
     return CriteriaPolygonsOutput()
 end
 

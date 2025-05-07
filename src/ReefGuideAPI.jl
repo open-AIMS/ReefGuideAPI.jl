@@ -25,7 +25,6 @@ using
     Oxygen
 
 include("job_worker/Worker.jl")
-include("job_worker/Config.jl")
 
 include("Middleware.jl")
 include("admin.jl")
@@ -115,21 +114,10 @@ for job processing.
 # Returns
 - `Worker.WorkerService`: A configured worker ready to process jobs
 """
-function initialize_worker()
+function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
     start(worker)
-    return worker
-end
-
-function start_runner(config_path)
-    @info "Launching job runner... please wait"
-
-    @info "Parsing configuration from $(config_path)..."
-    config = TOML.parsefile(config_path)
-
-    @info "Initialisation complete. Initiating job runner."
-    return runner_loop(config)
 end
 
 export

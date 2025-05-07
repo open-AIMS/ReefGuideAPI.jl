@@ -55,7 +55,7 @@ Uses the ECS Task Metadata Endpoint V4 to fetch task information.
 - `Exception`: If metadata cannot be retrieved or parsed
 """
 function get_task_metadata()::TaskIdentifiers
-    metadata_uri = get(ENV, "ECS_CONTAINER_METADATA_URI_V4", nothing)
+    metadata_uri = Base.get(ENV, "ECS_CONTAINER_METADATA_URI_V4", nothing)
     if isnothing(metadata_uri)
         throw(ErrorException("Not running in ECS environment - metadata URI not found"))
     end
@@ -89,7 +89,7 @@ function get_task_metadata()::TaskIdentifiers
         if e isa HTTP.ExceptionRequest.StatusError
             throw(ErrorException("Failed to retrieve ECS task metadata: $(e.status)"))
         else
-            throw(ErrorException("Failed to retrieve ECS task metadata: $(e)"))
+            throw(ErrorException("Failed to retrieve ECS task metadata"))
         end
     end
 end
@@ -105,7 +105,7 @@ function get_task_metadata_safe()::TaskIdentifiers
     try
         return get_task_metadata()
     catch e
-        @warn "Failed to get task metadata: $e"
+        @warn "Failed to get task metadata. Falling back to fake values."
         return TaskIdentifiers()
     end
 end

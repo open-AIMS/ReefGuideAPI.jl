@@ -9,32 +9,32 @@ struct WorkerConfig
 
     # Worker behavior
     job_types::Vector{String}
-    poll_interval_ms::Int
-    idle_timeout_ms::Int
 
     # Auth settings - these target the reefguide-web-api providing necessary
     # credentials for creating jobs etc
     username::String
     password::String
 
+    # Polling configuration
+    poll_interval_ms::Int64
+    idle_timeout_ms::Int64
+
     # Constructor with defaults to handle optional fields
-    function WorkerConfig(
+    WorkerConfig(
         api_endpoint::String,
         job_types::Vector{String},
         username::String,
         password::String;
-        poll_interval_ms::Int=1000,
-        idle_timeout_ms::Int=2 * 60 * 1000
+        poll_interval_ms::Int64=1000,
+        idle_timeout_ms::Int64=2 * 60 * 1000
+    ) = new(
+        api_endpoint,
+        job_types,
+        username,
+        password,
+        poll_interval_ms,
+        idle_timeout_ms
     )
-        return new(
-            api_endpoint,
-            job_types,
-            poll_interval_ms,
-            idle_timeout_ms,
-            username,
-            password
-        )
-    end
 end
 
 """
@@ -81,7 +81,7 @@ end
 Gets an environment variable with validation
 """
 function get_env(key::String, required::Bool=true)
-    value = get(ENV, key, nothing)
+    value = Base.get(ENV, key, nothing)
     if isnothing(value) && required
         throw(ConfigValidationError(key, "Required environment variable not set"))
     end
@@ -97,7 +97,7 @@ function load_config_from_env()::WorkerConfig
     validate_url(api_endpoint, "API_ENDPOINT")
 
     job_types_str = get_env("JOB_TYPES")
-    job_types = strip.(split(job_types_str, ','))
+    job_types = String.(strip.(split(job_types_str, ',')))
     if isempty(job_types) || any(isempty, job_types)
         throw(
             ConfigValidationError(
@@ -117,16 +117,12 @@ function load_config_from_env()::WorkerConfig
     end
 
     # Optional environment variables with defaults
-    poll_interval_ms = parse_int(
-        something(get_env("POLL_INTERVAL_MS", false), "1000"),
-        "POLL_INTERVAL_MS",
-        1000
+    poll_interval_ms::Int64 = parse(
+        Int64, something(get_env("POLL_INTERVAL_MS", false), "1000")
     )
 
-    idle_timeout_ms = parse_int(
-        something(get_env("IDLE_TIMEOUT_MS", false), string(2 * 60 * 1000)),
-        "IDLE_TIMEOUT_MS",
-        1
+    idle_timeout_ms::Int64 = parse(
+        Int64, something(get_env("IDLE_TIMEOUT_MS", false), string(2 * 60 * 1000))
     )
 
     # Create and return the config object
@@ -134,9 +130,9 @@ function load_config_from_env()::WorkerConfig
         api_endpoint,
         job_types,
         username,
-        password,
-        poll_interval_ms,
-        idle_timeout_ms,
+        password;
+        poll_interval_ms=poll_interval_ms,
+        idle_timeout_ms=idle_timeout_ms
     )
 end
 
@@ -151,6 +147,9 @@ function create_worker_from_env()::WorkerService
     credentials = Credentials(config.username, config.password)
     http_client = AuthApiClient(config.api_endpoint, credentials)
 
+    # Get the ECS task metadata
+    identifiers :: TaskIdentifiers = get_task_metadata_safe()
+
     # Create and return worker instance
-    return WorkerService(config, http_client, task_metadata)
+    return WorkerService(config, http_client, identifiers)
 end
