@@ -329,7 +329,9 @@ This is a blocking operation until the worker times out.
 function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
-    return start(worker)
+    @info "Starting worker loop from ReefGuideAPI.jl"
+    start(worker)
+    @info "Worker closed itself..."
 end
 
 export
