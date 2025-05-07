@@ -269,7 +269,10 @@ Check if worker has been idle too long and should shut down
 """
 function check_idle_timeout(worker::WorkerService)
     if worker.config.idle_timeout_ms > 0
-        idle_time_ms = Dates.value(now() - worker.last_activity_timestamp) ÷ 1_000_000
+        idle_time_ms = floor(
+            Int64, Dates.value(now() - worker.last_activity_timestamp)
+        )
+        @debug "Idle time (milliseconds) $(idle_time_ms). Configured idle timeout is $(worker.config.idle_timeout_ms)"
         if idle_time_ms >= worker.config.idle_timeout_ms
             @info "Worker idle for $(idle_time_ms)ms, shutting down..."
             worker.is_running = false
