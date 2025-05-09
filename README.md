@@ -98,22 +98,22 @@ Pay attention to the issuer and wkt endpoints. The first should exactly match th
 ## Publishing a new version
 
 1. Bump the version in `Project.toml` and commit
-1. Identify the previous version
-1. Identify the intended version bump (new tag)
-1. Create tag
+2. Identify the previous version
+3. Identify the intended version bump (new tag)
+4. Create tag
 
 ```bash
 git tag v1.x.y -a
 # Then fill in description
 ```
 
-4. Push to remote
+5. Push to remote
 
 ```bash
 git push origin --tags
 ```
 
-5. On GitHub - draft the new release targeting this as the new version
+6. On GitHub - draft the new release targeting this as the new version
 
 ## API Usage
 
