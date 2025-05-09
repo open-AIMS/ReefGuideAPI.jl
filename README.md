@@ -99,8 +99,8 @@ Pay attention to the issuer and wkt endpoints. The first should exactly match th
 
 1. Bump the version in `Project.toml` and commit
 1. Identify the previous version
-2. Identify the intended version bump (new tag)
-3. Create tag
+1. Identify the intended version bump (new tag)
+1. Create tag
 
 ```bash
 git tag v1.x.y -a
@@ -276,6 +276,175 @@ Then in the Julia REPL:
 ```julia
 using ReefGuideAPI
 ReefGuideAPI.start_server("/data/reefguide/config.toml")
+```
+
+## Job worker component
+
+The ReefGuide Job System is a job processing framework written in Julia. The system is designed to poll for available jobs from the reefguide-web-api, claim them, process them using appropriate handlers, and report results back to the API.
+
+### System Architecture
+
+The job system is built around these core components:
+
+- **WorkerService**: The main orchestrator that manages the job processing lifecycle
+- **JobHandler**: A wrapper around the job registry which manages dispatching jobs to the proper registry handler, and reporting the results
+- **API Client**: For communication with the ReefGuide API, automatically managing logins/token refreshing
+- **Job Registry**: A centralized registry that maps job types to their handlers, including input and output payload configurations
+
+### Configuration
+
+#### Environment Variables
+
+The worker requires the following environment variables to be set:
+
+| Variable                        | Description                                                | Example                                   |
+| ------------------------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| `API_ENDPOINT`                  | Base URL of the ReefGuide API                              | `"https://api.reefguide.example.com/api"` |
+| `JOB_TYPES`                     | Comma-separated list of job types the worker should handle | `"CRITERIA_POLYGONS"`                     |
+| `USERNAME`                      | API authentication username                                | `"worker-service"`                        |
+| `PASSWORD`                      | API authentication password                                | `"secure-password"`                       |
+| `POLL_INTERVAL_MS`              | (Optional) Polling interval in milliseconds                | `2000` (default)                          |
+| `IDLE_TIMEOUT_MS`               | (Optional) Idle timeout in milliseconds                    | `300000` (default)                        |
+| `AWS_REGION`                    | AWS region for S3 operations                               | `"ap-southeast-2"`                        |
+| `ECS_CONTAINER_METADATA_URI_V4` | ECS task metadata endpoint                                 | Automatically set in ECS                  |
+
+#### Using DotEnv for Local Development
+
+For local development, you can use the DotEnv.jl package to load environment variables from a `.env` file:
+
+```julia
+using DotEnv
+
+# Load environment variables from .env file
+DotEnv.load!()
+
+# Create and start worker
+using ReefGuideAPI
+ReefGuideAPI.start_worker()
+```
+
+Example `.env` file:
+
+```
+API_ENDPOINT=http://localhost:8000
+JOB_TYPES=CRITERIA_POLYGONS
+USERNAME=local-dev
+PASSWORD=local-password
+POLL_INTERVAL_MS=5000
+IDLE_TIMEOUT_MS=600000
+AWS_REGION=ap-southeast-2
+```
+
+### Worker Operation
+
+#### Polling Loop
+
+The worker operates in a continuous loop:
+
+1. **Poll** for available jobs matching the configured job types
+2. If a job is found, **claim** it to get an assignment
+3. **Process** the job with the appropriate handler
+4. **Report** the result (success/failure + payload)
+5. **Sleep** for the configured poll interval
+6. Check for **idle timeout** and shut down if idle too long
+
+The loop includes error handling to ensure that failures in one job don't affect the processing of subsequent jobs.
+
+#### Idle Timeout
+
+The worker will automatically shut down after being idle (no jobs processed) for the configured timeout period. This helps manage resources in cloud environments where workers can be dynamically scaled.
+
+### Adding New Job Types
+
+To add a new job type:
+
+1. Define a new value in the `JobType` enum in `Jobs.jl`
+2. Create input and output type definitions that extend `AbstractJobInput` and `AbstractJobOutput`
+3. Implement a handler that extends `AbstractJobHandler`
+4. Register the handler during application initialization
+
+NOTE: the JobType, input and output should correspond to the typed interfaces in the reefguide-web-api project. This just provides Julia structs around the existing types. The API will reject improperly formed types.
+
+Example:
+
+```julia
+# 1. Add to enum
+@enum JobType begin
+    CRITERIA_POLYGONS
+    NEW_JOB_TYPE  # New job type
+end
+
+# 2. Define input/output types
+struct NewJobInput <: AbstractJobInput
+    # Define input fields
+    parameter1::String
+    parameter2::Int
+end
+
+struct NewJobOutput <: AbstractJobOutput
+    # Define output fields
+    result::String
+end
+
+# 3. Implement handler
+struct NewJobHandler <: AbstractJobHandler end
+
+function handle_job(
+    ::NewJobHandler, input::NewJobInput, storage_uri::String
+)::NewJobOutput
+    # Implement job processing logic
+    result = process_data(input.parameter1, input.parameter2)
+
+    # Return result
+    return NewJobOutput(result)
+end
+
+# 4. Register in __init__
+function __init__()
+    # Register existing handlers
+    register_job_handler!(
+        CRITERIA_POLYGONS,
+        CriteriaPolygonsHandler(),
+        CriteriaPolygonsInput,
+        CriteriaPolygonsOutput
+    )
+
+    # Register new handler
+    register_job_handler!(
+        NEW_JOB_TYPE,
+        NewJobHandler(),
+        NewJobInput,
+        NewJobOutput
+    )
+end
+```
+
+### Launching the Worker
+
+In a Julia REPL, you can launch the worker using `ReefGuideAPI.start_worker()`.
+
+e.g.
+
+#### From the Command Line
+
+```bash
+# Set environment variables
+export API_ENDPOINT=https://api.reefguide.example.com
+export JOB_TYPES=CRITERIA_POLYGONS
+export USERNAME=worker-service
+export PASSWORD=secure-password
+
+# Start the Julia REPL with the ReefGuide module
+cd sandbox
+julia --project=.
+
+```
+
+```
+pkg > dev ..
+pkg > instantiate
+julia > using ReefGuideAPI
+julia > ReefGuideAPI.start_worker()
 ```
 
 ## Troubleshooting

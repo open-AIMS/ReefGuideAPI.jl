@@ -4,7 +4,7 @@ using Dates
 using StructTypes
 
 import Rasters: Between
-using Oxygen: json
+using Oxygen: json, Request
 
 include("query_parser.jl")
 include("tiles.jl")

@@ -24,6 +24,8 @@ using
     HTTP,
     Oxygen
 
+include("job_worker/Worker.jl")
+
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")
@@ -99,6 +101,19 @@ function start_server(config_path)
     )
 end
 
+"""
+Create and initialize a worker from the environment.
+
+This is a blocking operation until the worker times out.
+"""
+function start_worker()
+    @info "Initializing worker from environment variables..."
+    worker = create_worker_from_env()
+    @info "Starting worker loop from ReefGuideAPI.jl"
+    start(worker)
+    @info "Worker closed itself..."
+end
+
 export
     RegionalCriteria,
     criteria_data_map
@@ -124,9 +139,5 @@ export
     valid_slope_lat_inds,
     valid_flat_lon_inds,
     valid_flat_lat_inds
-
-# Ruleset thresholds
-export
-    within_thresholds
 
 end

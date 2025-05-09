@@ -19,8 +19,7 @@ using NearestNeighbors
 Assesses the rotations of a search box `geom` for their suitability score (calculated as the
 proportion of pixels that meet all specified criteria thresholds). Search box rotation steps
 are returned so that the `start_rot` angle is 0, rotations anti-clockwise are negative and
-rotations clockwise are
-positive.
+rotations clockwise are positive.
 
 # Extended help
 The scores produced are a proportion of the polygon that are covered by valid pixel points,
