@@ -107,13 +107,13 @@ git tag v1.x.y -a
 # Then fill in description
 ```
 
-4. Push to remote
+5. Push to remote
 
 ```bash
 git push origin --tags
 ```
 
-5. On GitHub - draft the new release targeting this as the new version
+6. On GitHub - draft the new release targeting this as the new version
 
 ## API Usage
 

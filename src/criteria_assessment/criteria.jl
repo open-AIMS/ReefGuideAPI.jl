@@ -103,48 +103,6 @@ end
 StructTypes.StructType(::Type{CriteriaBounds}) = StructTypes.Struct()
 
 """
-    _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
-
-Write out a COG using common options.
-
-# Arguments
-- `file_path` : Path to write data out to
-- `data` : Raster data to write out
-"""
-function _write_cog(file_path::String, data::Raster, config::Dict)::Nothing
-    Rasters.write(
-        file_path,
-        data;
-        ext=".tiff",
-        source="gdal",
-        driver="COG",
-        options=Dict{String,String}(
-            "COMPRESS" => "DEFLATE",
-            "SPARSE_OK" => "TRUE",
-            "OVERVIEW_COUNT" => "5",
-            "BLOCKSIZE" => string(first(tile_size(config))),
-            "NUM_THREADS" => n_gdal_threads(config)
-        ),
-        force=true
-    )
-
-    return nothing
-end
-
-function _write_tiff(file_path::String, data::Raster)::Nothing
-    Rasters.write(
-        file_path,
-        data;
-        ext=".tiff",
-        source="gdal",
-        driver="gtiff",
-        force=true
-    )
-
-    return nothing
-end
-
-"""
     criteria_middleware(handle)
 
 Creates middleware that parses a criteria query before reaching an endpoint
@@ -164,113 +122,23 @@ function criteria_middleware(handle)
     end
 end
 
-# Not sure why, but this ain't working
-# reeftype_router = router("/suitability", middleware=[criteria_middleware], tags=["suitability"])
-
-function setup_region_routes(config, auth)
+function setup_criteria_routes(config, auth)
     reg_assess_data = setup_regional_data(config)
 
-    @get auth("/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
-        qp = queryparams(req)
-        mask_path = cache_filename(qp, config, "", "tiff")
-        if isfile(mask_path)
-            return file(mask_path; headers=COG_HEADERS)
-        end
+    @get auth("/criteria/ranges") function (req::Request)
+        # Transform cached criteria ranges to a dictionary for return as json.
+        criteria_ranges = reg_assess_data["criteria_ranges"]
+        criteria_names = names(criteria_ranges)
 
-        # Otherwise, create the file
-        @debug "$(now()) : Assessing criteria"
-        mask_data = mask_region(reg_assess_data, reg, qp, rtype)
-
-        @debug "$(now()) : Running on thread $(threadid())"
-        @debug "Writing to $(mask_path)"
-        # Writing time: ~10-25 seconds
-        _write_cog(mask_path, UInt8.(mask_data), config)
-
-        return file(mask_path; headers=COG_HEADERS)
-    end
-
-    @get auth("/suitability/assess/{reg}/{rtype}") function (
-        req::Request, reg::String, rtype::String
-    )
-        # somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
-        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0
-        # 127.0.0.1:8000/suitability/assess/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95
-        # 127.0.0.1:8000/suitability/assess/Mackay-Capricorn/slopes?Depth=-12.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95
-        qp = queryparams(req)
-        assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
-
-        return file(assessed_fn; headers=COG_HEADERS)
-    end
-
-    @get auth("/suitability/site-suitability/{reg}/{rtype}") function (
-        req::Request, reg::String, rtype::String
-    )
-        # 127.0.0.1:8000/suitability/site-suitability/Cairns-Cooktown/slopes?Depth=-4.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=450&ydist=50
-        # 127.0.0.1:8000/suitability/site-suitability/Mackay-Capricorn/slopes?Depth=-12.0:-2.0&Slope=0.0:40.0&Rugosity=0.0:6.0&SuitabilityThreshold=95&xdist=100&ydist=100
-        qp = queryparams(req)
-        suitable_sites_fn = cache_filename(
-            qp, config, "$(reg)_potential_sites", "geojson"
-        )
-        if isfile(suitable_sites_fn)
-            return file(suitable_sites_fn)
-        end
-
-        # Assess location suitability if needed
-        assessed_fn = assess_region(config, qp, reg, rtype, reg_assess_data)
-        assessed = Raster(assessed_fn; lazy=true, missingval=0)
-
-        # Extract criteria and assessment
-        pixel_criteria = extract_criteria(qp, search_criteria())
-        deploy_site_criteria = extract_criteria(qp, site_criteria())
-
-        best_sites = filter_sites(
-            assess_sites(
-                reg_assess_data, reg, rtype, pixel_criteria, deploy_site_criteria, assessed
+        @debug "Transforming criteria dataframe to JSON"
+        ret = OrderedDict()
+        for cn in criteria_names
+            ret[cn] = OrderedDict(
+                :min_val => criteria_ranges[1, cn],
+                :max_val => criteria_ranges[2, cn]
             )
-        )
-
-        # Specifically clear from memory to invoke garbage collector
-        assessed = nothing
-
-        if nrow(best_sites) == 0
-            open(suitable_sites_fn, "w") do f
-                JSON.print(f, nothing)
-            end
-        else
-            output_geojson(suitable_sites_fn, best_sites)
         end
 
-        return file(suitable_sites_fn)
-    end
-
-    @get auth("/bounds/{reg}") function (req::Request, reg::String)
-        rst_stack = reg_assess_data[reg].stack
-
-        return json(Rasters.bounds(rst_stack))
-    end
-
-    # Form for testing/dev
-    # https:://somewhere:8000/suitability/assess/region-name/reeftype?criteria_names=Depth,Slope&lb=-9.0,0.0&ub=-2.0,40
-    @get "/" function ()
-        return html("""
-               <form action="/assess/Cairns-Cooktown/slopes" method="post">
-                   <label for="criteria_names">Criteria Names:</label><br>
-                   <input type="text" id="criteria_names" name="criteria"><br>
-
-                   <label for="lb">Lower Bound:</label><br>
-                   <input type="text" id="lb" name="lower_bound"><br><br>
-
-                   <label for="ub">Upper Bound:</label><br>
-                   <input type="text" id="ub" name="upper_bound"><br><br>
-
-                   <input type="submit" value="Submit">
-               </form>
-               """)
-    end
-
-    # Parse the form data and return it
-    @post auth("/form") function (req)
-        data = formdata(req)
-        return data
+        return json(ret)
     end
 end

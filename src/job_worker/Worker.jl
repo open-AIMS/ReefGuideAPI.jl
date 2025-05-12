@@ -71,15 +71,15 @@ Job handler type definition - a function that processes jobs of a specific type
 abstract type JobHandler end
 
 """
-Default job handler that does minimal processing
+Mock job handler that does minimal processing
 """
-struct DefaultJobHandler <: JobHandler end
+struct MockJobHandler <: JobHandler end
 
 """
-Process a job with the default handler
+Process a job with the mock handler
 Return a tuple of (success::Bool, result_payload::Any)
 """
-function process(::DefaultJobHandler, context::JobContext)
+function process(::MockJobHandler, context::JobContext)
     # Default implementation - 90% success rate
     success = rand() > 0.1
     sleep(rand(5:15))  # Simulate processing time between 5-15 seconds
@@ -158,7 +158,7 @@ mutable struct WorkerService
     "Job handlers registry - maps job types to handler functions"
     job_handlers::Dict{String,JobHandler}
 
-    function WorkerService(config::WorkerConfig, http_client, identifiers)
+    function WorkerService(config::WorkerConfig, http_client, identifiers; mock :: Bool = false)
         worker = new(
             config,
             false,
@@ -169,9 +169,28 @@ mutable struct WorkerService
         )
 
         # Automatically register the TypedJobHandler for all supported job types
-        register_typed_handlers!(worker)
+        if mock
+            register_mock_handlers!(worker)
+        else 
+            register_typed_handlers!(worker)
+        end 
 
         return worker
+    end
+end
+
+
+"""
+Register the MockJobHandler for all job types supported by the Jobs module
+"""
+function register_mock_handlers!(worker::WorkerService)
+    # Loop through all values in the JobType enum
+    for job_type in instances(JobType)
+        # Convert enum to string
+        job_type_str = string(job_type)
+
+        # Register the TypedJobHandler for this job type
+        register_handler!(worker, job_type_str, MockJobHandler())
     end
 end
 
@@ -202,7 +221,7 @@ end
 Get the appropriate handler for a job type
 """
 function get_handler(worker::WorkerService, job_type::String)::JobHandler
-    return Base.get(worker.job_handlers, job_type, DefaultJobHandler())
+    return Base.get(worker.job_handlers, job_type, MockJobHandler())
 end
 
 """
@@ -223,7 +242,7 @@ function start(worker::WorkerService)
     worker.is_running = true
 
     # Run the main loop in the current thread
-    return run_worker_loop(worker)
+    run_worker_loop(worker)
 end
 
 """
