@@ -1,3 +1,9 @@
+"""
+The worker service class which manages connecting to all the job worker
+components to orchestrate consuming jobs. Principally polls for, completes and
+reports back jobs done, on a loop, until idle for a configurable idle time.
+"""
+
 using Dates
 using Random
 using Logging
@@ -13,9 +19,11 @@ include("Storage.jl")
 Represents a job that needs to be processed
 """
 struct Job
+    "Job ID in the DB"
     id::Int64
+    "What type of Job - strict set of enums"
     type::String
-    # We don't really know what type of data this will be 
+    "The payload defining the job parameters - should correspond to input payload type registered in Jobs.jl"
     input_payload::Any
 end
 
@@ -23,11 +31,11 @@ end
 Represents an assignment for a job
 """
 struct JobAssignment
-    # ID of the assignment
+    "ID of the assignment in the DB"
     id::Int64
-    # ID of the tasked job
+    "ID of the tasked job"
     job_id::Int64
-    # Path to where the data can be stored (in s3)
+    "Path to where the data can be stored (in s3)"
     storage_uri::String
 end
 
@@ -42,16 +50,16 @@ end
 Context provided to job handlers with all necessary information
 """
 struct JobContext
-    # The job to be processed
+    "The job to be processed"
     job::Job
-    # The job assignment details
+    "The job assignment details"
     assignment::JobAssignment
-    # The API client for making HTTP requests
+    "The API client for making HTTP requests"
     http_client::Any
-    # Task metadata
+    "Task metadata"
     task_metadata::Any
 
-    # Constructor that takes all fields
+    "Constructor that takes all fields"
     function JobContext(job, assignment, http_client, task_metadata)
         return new(job, assignment, http_client, task_metadata)
     end
@@ -132,25 +140,24 @@ end
 The Worker Service that manages job processing
 """
 mutable struct WorkerService
-    # Configuration
+    "Configuration"
     config::WorkerConfig
 
-    # Whether the worker is currently running
+    "Whether the worker is currently running"
     is_running::Bool
 
-    # HTTP client for API calls
+    "HTTP client for API calls"
     http_client::Any
 
-    # Task identifiers
+    "Task identifiers and other metadata about this running service"
     metadata::TaskIdentifiers
 
-    # Last activity timestamp
+    "When was the last time this worker did something (got a job/finished it?)"
     last_activity_timestamp::DateTime
 
-    # Job handlers registry - maps job types to handler functions
+    "Job handlers registry - maps job types to handler functions"
     job_handlers::Dict{String,JobHandler}
 
-    # Constructor
     function WorkerService(config::WorkerConfig, http_client, identifiers)
         worker = new(
             config,
@@ -216,7 +223,7 @@ function start(worker::WorkerService)
     worker.is_running = true
 
     # Run the main loop in the current thread
-    run_worker_loop(worker)
+    return run_worker_loop(worker)
 end
 
 """
@@ -246,7 +253,6 @@ function run_worker_loop(worker::WorkerService)
                 process_job_completely(worker, job)
             end
 
-            # Check for idle timeout
             @debug "Checking for idle timeout"
             check_idle_timeout(worker)
 

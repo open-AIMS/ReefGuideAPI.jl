@@ -1,3 +1,7 @@
+"""
+Manages config for the worker node.
+"""
+
 using Dates
 
 """

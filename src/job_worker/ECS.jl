@@ -1,3 +1,7 @@
+"""
+Manages the ECS specific runtime environment for the worker node.
+"""
+
 using HTTP
 using JSON3
 using Dates

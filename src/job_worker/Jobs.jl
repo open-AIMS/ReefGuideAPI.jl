@@ -1,10 +1,15 @@
+"""
+This is the file where handlers, input and output payloads are registered to
+handle jobs for this worker.
+"""
+
 using JSON3
 using Logging
 using Dates
 
-#
-# Core type definitions
-#
+# ================
+# Type Definitions
+# ================
 
 """
 Enum for job types matching the API definition
@@ -61,9 +66,9 @@ end
 # Global registry instance
 const JOB_REGISTRY = JobRegistry()
 
-#
+# ======================
 # Registration functions
-#
+# ======================
 
 """
 Register a job handler for a specific job type

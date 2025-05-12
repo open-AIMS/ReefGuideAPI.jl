@@ -1,3 +1,8 @@
+"""
+An abstract storage client and implementation for S3 - which is untested/not
+used yet.
+"""
+
 using Logging
 using JSON3
 using AWSS3
