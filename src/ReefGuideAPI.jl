@@ -31,9 +31,6 @@ include("admin.jl")
 include("file_io.jl")
 include("server_cache.jl")
 
-include("job_management/JobInterface.jl")
-include("job_management/DiskService.jl")
-
 include("criteria_assessment/criteria.jl")
 include("criteria_assessment/query_thresholds.jl")
 include("criteria_assessment/regional_assessment.jl")

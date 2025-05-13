@@ -7,6 +7,15 @@ using JSON3
 using Logging
 using Dates
 
+"""
+    create_job_id(query_params::Dict)::String
+
+Generate a job id based on query parameters.
+"""
+function create_job_id(query_params::Dict)::String
+    return string(hash(query_params))
+end
+
 # ================
 # Type Definitions
 # ================
@@ -15,7 +24,8 @@ using Dates
 Enum for job types matching the API definition
 """
 @enum JobType begin
-    CRITERIA_POLYGONS
+    SUITABILITY_ASSESSMENT
+    TEST
 end
 
 symbol_to_job_type = Dict(zip(Symbol.(instances(JobType)), instances(JobType)))
@@ -167,46 +177,190 @@ end
 
 #
 # ================= 
-# CRITERIA_POLYGONS 
+# TEST 
 # ================= 
 #
 
 """
-Input payload for CRITERIA_POLYGONS job
+Input payload for TEST job
 """
-struct CriteriaPolygonsInput <: AbstractJobInput
+struct TestInput <: AbstractJobInput
     id::Int64
-    # Add more fields as needed to match the TS schema
 end
 
 """
-Output payload for CRITERIA_POLYGONS job
+Output payload for TEST job
 """
-struct CriteriaPolygonsOutput <: AbstractJobOutput
+struct TestOutput <: AbstractJobOutput
 end
 
 """
-Handler for CRITERIA_POLYGONS jobs
+Handler for TEST jobs
 """
-struct CriteriaPolygonsHandler <: AbstractJobHandler end
+struct TestHandler <: AbstractJobHandler end
 
 """
-Process a CRITERIA_POLYGONS job
+Process a TEST job
 """
 function handle_job(
-    ::CriteriaPolygonsHandler, input::CriteriaPolygonsInput, storage_uri::String
-)::CriteriaPolygonsOutput
-    @debug "Processing criteria polygons job with id: $(input.id)"
+    ::TestHandler, input::TestInput, storage_uri::String
+)::TestOutput
+    @debug "Processing test job with id: $(input.id)"
 
     # Simulate processing time
     sleep(10)
 
-    @debug "Finished criteria polygons job with id: $(input.id)"
+    @debug "Finished test job with id: $(input.id)"
     @debug "Could write something to $(storage_uri) if desired."
 
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
-    return CriteriaPolygonsOutput()
+    return TestOutput()
+end
+
+#
+# ======================
+# SUITABILITY_ASSESSMENT 
+# ======================
+#
+
+"""
+Input payload for SUITABILITY_ASSESSMENT job
+"""
+struct SuitabilityAssessmentInput <: AbstractJobInput
+    # High level config
+
+    "Region for assessment"
+    region::String
+    "The type of reef, slopes or flats"
+    reef_type::String
+
+    # Criteria
+    "The depth range (min)"
+    depth_min::Float64
+    "The depth range (max)"
+    depth_max::Float64
+    "The slope range (min)"
+    slope_min::Float64
+    "The slope range (max)"
+    slope_max::Float64
+    "The rugosity range (min)"
+    rugosity_min::Float64
+    "The rugosity range (max)"
+    rugosity_max::Float64
+    "Suitability threshold (min)"
+    threshold::Float64
+end
+
+"""
+Output payload for SUITABILITY_ASSESSMENT job
+"""
+struct SuitabilityAssessmentOutput <: AbstractJobOutput
+    geojson_path::String
+end
+
+"""
+Handler for SUITABILITY_ASSESSMENT jobs
+"""
+struct SuitabilityAssessmentHandler <: AbstractJobHandler end
+
+"""
+Process a SUITABILITY_ASSESSMENT job
+
+This is replacing the previouys 
+"""
+function handle_job(
+    ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput, storage_uri::String
+)::SuitabilityAssessmentOutput
+    @info "Initiating site assessment task"
+
+    config_path = "config.toml"
+    @info "Parsing configuration from $(config_path)..."
+    config = TOML.parsefile(config_path)
+    @info "Configuration parsing complete."
+
+    @info "Setting up regional assessment data"
+    reg_assess_data = setup_regional_data(config)
+    @info "Done setting up regional assessment data"
+
+    @info "Performing regional assessment (dependency of site assessment)"
+
+    # Pull out these parameters in the format previously expected 
+    reg = input.region
+    rtype = input.reef_type
+
+    # This is the format expected by prior methods - so we pass it back!! :D
+    # TODO - don't do this :)
+    qp::Dict{String,String} = Dict{String,String}(
+        "Depth" => "$(input.depth_min):$(input.depth_max)",
+        "Slope" => "$(input.slope_min):$(input.slope_max)",
+        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
+        "SuitabilityThreshold" => "$(input.threshold)"
+    )
+
+    @debug "Ascertaining file name"
+    temp_path = _cache_location(config)
+    job_id = create_job_id(qp)
+    assessed_fn = joinpath(temp_path, "$(job_id)_$(reg)_suitable.$(ext)")
+    @debug "File name: $(assessed_fn)"
+
+    @debug "Assessing region $(reg)"
+    assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+    @debug "Writing to $(assessed_fn)"
+    _write_tiff(assessed_fn, assessed)
+
+    @debug "Pulling out raster"
+    assessed = Raster(assessed_fn; missingval=0)
+
+    # Extract criteria and assessment
+    pixel_criteria = extract_criteria(qp, search_criteria())
+    deploy_site_criteria = extract_criteria(qp, site_criteria())
+
+    @debug "Performing site assessment"
+    best_sites = filter_sites(
+        assess_sites(
+            reg_assess_data, reg, rtype, pixel_criteria, deploy_site_criteria,
+            assessed
+        )
+    )
+
+    # Specifically clear from memory to invoke garbage collector
+    assessed = nothing
+
+    @debug "Writing to temporary file"
+    geojson_name = tempname()
+    @debug "File name $(geojson_name)"
+
+    if nrow(best_sites) == 0
+        open(geojson_name, "w") do f
+            JSON.print(f, nothing)
+        end
+    else
+        output_geojson(geojson_name, best_sites)
+    end
+
+    # Now upload this to s3 
+    # TODO get this region from the config
+    client = S3StorageClient(; region="ap-southeast-2")
+
+    # Output file names
+    output_file_name_rel = "suitable.json"
+    full_s3_target = "$(storage_uri)/$(output_file_name_rel)"
+    @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
+
+    upload_file(client, output_geojson, full_s3_target)
+
+    # clean up temp file
+    if isfile(geojson_name)
+        @debug "Cleaned up temp file"
+        rm(geojson_name)
+    end
+
+    @debug "Finished suitability assessment job."
+    return SuitabilityAssessmentOutput(
+        output_file_name_rel
+    )
 end
 
 #
@@ -219,12 +373,20 @@ end
 # Register the job types when the module loads
 #
 function __init__()
-    # Register the CRITERIA_POLYGONS job handler
+    # Register the TEST job handler
     register_job_handler!(
-        CRITERIA_POLYGONS,
-        CriteriaPolygonsHandler(),
-        CriteriaPolygonsInput,
-        CriteriaPolygonsOutput
+        TEST,
+        TestHandler(),
+        TestInput,
+        TestOutput
+    )
+
+    # Register the SUITABILITY_ASSESSMENT job handler
+    register_job_handler!(
+        SUITABILITY_ASSESSMENT,
+        SuitabilityAssessmentHandler(),
+        SuitabilityAssessmentInput,
+        SuitabilityAssessmentOutput
     )
 
     @debug "Jobs module initialized with handlers"

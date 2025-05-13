@@ -158,7 +158,7 @@ mutable struct WorkerService
     "Job handlers registry - maps job types to handler functions"
     job_handlers::Dict{String,JobHandler}
 
-    function WorkerService(config::WorkerConfig, http_client, identifiers; mock :: Bool = false)
+    function WorkerService(config::WorkerConfig, http_client, identifiers; mock::Bool=false)
         worker = new(
             config,
             false,
@@ -171,14 +171,13 @@ mutable struct WorkerService
         # Automatically register the TypedJobHandler for all supported job types
         if mock
             register_mock_handlers!(worker)
-        else 
+        else
             register_typed_handlers!(worker)
-        end 
+        end
 
         return worker
     end
 end
-
 
 """
 Register the MockJobHandler for all job types supported by the Jobs module
@@ -242,7 +241,7 @@ function start(worker::WorkerService)
     worker.is_running = true
 
     # Run the main loop in the current thread
-    run_worker_loop(worker)
+    return run_worker_loop(worker)
 end
 
 """
@@ -308,10 +307,12 @@ Poll for a single available job
 """
 function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
     try
-        # Get available jobs
+        # Get available jobs 
+
+        # TODO if we only handle specific subsets, might want to filter more
+        # here
         response = HTTPGet(
             worker.http_client, "/jobs/poll";
-            params=Dict("jobType" => worker.config.job_types[1])
         )
 
         jobs = response.jobs
@@ -325,11 +326,21 @@ function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
         # Update activity timestamp when we find a job
         update_last_activity!(worker)
 
-        # Return the first available job
-        @debug "Job[1] = $(jobs[1])"
-        parsed = JSON3.read(JSON3.write(jobs[1]), Job)
-        @debug "Result of parsing: $(parsed)"
-        return parsed
+        # Return the first available job which is of a type that we can handle
+        job::Union{Job,Nothing} = nothing
+        i = 1
+        while (i <= length(jobs))
+            @debug "Job[$(i)] = $(jobs[i])"
+            parsed = JSON3.read(JSON3.write(jobs[1]), Job)
+            @debug "Result of parsing: $(parsed)"
+            if parsed.type in worker.config.job_types
+                job = parsed
+                break
+            end
+            i += 1
+        end
+
+        return job
     catch e
         @error "Error polling for jobs: $e" exception = (e, catch_backtrace())
         return nothing
