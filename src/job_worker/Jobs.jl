@@ -301,7 +301,7 @@ function handle_job(
     @debug "Ascertaining file name"
     temp_path = _cache_location(config)
     job_id = create_job_id(qp)
-    assessed_fn = joinpath(temp_path, "$(job_id)_$(reg)_suitable.$(ext)")
+    assessed_fn = joinpath(temp_path, "$(job_id)_$(reg)_suitable.tiff")
     @debug "File name: $(assessed_fn)"
 
     @debug "Assessing region $(reg)"
