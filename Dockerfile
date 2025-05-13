@@ -132,6 +132,10 @@ VOLUME ["/data/reefguide"]
 
 EXPOSE 8000
 
-# Run Julia commands by default as the container launches.
-# Derived applications should override the command.
-ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-e", "using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
+# By default, drops the user into a  julia shell with ReefGuideAPI activated
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-e"]
+
+# Derived applications should override the command e.g. to start worker use
+# CMD ["using ReefGuideAPI; ReefGuideAPI.start_worker()"]
+
+CMD ["using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
