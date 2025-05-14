@@ -64,6 +64,13 @@ struct HandlerContext
     storage_uri::String
     "The path to the config file"
     config_path::String
+    aws_region::String
+
+    function HandlerContext(;
+        storage_uri::String, config_path::String, aws_region::String="ap-southeast-2"
+    )
+        return new(storage_uri, config_path, aws_region)
+    end
 end
 
 """
@@ -358,7 +365,7 @@ function handle_job(
 
     # Now upload this to s3 
     # TODO get this region from the config
-    client = S3StorageClient(; region="ap-southeast-2")
+    client = S3StorageClient(; region=context.aws_region)
 
     # Output file names
     output_file_name_rel = "suitable.geojson"

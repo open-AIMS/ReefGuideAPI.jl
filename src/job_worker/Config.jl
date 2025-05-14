@@ -6,49 +6,49 @@ using Dates
 
 """
 Configuration for the worker
-
 These are populated from the environment and are only loaded when the worker
 component is launched.
 """
 struct WorkerConfig
     # API connection settings
     api_endpoint::String
-
     # Worker behavior
     job_types::Vector{String}
-
     # Auth settings - these target the reefguide-web-api providing necessary
     # credentials for creating jobs etc
     username::String
     password::String
-
     # Polling configuration
     poll_interval_ms::Int64
     idle_timeout_ms::Int64
-
     # Config file path
     config_path::String
-
-    # Constructor with defaults to handle optional fields
-    WorkerConfig(
+    # AWS Region
+    aws_region::String
+    # Constructor using keyword arguments to handle optional fields
+    function WorkerConfig(;
         api_endpoint::String,
         job_types::Vector{String},
         username::String,
         password::String,
-        config_path::String;
+        config_path::String,
+        aws_region::String="ap-southeast-2",
         # Polling interval 2 second by default
         poll_interval_ms::Int64=2000,
         # Idle timeout 5 minutes by default
         idle_timeout_ms::Int64=5 * 60 * 1000
-    ) = new(
-        api_endpoint,
-        job_types,
-        username,
-        password,
-        poll_interval_ms,
-        idle_timeout_ms,
-        config_path
     )
+        return new(
+            api_endpoint,
+            job_types,
+            username,
+            password,
+            poll_interval_ms,
+            idle_timeout_ms,
+            config_path,
+            aws_region
+        )
+    end
 end
 
 """
@@ -108,9 +108,12 @@ Load configuration from environment variables
 """
 function load_config_from_env()::WorkerConfig
     # Fetch and validate required environment variables
+
+    # API Endpoint
     api_endpoint = "$(get_env("API_ENDPOINT"))/api"
     validate_url(api_endpoint, "API_ENDPOINT")
 
+    # Job types
     job_types_str = get_env("JOB_TYPES")
     job_types = String.(strip.(split(job_types_str, ',')))
     if isempty(job_types) || any(isempty, job_types)
@@ -121,16 +124,17 @@ function load_config_from_env()::WorkerConfig
         )
     end
 
+    # Username and password
     username = get_env("USERNAME")
     if isempty(username)
         throw(ConfigValidationError("USERNAME", "Username cannot be empty"))
     end
-
     password = get_env("PASSWORD")
     if isempty(password)
         throw(ConfigValidationError("PASSWORD", "Password cannot be empty"))
     end
 
+    # Config file path
     config_path = get_env("CONFIG_PATH")
     if isempty(config_path)
         throw(
@@ -140,24 +144,31 @@ function load_config_from_env()::WorkerConfig
         )
     end
 
+
+    # Get AWS region with default and warning
+    aws_region = get_env("AWS_REGION", false)
+    if isnothing(aws_region) || isempty(aws_region)
+        aws_region = "ap-southeast-2"
+        @warn "AWS_REGION environment variable not set, defaulting to $(aws_region)"
+    end
+
     # Optional environment variables with defaults (2 seconds)
     poll_interval_ms::Int64 = parse(
         Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 1000))
     )
-
     # (5 min)
     idle_timeout_ms::Int64 = parse(
         Int64, something(get_env("IDLE_TIMEOUT_MS", false), string(5 * 60 * 1000))
     )
 
-    # Create and return the config object
-    return WorkerConfig(
-        api_endpoint,
-        job_types,
-        username,
-        password,
-        config_path
-        ;
+    # Create and return the config object using keyword arguments
+    return WorkerConfig(;
+        api_endpoint=api_endpoint,
+        job_types=job_types,
+        username=username,
+        password=password,
+        config_path=config_path,
+        aws_region=aws_region,
         poll_interval_ms=poll_interval_ms,
         idle_timeout_ms=idle_timeout_ms
     )

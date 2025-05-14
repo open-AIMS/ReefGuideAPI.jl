@@ -55,15 +55,23 @@ struct JobContext
     "The job assignment details"
     assignment::JobAssignment
     "The API client for making HTTP requests"
-    http_client::Any
+    http_client::AuthApiClient
     "Task metadata"
     task_metadata::Any
     "Path to the config file"
     config_path::String
-
+    "AWS region for s3 storage"
+    aws_region::String
     "Constructor that takes all fields"
-    function JobContext(job, assignment, http_client, task_metadata, config_path)
-        return new(job, assignment, http_client, task_metadata, config_path)
+    function JobContext(;
+        job::Job,
+        assignment::JobAssignment,
+        http_client::AuthApiClient,
+        task_metadata::Any,
+        config_path::String,
+        aws_region::String="ap-southeast-2"
+    )
+        return new(job, assignment, http_client, task_metadata, config_path, aws_region)
     end
 end
 
@@ -114,7 +122,12 @@ function process(::TypedJobHandler, context::JobContext)
         # Process the job using the Jobs framework
         @debug "Processing job $(context.job.id) with type $(job_type_str)"
         output::AbstractJobOutput = process_job(
-            job_type, context.job.input_payload, HandlerContext(storage_uri, context.config_path)
+            job_type, context.job.input_payload,
+            HandlerContext(;
+                storage_uri=storage_uri,
+                config_path=context.config_path,
+                aws_region=context.aws_region
+            )
         )
 
         @debug "Result from process_job $(output)"
@@ -369,7 +382,14 @@ function process_job_completely(worker::WorkerService, job::Job)
         @info "Processing job $(job.id) with handler for type $(job.type)"
 
         # Create context for the handler
-        context = JobContext(job, assignment, worker.http_client, worker.metadata, worker.config.config_path)
+        context = JobContext(;
+            job=job,
+            assignment=assignment,
+            http_client=worker.http_client,
+            task_metadata=worker.metadata,
+            config_path=worker.config.config_path,
+            aws_region=worker.config.aws_region
+        )
 
         # Process the job with the handler
         success, result_payload = process(handler, context)
