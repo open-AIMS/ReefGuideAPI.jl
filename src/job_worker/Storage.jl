@@ -67,7 +67,7 @@ function upload_file(
         aws = AWS.AWSConfig(; region=client.region)
 
         # Read the file content
-        file_data = read(local_path)
+        file_data = Base.read(local_path)
 
         # Upload to S3
         AWSS3.s3_put(aws, bucket, key, file_data)

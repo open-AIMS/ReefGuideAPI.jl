@@ -249,7 +249,11 @@ struct SuitabilityAssessmentInput <: AbstractJobInput
     "The rugosity range (max)"
     rugosity_max::Float64
     "Suitability threshold (min)"
-    threshold::Float64
+    threshold::Int64
+    "Length dimension of target polygon"
+    x_dist::Int64
+    "Width dimension of target polygon"
+    y_dist::Int64
 end
 
 """
@@ -295,7 +299,9 @@ function handle_job(
         "Depth" => "$(input.depth_min):$(input.depth_max)",
         "Slope" => "$(input.slope_min):$(input.slope_max)",
         "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
-        "SuitabilityThreshold" => "$(input.threshold)"
+        "SuitabilityThreshold" => "$(input.threshold)",
+        "xdist" => "$(input.x_dist)",
+        "ydist" => "$(input.y_dist)"
     )
 
     @debug "Ascertaining file name"
@@ -311,7 +317,7 @@ function handle_job(
     _write_tiff(assessed_fn, assessed)
 
     @debug "Pulling out raster"
-    assessed = Raster(assessed_fn; missingval=0)
+    assessed = Raster(assessed_fn; missingval=0, lazy=true)
 
     # Extract criteria and assessment
     pixel_criteria = extract_criteria(qp, search_criteria())
@@ -329,7 +335,7 @@ function handle_job(
     assessed = nothing
 
     @debug "Writing to temporary file"
-    geojson_name = tempname()
+    geojson_name = "$(tempname()).geojson"
     @debug "File name $(geojson_name)"
 
     if nrow(best_sites) == 0
@@ -345,11 +351,11 @@ function handle_job(
     client = S3StorageClient(; region="ap-southeast-2")
 
     # Output file names
-    output_file_name_rel = "suitable.json"
+    output_file_name_rel = "suitable.geojson"
     full_s3_target = "$(storage_uri)/$(output_file_name_rel)"
     @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
 
-    upload_file(client, output_geojson, full_s3_target)
+    upload_file(client, geojson_name, full_s3_target)
 
     # clean up temp file
     if isfile(geojson_name)
