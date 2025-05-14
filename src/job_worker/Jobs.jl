@@ -286,9 +286,9 @@ Handler for SUITABILITY_ASSESSMENT jobs
 struct SuitabilityAssessmentHandler <: AbstractJobHandler end
 
 """
-Process a SUITABILITY_ASSESSMENT job
+Handler for the suitability assessment job. 
 
-This is replacing the previouys 
+This task sets up the regional data, 
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
@@ -310,8 +310,9 @@ function handle_job(
     reg = input.region
     rtype = input.reef_type
 
-    # This is the format expected by prior methods - so we pass it back!! :D
-    # TODO - don't do this :)
+    # This is the format expected by prior methods TODO improve the separation
+    # of concerns between query string parameters and function inputs - the API
+    # routing concerns should not be exposed to the application layer
     qp::Dict{String,String} = Dict{String,String}(
         "Depth" => "$(input.depth_min):$(input.depth_max)",
         "Slope" => "$(input.slope_min):$(input.slope_max)",
@@ -322,16 +323,27 @@ function handle_job(
     )
 
     @debug "Ascertaining file name"
-    temp_path = _cache_location(config)
-    job_id = create_job_id(qp)
-    assessed_fn = joinpath(temp_path, "$(job_id)_$(reg)_suitable.tiff")
+    cache_path = _cache_location(config)
+
+    # Use only the criteria relevant to regional assessment
+    regional_assess_criteria = extract_criteria(qp, suitability_criteria())
+    # NOTE: This is where we could add additional hash params to invalidate
+    # cache
+    job_id = create_job_id(regional_assess_criteria)
+
+    assessed_fn = joinpath(cache_path, "$(job_id)_$(reg)_suitable.tiff")
     @debug "File name: $(assessed_fn)"
 
-    @debug "Assessing region $(reg)"
-    assessed = assess_region(reg_assess_data, reg, qp, rtype)
+    if !isfile(assessed_fn)
+        @debug "File system cache was not hit for this task"
+        @debug "Assessing region $(reg)"
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
 
-    @debug "Writing to $(assessed_fn)"
-    _write_tiff(assessed_fn, assessed)
+        @debug "Writing to $(assessed_fn)"
+        _write_tiff(assessed_fn, assessed)
+    else
+        @info "Cache hit - skipping regional assessment process!"
+    end
 
     @debug "Pulling out raster"
     assessed = Raster(assessed_fn; missingval=0, lazy=true)
@@ -364,7 +376,6 @@ function handle_job(
     end
 
     # Now upload this to s3 
-    # TODO get this region from the config
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names

@@ -10,22 +10,22 @@ These are populated from the environment and are only loaded when the worker
 component is launched.
 """
 struct WorkerConfig
-    # API connection settings
+    "API connection settings"
     api_endpoint::String
-    # Worker behavior
+    "Worker behavior"
     job_types::Vector{String}
-    # Auth settings - these target the reefguide-web-api providing necessary
-    # credentials for creating jobs etc
+    "Auth settings - these target the reefguide-web-api providing necessary credentials for creating jobs etc"
     username::String
     password::String
-    # Polling configuration
+    "Polling configuration"
     poll_interval_ms::Int64
     idle_timeout_ms::Int64
-    # Config file path
+    "Config file path"
     config_path::String
-    # AWS Region
+    "AWS Region"
     aws_region::String
-    # Constructor using keyword arguments to handle optional fields
+
+    # Kwarg constructor
     function WorkerConfig(;
         api_endpoint::String,
         job_types::Vector{String},
@@ -144,7 +144,6 @@ function load_config_from_env()::WorkerConfig
         )
     end
 
-
     # Get AWS region with default and warning
     aws_region = get_env("AWS_REGION", false)
     if isnothing(aws_region) || isempty(aws_region)
@@ -163,14 +162,14 @@ function load_config_from_env()::WorkerConfig
 
     # Create and return the config object using keyword arguments
     return WorkerConfig(;
-        api_endpoint=api_endpoint,
-        job_types=job_types,
-        username=username,
-        password=password,
-        config_path=config_path,
-        aws_region=aws_region,
-        poll_interval_ms=poll_interval_ms,
-        idle_timeout_ms=idle_timeout_ms
+        api_endpoint,
+        job_types,
+        username,
+        password,
+        poll_interval_ms,
+        idle_timeout_ms,
+        config_path,
+        aws_region
     )
 end
 

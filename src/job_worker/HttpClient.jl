@@ -224,10 +224,6 @@ function HTTPPost(
 
     body = isnothing(data) ? "" : JSON3.write(data)
     response = HTTP.post(url, headers, body)
-
-    @debug "Response inside HTTPPost $(response)"
-    @debug "Response.body inside HTTPPost $(response.body)"
-
     response_content = String(response.body)
     @debug "Response content = $(response_content)"
 
