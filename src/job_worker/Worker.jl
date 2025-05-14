@@ -328,7 +328,7 @@ function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
         @debug "Response from jobs poll: $(response)"
 
         # Check if we have jobs in the response
-        if !hasfield(typeof(response), :jobs) || isempty(response.jobs)
+        if isempty(response.jobs)
             @debug "No jobs available in response"
             return nothing
         end
