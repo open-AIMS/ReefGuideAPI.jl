@@ -1,6 +1,19 @@
+"""
+DEPRECATED: To remove once jobs are migrated to new system fully
+"""
 
 function setup_job_routes(config, auth)
     reg_assess_data = setup_regional_data(config)
+
+    @get auth("/job/details/{job_id}") function (req::Request, job_id::String)
+        srv = DiskService(_cache_location(config))
+        return json(job_details(srv, job_id))
+    end
+
+    @get auth("/job/result/{job_id}") function (req::Request, job_id::String)
+        srv = DiskService(_cache_location(config))
+        return file(job_result(srv, job_id))
+    end
 
     @get auth("/submit/region-assess/{reg}/{rtype}") function (
         req::Request, reg::String, rtype::String
