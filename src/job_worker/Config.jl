@@ -26,21 +26,28 @@ struct WorkerConfig
     poll_interval_ms::Int64
     idle_timeout_ms::Int64
 
+    # Config file path
+    config_path::String
+
     # Constructor with defaults to handle optional fields
     WorkerConfig(
-    api_endpoint::String,
-    job_types::Vector{String},
-    username::String,
-    password::String;     # Polling interval 2 second by default
-    poll_interval_ms::Int64=2000,     # Idle timeout 5 minutes by default
-    idle_timeout_ms::Int64=5 * 60 * 1000
-) = new(
+        api_endpoint::String,
+        job_types::Vector{String},
+        username::String,
+        password::String,
+        config_path::String;
+        # Polling interval 2 second by default
+        poll_interval_ms::Int64=2000,
+        # Idle timeout 5 minutes by default
+        idle_timeout_ms::Int64=5 * 60 * 1000
+    ) = new(
         api_endpoint,
         job_types,
         username,
         password,
         poll_interval_ms,
-        idle_timeout_ms
+        idle_timeout_ms,
+        config_path
     )
 end
 
@@ -124,6 +131,15 @@ function load_config_from_env()::WorkerConfig
         throw(ConfigValidationError("PASSWORD", "Password cannot be empty"))
     end
 
+    config_path = get_env("CONFIG_PATH")
+    if isempty(config_path)
+        throw(
+            ConfigValidationError(
+                "CONFIG_PATH", "Path to configuration file cannot be unspecified"
+            )
+        )
+    end
+
     # Optional environment variables with defaults (2 seconds)
     poll_interval_ms::Int64 = parse(
         Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 1000))
@@ -139,7 +155,9 @@ function load_config_from_env()::WorkerConfig
         api_endpoint,
         job_types,
         username,
-        password;
+        password,
+        config_path
+        ;
         poll_interval_ms=poll_interval_ms,
         idle_timeout_ms=idle_timeout_ms
     )

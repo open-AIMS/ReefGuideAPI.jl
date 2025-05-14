@@ -58,10 +58,12 @@ struct JobContext
     http_client::Any
     "Task metadata"
     task_metadata::Any
+    "Path to the config file"
+    config_path::String
 
     "Constructor that takes all fields"
-    function JobContext(job, assignment, http_client, task_metadata)
-        return new(job, assignment, http_client, task_metadata)
+    function JobContext(job, assignment, http_client, task_metadata, config_path)
+        return new(job, assignment, http_client, task_metadata, config_path)
     end
 end
 
@@ -112,7 +114,7 @@ function process(::TypedJobHandler, context::JobContext)
         # Process the job using the Jobs framework
         @debug "Processing job $(context.job.id) with type $(job_type_str)"
         output::AbstractJobOutput = process_job(
-            job_type, context.job.input_payload, storage_uri
+            job_type, context.job.input_payload, HandlerContext(storage_uri, context.config_path)
         )
 
         @debug "Result from process_job $(output)"
@@ -367,7 +369,7 @@ function process_job_completely(worker::WorkerService, job::Job)
         @info "Processing job $(job.id) with handler for type $(job.type)"
 
         # Create context for the handler
-        context = JobContext(job, assignment, worker.http_client, worker.metadata)
+        context = JobContext(job, assignment, worker.http_client, worker.metadata, worker.config.config_path)
 
         # Process the job with the handler
         success, result_payload = process(handler, context)

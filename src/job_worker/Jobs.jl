@@ -57,6 +57,16 @@ All concrete job handlers should inherit from this
 abstract type AbstractJobHandler end
 
 """
+A context object passed through to a job handler
+"""
+struct HandlerContext
+    "The path to the s3 storage location permitted for writing"
+    storage_uri::String
+    "The path to the config file"
+    config_path::String
+end
+
+"""
 Registry mapping job types to handlers, input/output types, and validators
 """
 struct JobRegistry
@@ -157,7 +167,7 @@ end
 Process a job using the appropriate handler
 """
 function process_job(
-    job_type::JobType, input_payload::Any, storage_uri::String
+    job_type::JobType, input_payload::Any, context::HandlerContext
 )::AbstractJobOutput
     # Get the registered handler
     handler = get_job_handler(job_type)
@@ -167,7 +177,7 @@ function process_job(
 
     # Process the job
     @debug "Processing job of type: $job_type"
-    output = handle_job(handler, typed_input, storage_uri)
+    output = handle_job(handler, typed_input, context)
 
     # Validate output
     validate_job_output(job_type, output)
@@ -203,7 +213,7 @@ struct TestHandler <: AbstractJobHandler end
 Process a TEST job
 """
 function handle_job(
-    ::TestHandler, input::TestInput, storage_uri::String
+    ::TestHandler, input::TestInput, context::HandlerContext
 )::TestOutput
     @debug "Processing test job with id: $(input.id)"
 
@@ -211,7 +221,7 @@ function handle_job(
     sleep(10)
 
     @debug "Finished test job with id: $(input.id)"
-    @debug "Could write something to $(storage_uri) if desired."
+    @debug "Could write something to $(context.storage_uri) if desired."
 
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
@@ -274,13 +284,13 @@ Process a SUITABILITY_ASSESSMENT job
 This is replacing the previouys 
 """
 function handle_job(
-    ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput, storage_uri::String
+    ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
+    context::HandlerContext
 )::SuitabilityAssessmentOutput
     @info "Initiating site assessment task"
 
-    config_path = "config.toml"
-    @info "Parsing configuration from $(config_path)..."
-    config = TOML.parsefile(config_path)
+    @info "Parsing configuration from $(context.config_path)..."
+    config = TOML.parsefile(context.config_path)
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
@@ -352,7 +362,7 @@ function handle_job(
 
     # Output file names
     output_file_name_rel = "suitable.geojson"
-    full_s3_target = "$(storage_uri)/$(output_file_name_rel)"
+    full_s3_target = "$(context.storage_uri)/$(output_file_name_rel)"
     @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
 
     upload_file(client, geojson_name, full_s3_target)
