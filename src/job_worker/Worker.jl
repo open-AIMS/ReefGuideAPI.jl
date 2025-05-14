@@ -317,45 +317,56 @@ function check_idle_timeout(worker::WorkerService)
     end
 end
 
-"""
-Poll for a single available job
-"""
 function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
     try
         # Get available jobs 
-
-        # TODO if we only handle specific subsets, might want to filter more
-        # here
+        # TODO if we only handle specific subsets, might want to filter more here
         response = HTTPGet(
             worker.http_client, "/jobs/poll";
         )
 
-        jobs = response.jobs
-
         @debug "Response from jobs poll: $(response)"
 
-        if isempty(jobs)
+        # Check if we have jobs in the response
+        if !hasfield(typeof(response), :jobs) || isempty(response.jobs)
+            @debug "No jobs available in response"
             return nothing
         end
 
-        # Update activity timestamp when we find a job
-        update_last_activity!(worker)
+        jobs = response.jobs
 
         # Return the first available job which is of a type that we can handle
-        job::Union{Job,Nothing} = nothing
-        i = 1
-        while (i <= length(jobs))
-            @debug "Job[$(i)] = $(jobs[i])"
-            parsed = JSON3.read(JSON3.write(jobs[1]), Job)
-            @debug "Result of parsing: $(parsed)"
-            if parsed.type in worker.config.job_types
-                job = parsed
-                break
+        for (i, job_data) in enumerate(jobs)
+            @debug "Processing Job[$(i)] = $(job_data)"
+
+            try
+                # Parse the job data
+                parsed = JSON3.read(JSON3.write(job_data), Job)
+                @debug "Result of parsing: $(parsed)"
+
+                # Check if this job type is one we can handle
+                if parsed.type in worker.config.job_types
+                    @info "Found suitable job of type $(parsed.type)"
+
+                    # Update activity timestamp when we find potential jobs
+                    update_last_activity!(worker)
+
+                    return parsed
+                else
+                    @debug "Skipping job $(i) of type $(parsed.type) (not in our supported types)"
+                end
+            catch e
+                # Handle malformed jobs by logging and continuing to the next one
+                @warn "Skipping malformed job at index $(i): $e" exception = (
+                    e, catch_backtrace()
+                )
+                continue
             end
-            i += 1
         end
 
-        return job
+        # If we get here, we found no suitable jobs
+        @debug "No suitable jobs found among $(length(jobs)) available jobs"
+        return nothing
     catch e
         @error "Error polling for jobs: $e" exception = (e, catch_backtrace())
         return nothing
