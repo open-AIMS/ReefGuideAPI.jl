@@ -25,6 +25,7 @@ Enum for job types matching the API definition
 """
 @enum JobType begin
     SUITABILITY_ASSESSMENT
+    REGIONAL_ASSESSMENT
     TEST
 end
 
@@ -493,9 +494,8 @@ function handle_job(
         @debug "Assessing region $(reg)"
         assessed = assess_region(reg_assess_data, reg, qp, rtype)
 
-        @debug "Writing to $(assessed_fn)"
-        # TODO use COG
-        _write_tiff(assessed_fn, assessed)
+        @debug "Writing COG of regional assessment to $(assessed_fn)"
+        _write_cog(assessed_fn, assesed, config)
     else
         @info "Cache hit - skipping regional assessment process!"
     end
@@ -504,7 +504,7 @@ function handle_job(
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names
-    output_file_name_rel = "region.cog"
+    output_file_name_rel = "regional_assessment.tiff"
     full_s3_target = "$(context.storage_uri)/$(output_file_name_rel)"
     @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
 
