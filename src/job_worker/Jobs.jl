@@ -17,8 +17,8 @@ function create_job_id(query_params::Dict)::String
 end
 
 """
-Builds a predictable file name based on pulling out the regional assessment
-relevant criteria - in the configured cache location.
+Builds a predictable file name based on extracted regional assessment criteria
+in the configured cache location.
 """
 function build_regional_assessment_file_path(;
     query_params::Dict, region::String, reef_type::String, ext::String,
