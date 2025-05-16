@@ -1,3 +1,7 @@
+"""
+DEPRECATED - kept around due to some dependencies, but should be removed soon
+"""
+
 struct DiskService <: JobService
     cache_dir::String
 end

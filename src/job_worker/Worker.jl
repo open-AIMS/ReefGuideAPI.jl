@@ -55,13 +55,23 @@ struct JobContext
     "The job assignment details"
     assignment::JobAssignment
     "The API client for making HTTP requests"
-    http_client::Any
+    http_client::AuthApiClient
     "Task metadata"
     task_metadata::Any
-
+    "Path to the config file"
+    config_path::String
+    "AWS region for s3 storage"
+    aws_region::String
     "Constructor that takes all fields"
-    function JobContext(job, assignment, http_client, task_metadata)
-        return new(job, assignment, http_client, task_metadata)
+    function JobContext(;
+        job::Job,
+        assignment::JobAssignment,
+        http_client::AuthApiClient,
+        task_metadata::Any,
+        config_path::String,
+        aws_region::String="ap-southeast-2"
+    )
+        return new(job, assignment, http_client, task_metadata, config_path, aws_region)
     end
 end
 
@@ -112,7 +122,12 @@ function process(::TypedJobHandler, context::JobContext)
         # Process the job using the Jobs framework
         @debug "Processing job $(context.job.id) with type $(job_type_str)"
         output::AbstractJobOutput = process_job(
-            job_type, context.job.input_payload, storage_uri
+            job_type, context.job.input_payload,
+            HandlerContext(;
+                storage_uri=storage_uri,
+                config_path=context.config_path,
+                aws_region=context.aws_region
+            )
         )
 
         @debug "Result from process_job $(output)"
@@ -158,7 +173,7 @@ mutable struct WorkerService
     "Job handlers registry - maps job types to handler functions"
     job_handlers::Dict{String,JobHandler}
 
-    function WorkerService(config::WorkerConfig, http_client, identifiers; mock :: Bool = false)
+    function WorkerService(config::WorkerConfig, http_client, identifiers; mock::Bool=false)
         worker = new(
             config,
             false,
@@ -171,14 +186,13 @@ mutable struct WorkerService
         # Automatically register the TypedJobHandler for all supported job types
         if mock
             register_mock_handlers!(worker)
-        else 
+        else
             register_typed_handlers!(worker)
-        end 
+        end
 
         return worker
     end
 end
-
 
 """
 Register the MockJobHandler for all job types supported by the Jobs module
@@ -242,7 +256,7 @@ function start(worker::WorkerService)
     worker.is_running = true
 
     # Run the main loop in the current thread
-    run_worker_loop(worker)
+    return run_worker_loop(worker)
 end
 
 """
@@ -303,33 +317,56 @@ function check_idle_timeout(worker::WorkerService)
     end
 end
 
-"""
-Poll for a single available job
-"""
 function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
     try
-        # Get available jobs
+        # Get available jobs 
+        # TODO if we only handle specific subsets, might want to filter more here
         response = HTTPGet(
             worker.http_client, "/jobs/poll";
-            params=Dict("jobType" => worker.config.job_types[1])
         )
-
-        jobs = response.jobs
 
         @debug "Response from jobs poll: $(response)"
 
-        if isempty(jobs)
+        # Check if we have jobs in the response
+        if isempty(response.jobs)
+            @debug "No jobs available in response"
             return nothing
         end
 
-        # Update activity timestamp when we find a job
-        update_last_activity!(worker)
+        jobs = response.jobs
 
-        # Return the first available job
-        @debug "Job[1] = $(jobs[1])"
-        parsed = JSON3.read(JSON3.write(jobs[1]), Job)
-        @debug "Result of parsing: $(parsed)"
-        return parsed
+        # Return the first available job which is of a type that we can handle
+        for (i, job_data) in enumerate(jobs)
+            @debug "Processing Job[$(i)] = $(job_data)"
+
+            try
+                # Parse the job data
+                parsed = JSON3.read(JSON3.write(job_data), Job)
+                @debug "Result of parsing: $(parsed)"
+
+                # Check if this job type is one we can handle
+                if parsed.type in worker.config.job_types
+                    @info "Found suitable job of type $(parsed.type)"
+
+                    # Update activity timestamp when we find potential jobs
+                    update_last_activity!(worker)
+
+                    return parsed
+                else
+                    @debug "Skipping job $(i) of type $(parsed.type) (not in our supported types)"
+                end
+            catch e
+                # Handle malformed jobs by logging and continuing to the next one
+                @warn "Skipping malformed job at index $(i): $e" exception = (
+                    e, catch_backtrace()
+                )
+                continue
+            end
+        end
+
+        # If we get here, we found no suitable jobs
+        @debug "No suitable jobs found among $(length(jobs)) available jobs"
+        return nothing
     catch e
         @error "Error polling for jobs: $e" exception = (e, catch_backtrace())
         return nothing
@@ -356,7 +393,14 @@ function process_job_completely(worker::WorkerService, job::Job)
         @info "Processing job $(job.id) with handler for type $(job.type)"
 
         # Create context for the handler
-        context = JobContext(job, assignment, worker.http_client, worker.metadata)
+        context = JobContext(;
+            job=job,
+            assignment=assignment,
+            http_client=worker.http_client,
+            task_metadata=worker.metadata,
+            config_path=worker.config.config_path,
+            aws_region=worker.config.aws_region
+        )
 
         # Process the job with the handler
         success, result_payload = process(handler, context)

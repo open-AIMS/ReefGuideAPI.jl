@@ -300,7 +300,7 @@ The worker requires the following environment variables to be set:
 | Variable                        | Description                                                | Example                                   |
 | ------------------------------- | ---------------------------------------------------------- | ----------------------------------------- |
 | `API_ENDPOINT`                  | Base URL of the ReefGuide API                              | `"https://api.reefguide.example.com/api"` |
-| `JOB_TYPES`                     | Comma-separated list of job types the worker should handle | `"CRITERIA_POLYGONS"`                     |
+| `JOB_TYPES`                     | Comma-separated list of job types the worker should handle | `"SUITABILITY_ASSESSMENT,TEST"`           |
 | `USERNAME`                      | API authentication username                                | `"worker-service"`                        |
 | `PASSWORD`                      | API authentication password                                | `"secure-password"`                       |
 | `POLL_INTERVAL_MS`              | (Optional) Polling interval in milliseconds                | `2000` (default)                          |
@@ -327,7 +327,7 @@ Example `.env` file:
 
 ```
 API_ENDPOINT=http://localhost:8000
-JOB_TYPES=CRITERIA_POLYGONS
+JOB_TYPES=SUITABILITY_ASSESSMENT,TEST
 USERNAME=local-dev
 PASSWORD=local-password
 POLL_INTERVAL_MS=5000
@@ -370,8 +370,9 @@ Example:
 ```julia
 # 1. Add to enum
 @enum JobType begin
-    CRITERIA_POLYGONS
-    NEW_JOB_TYPE  # New job type
+    SUITABILITY_ASSESSMENT
+    TEST
+    # Add another
 end
 
 # 2. Define input/output types
@@ -403,10 +404,10 @@ end
 function __init__()
     # Register existing handlers
     register_job_handler!(
-        CRITERIA_POLYGONS,
-        CriteriaPolygonsHandler(),
-        CriteriaPolygonsInput,
-        CriteriaPolygonsOutput
+        TEST,
+        TestHandler(),
+        TestInput,
+        TestOutput
     )
 
     # Register new handler
@@ -430,7 +431,7 @@ e.g.
 ```bash
 # Set environment variables
 export API_ENDPOINT=https://api.reefguide.example.com
-export JOB_TYPES=CRITERIA_POLYGONS
+export JOB_TYPES=SUITABILITY_ASSESSMENT,TEST
 export USERNAME=worker-service
 export PASSWORD=secure-password
 

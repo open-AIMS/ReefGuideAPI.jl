@@ -1,3 +1,6 @@
+"""
+DEPRECATED: To remove once jobs are migrated to new system fully
+"""
 
 function setup_job_routes(config, auth)
     reg_assess_data = setup_regional_data(config)

@@ -47,10 +47,6 @@ WKT_ENDPOINT = "https://https://issuer.com/api/.well-known/jwks.json"
 
 Pay attention to the issuer and wkt endpoints. The first should exactly match the expected JWT issuer claim. The second should be web-resolvable and return a WKT JSON which provides the public key.
 
-### Auth TODOs
-
-- ensure health check route is not authorised
-
 ## Quickstart
 
 ```julia
