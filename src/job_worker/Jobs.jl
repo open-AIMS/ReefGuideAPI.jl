@@ -16,6 +16,29 @@ function create_job_id(query_params::Dict)::String
     return string(hash(query_params))
 end
 
+"""
+Builds a predictable file name based on extracted regional assessment criteria
+in the configured cache location.
+"""
+function build_regional_assessment_file_path(;
+    query_params::Dict, region::String, reef_type::String, ext::String,
+    config::Dict
+)::String
+    @debug "Ascertaining file name for regional assessment"
+    cache_path = _cache_location(config)
+
+    # Use only the criteria relevant to regional assessment
+    regional_assess_criteria = extract_criteria(query_params, suitability_criteria())
+
+    # NOTE: This is where we could add additional hash params to invalidate
+    # cache
+    job_id = create_job_id(regional_assess_criteria)
+
+    return joinpath(
+        cache_path, "$(job_id)_$(region)_$(reef_type)_regional_assessment.$(ext)"
+    )
+end
+
 # ================
 # Type Definitions
 # ================
@@ -25,6 +48,7 @@ Enum for job types matching the API definition
 """
 @enum JobType begin
     SUITABILITY_ASSESSMENT
+    REGIONAL_ASSESSMENT
     TEST
 end
 
@@ -236,6 +260,121 @@ function handle_job(
 end
 
 #
+# ===================
+# REGIONAL_ASSESSMENT 
+# ===================
+#
+
+"""
+Input payload for REGIONAL_ASSESSMENT job
+
+Subset of CRITERIA_ASSESSMENT payload
+"""
+struct RegionalAssessmentInput <: AbstractJobInput
+    # High level config
+    "Region for assessment"
+    region::String
+    "The type of reef, slopes or flats"
+    reef_type::String
+
+    # Criteria
+    "The depth range (min)"
+    depth_min::Float64
+    "The depth range (max)"
+    depth_max::Float64
+    "The slope range (min)"
+    slope_min::Float64
+    "The slope range (max)"
+    slope_max::Float64
+    "The rugosity range (min)"
+    rugosity_min::Float64
+    "The rugosity range (max)"
+    rugosity_max::Float64
+    "Suitability threshold (min)"
+    threshold::Int64
+end
+
+"""
+Output payload for REGIONAL_ASSESSMENT job
+"""
+struct RegionalAssessmentOutput <: AbstractJobOutput
+    cog_path::String
+end
+
+"""
+Handler for REGIONAL_ASSESSMENT jobs
+"""
+struct RegionalAssessmentHandler <: AbstractJobHandler end
+
+"""
+Handler for the regional assessment job. 
+"""
+function handle_job(
+    ::RegionalAssessmentHandler, input::RegionalAssessmentInput,
+    context::HandlerContext
+)::RegionalAssessmentOutput
+    @info "Initiating regional assessment task"
+
+    @info "Parsing configuration from $(context.config_path)..."
+    config = TOML.parsefile(context.config_path)
+    @info "Configuration parsing complete."
+
+    @info "Setting up regional assessment data"
+    reg_assess_data = setup_regional_data(config)
+    @info "Done setting up regional assessment data"
+
+    @info "Performing regional assessment"
+
+    # Pull out these parameters in the format previously expected 
+    reg = input.region
+    rtype = input.reef_type
+
+    # This is the format expected by prior methods TODO improve the separation
+    # of concerns between query string parameters and function inputs - the API
+    # routing concerns should not be exposed to the application layer
+    qp::Dict{String,String} = Dict{String,String}(
+        "Depth" => "$(input.depth_min):$(input.depth_max)",
+        "Slope" => "$(input.slope_min):$(input.slope_max)",
+        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
+        "SuitabilityThreshold" => "$(input.threshold)"
+    )
+
+    assessed_fn = build_regional_assessment_file_path(;
+        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
+    )
+    @debug "COG File name: $(assessed_fn)"
+
+    if !isfile(assessed_fn)
+        @debug "File system cache was not hit for this task"
+        @debug "Assessing region $(reg)"
+        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+
+        @debug now() "Writing COG of regional assessment to $(assessed_fn)"
+        _write_cog(assessed_fn, assessed, config)
+        @debug now() "Finished writing cog "
+    else
+        @info "Cache hit - skipping regional assessment process and re-uploading to output!"
+    end
+
+    # Now upload this to s3 
+    client = S3StorageClient(; region=context.aws_region)
+
+    # Output file names
+    output_file_name_rel = "regional_assessment.tiff"
+    full_s3_target = "$(context.storage_uri)/$(output_file_name_rel)"
+    @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
+
+    @debug now() "Initiating file upload"
+    upload_file(client, assessed_fn, full_s3_target)
+    @debug now() "File upload completed"
+
+    @debug "Finished regional assessment job."
+    return RegionalAssessmentOutput(
+        output_file_name_rel
+    )
+end
+
+#
 # ======================
 # SUITABILITY_ASSESSMENT 
 # ======================
@@ -287,8 +426,6 @@ struct SuitabilityAssessmentHandler <: AbstractJobHandler end
 
 """
 Handler for the suitability assessment job. 
-
-This task sets up the regional data, 
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
@@ -322,31 +459,23 @@ function handle_job(
         "ydist" => "$(input.y_dist)"
     )
 
-    @debug "Ascertaining file name"
-    cache_path = _cache_location(config)
-
-    # Use only the criteria relevant to regional assessment
-    regional_assess_criteria = extract_criteria(qp, suitability_criteria())
-    # NOTE: This is where we could add additional hash params to invalidate
-    # cache
-    job_id = create_job_id(regional_assess_criteria)
-
-    assessed_fn = joinpath(cache_path, "$(job_id)_$(reg)_suitable.tiff")
-    @debug "File name: $(assessed_fn)"
+    assessed_fn = build_regional_assessment_file_path(;
+        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
+    )
+    @debug "COG File name: $(assessed_fn)"
 
     if !isfile(assessed_fn)
         @debug "File system cache was not hit for this task"
         @debug "Assessing region $(reg)"
         assessed = assess_region(reg_assess_data, reg, qp, rtype)
 
-        @debug "Writing to $(assessed_fn)"
-        _write_tiff(assessed_fn, assessed)
+        @debug "Writing COG to $(assessed_fn)"
+        _write_cog(assessed_fn, assessed, config)
     else
         @info "Cache hit - skipping regional assessment process!"
+        @debug "Pulling out raster from cache"
+        assessed = Raster(assessed_fn; missingval=0, lazy=true)
     end
-
-    @debug "Pulling out raster"
-    assessed = Raster(assessed_fn; missingval=0, lazy=true)
 
     # Extract criteria and assessment
     pixel_criteria = extract_criteria(qp, search_criteria())
@@ -421,6 +550,14 @@ function __init__()
         SuitabilityAssessmentHandler(),
         SuitabilityAssessmentInput,
         SuitabilityAssessmentOutput
+    )
+
+    # Register the REGIONAL_ASSESSMENT job handler
+    register_job_handler!(
+        REGIONAL_ASSESSMENT,
+        RegionalAssessmentHandler(),
+        RegionalAssessmentInput,
+        RegionalAssessmentOutput
     )
 
     @debug "Jobs module initialized with handlers"
