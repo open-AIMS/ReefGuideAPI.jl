@@ -37,7 +37,6 @@ function build_regional_assessment_file_path(;
     return joinpath(
         cache_path, "$(job_id)_$(region)_$(reef_type)_regional_assessment.$(ext)"
     )
-    return "$(path)$(ext)"
 end
 
 # ================
