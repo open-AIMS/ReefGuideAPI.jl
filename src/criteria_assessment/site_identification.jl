@@ -354,6 +354,7 @@ function assess_sites(
     x_dist = parse(Int64, site_criteria["xdist"])
     y_dist = parse(Int64, site_criteria["ydist"])
     @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(reg)."
+    @debug "Finding optimal site alignment"
     initial_polygons = find_optimal_site_alignment(
         crit_pixels,
         target_locs,
