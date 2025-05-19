@@ -125,13 +125,13 @@ function load_config_from_env()::WorkerConfig
     end
 
     # Username and password
-    username = get_env("USERNAME")
+    username = get_env("WORKER_USERNAME")
     if isempty(username)
-        throw(ConfigValidationError("USERNAME", "Username cannot be empty"))
+        throw(ConfigValidationError("WORKER_USERNAME", "Username cannot be empty"))
     end
-    password = get_env("PASSWORD")
+    password = get_env("WORKER_PASSWORD")
     if isempty(password)
-        throw(ConfigValidationError("PASSWORD", "Password cannot be empty"))
+        throw(ConfigValidationError("WORKER_PASSWORD", "Password cannot be empty"))
     end
 
     # Config file path
