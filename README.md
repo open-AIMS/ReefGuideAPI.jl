@@ -301,8 +301,8 @@ The worker requires the following environment variables to be set:
 | ------------------------------- | ---------------------------------------------------------- | ----------------------------------------- |
 | `API_ENDPOINT`                  | Base URL of the ReefGuide API                              | `"https://api.reefguide.example.com/api"` |
 | `JOB_TYPES`                     | Comma-separated list of job types the worker should handle | `"SUITABILITY_ASSESSMENT,TEST"`           |
-| `USERNAME`                      | API authentication username                                | `"worker-service"`                        |
-| `PASSWORD`                      | API authentication password                                | `"secure-password"`                       |
+| `WORKER_USERNAME`               | API authentication username                                | `"worker-service"`                        |
+| `WORKER_PASSWORD`               | API authentication password                                | `"secure-password"`                       |
 | `POLL_INTERVAL_MS`              | (Optional) Polling interval in milliseconds                | `2000` (default)                          |
 | `IDLE_TIMEOUT_MS`               | (Optional) Idle timeout in milliseconds                    | `300000` (default)                        |
 | `AWS_REGION`                    | AWS region for S3 operations                               | `"ap-southeast-2"`                        |
@@ -328,8 +328,8 @@ Example `.env` file:
 ```
 API_ENDPOINT=http://localhost:8000
 JOB_TYPES=SUITABILITY_ASSESSMENT,TEST
-USERNAME=local-dev
-PASSWORD=local-password
+WORKER_USERNAME=local-dev
+WORKER_PASSWORD=local-password
 POLL_INTERVAL_MS=5000
 IDLE_TIMEOUT_MS=600000
 AWS_REGION=ap-southeast-2
@@ -432,8 +432,8 @@ e.g.
 # Set environment variables
 export API_ENDPOINT=https://api.reefguide.example.com
 export JOB_TYPES=SUITABILITY_ASSESSMENT,TEST
-export USERNAME=worker-service
-export PASSWORD=secure-password
+export WORKER_USERNAME=worker-service
+export WORKER_PASSWORD=secure-password
 
 # Start the Julia REPL with the ReefGuide module
 cd sandbox
