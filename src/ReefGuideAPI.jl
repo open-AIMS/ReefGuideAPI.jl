@@ -26,6 +26,7 @@ using
 
 include("job_worker/Worker.jl")
 
+include("setup.jl")
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")

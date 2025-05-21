@@ -102,6 +102,7 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
 
         # Pre-extract long/lat coordinates
         coords = GI.coordinates.(slope_table.geometry)
+        # For each entry, extract
         slope_table[!, :lons] .= first.(coords)
         slope_table[!, :lats] .= last.(coords)
 
