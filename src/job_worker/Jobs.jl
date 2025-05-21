@@ -327,25 +327,23 @@ function handle_job(
     reg = input.region
     rtype = input.reef_type
 
-    # This is the format expected by prior methods TODO improve the separation
-    # of concerns between query string parameters and function inputs - the API
-    # routing concerns should not be exposed to the application layer
-    qp::Dict{String,String} = Dict{String,String}(
-        "Depth" => "$(input.depth_min):$(input.depth_max)",
-        "Slope" => "$(input.slope_min):$(input.slope_max)",
-        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
-        "SuitabilityThreshold" => "$(input.threshold)"
+    # Build the fully populated query params - noting that this merges defaults
+    # computed as part of the regional data setup with the user provided values
+    # (if present)
+    criteria_dictionary = build_params_dictionary_from_regional_input(;
+        criteria=input,
+        criteria_ranges=reg_assess_data["criteria_ranges"]
     )
 
     assessed_fn = build_regional_assessment_file_path(;
-        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
+        query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
     )
     @debug "COG File name: $(assessed_fn)"
 
     if !isfile(assessed_fn)
         @debug "File system cache was not hit for this task"
         @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+        assessed = assess_region(reg_assess_data, reg, criteria_dictionary, rtype)
 
         @debug now() "Writing COG of regional assessment to $(assessed_fn)"
         _write_cog(assessed_fn, assessed, config)
@@ -441,27 +439,23 @@ function handle_job(
     reg = input.region
     rtype = input.reef_type
 
-    # This is the format expected by prior methods TODO improve the separation
-    # of concerns between query string parameters and function inputs - the API
-    # routing concerns should not be exposed to the application layer
-    qp::Dict{String,String} = Dict{String,String}(
-        "Depth" => "$(input.depth_min):$(input.depth_max)",
-        "Slope" => "$(input.slope_min):$(input.slope_max)",
-        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
-        "SuitabilityThreshold" => "$(input.threshold)",
-        "xdist" => "$(input.x_dist)",
-        "ydist" => "$(input.y_dist)"
+    # Build the fully populated query params - noting that this merges defaults
+    # computed as part of the regional data setup with the user provided values
+    # (if present)
+    criteria_dictionary = build_params_dictionary_from_regional_input(;
+        criteria=input,
+        criteria_ranges=reg_assess_data["criteria_ranges"]
     )
 
     assessed_fn = build_regional_assessment_file_path(;
-        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
+        query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
     )
     @debug "COG File name: $(assessed_fn)"
 
     if !isfile(assessed_fn)
         @debug "File system cache was not hit for this task"
         @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+        assessed = assess_region(reg_assess_data, reg, criteria_dictionary, rtype)
 
         @debug "Writing COG to $(assessed_fn)"
         _write_cog(assessed_fn, assessed, config)
@@ -472,8 +466,8 @@ function handle_job(
     end
 
     # Extract criteria and assessment
-    pixel_criteria = extract_criteria(qp, search_criteria())
-    deploy_site_criteria = extract_criteria(qp, site_criteria())
+    pixel_criteria = extract_criteria(criteria_dictionary, search_criteria())
+    deploy_site_criteria = extract_criteria(criteria_dictionary, site_criteria())
 
     @debug "Performing site assessment"
     best_sites = filter_sites(

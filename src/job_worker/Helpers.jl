@@ -3,10 +3,10 @@ Helper methods for criteria parsing etc.
 """
 
 # Default threshold when not provided in inputs
-const DEFAULT_SUITABILITY_THRESHOLD = 50
+const DEFAULT_SUITABILITY_THRESHOLD = 80
 
 """
-Min/max storage for environmental criteria
+Min/max storage for criteria
 """
 mutable struct Range
     min::Float32
@@ -29,7 +29,7 @@ function range_entry_to_kvp(range::Range)::Tuple{String,String}
 end
 
 """
-Typed/structured ranges for all notable criteria
+Typed/structured ranges for all common ranged criteria
 """
 mutable struct RelevantRanges
     depth::Range
@@ -109,7 +109,7 @@ function structured_ranges_from_criteria_ranges(criteria_ranges::DataFrame)::Rel
         "Rugosity"
     )
 
-    return RelevantRanges(
+    return RelevantRanges(;
         depth=depth_range,
         slope=slope_range,
         turbidity=turbidity_range,
@@ -122,7 +122,9 @@ end
 """
 Applies optional min/max overrides to a Range object
 """
-function apply_optional_overrides!(range::Range, min_value::OptionalValue{Float64}, max_value::OptionalValue{Float64})
+function apply_optional_overrides!(
+    range::Range, min_value::OptionalValue{Float64}, max_value::OptionalValue{Float64}
+)
     if !isnothing(min_value)
         range.min = min_value
     end
@@ -134,19 +136,26 @@ end
 """
 Applies all criteria overrides from input to a RelevantRanges object
 """
-function apply_criteria_overrides!(ranges::RelevantRanges, criteria::Union{RegionalAssessmentInput, SuitabilityAssessmentInput})
+function apply_criteria_overrides!(
+    ranges::RelevantRanges,
+    criteria::Union{RegionalAssessmentInput,SuitabilityAssessmentInput}
+)
     # Apply overrides for each range
     apply_optional_overrides!(ranges.depth, criteria.depth_min, criteria.depth_max)
     apply_optional_overrides!(ranges.slope, criteria.slope_min, criteria.slope_max)
     apply_optional_overrides!(ranges.rugosity, criteria.rugosity_min, criteria.rugosity_max)
-    apply_optional_overrides!(ranges.waves_period, criteria.waves_period_min, criteria.waves_period_max)
-    apply_optional_overrides!(ranges.waves_height, criteria.waves_height_min, criteria.waves_height_max)
+    apply_optional_overrides!(
+        ranges.waves_period, criteria.waves_period_min, criteria.waves_period_max
+    )
+    return apply_optional_overrides!(
+        ranges.waves_height, criteria.waves_height_min, criteria.waves_height_max
+    )
 end
 
 """
 Builds a parameters dictionary from RegionalAssessmentInput, applying overrides as needed
 """
-function build_params_dictionary_from_regional_input(
+function build_params_dictionary_from_regional_input(;
     # The regional criteria job input
     criteria::RegionalAssessmentInput,
     # Criteria ranges as [[min,max], name] i.e. [2, name] = max of name
@@ -154,24 +163,25 @@ function build_params_dictionary_from_regional_input(
 )::Dict{String,String}
     # Get the structured ranges
     default_ranges = structured_ranges_from_criteria_ranges(criteria_ranges)
-    
+
     # Apply all overrides
     apply_criteria_overrides!(default_ranges, criteria)
-    
+
     # Base dictionary of ranges
     ranges_dict = relevant_ranges_to_dict(default_ranges)
-    
+
     # Add in suitability threshold
-    threshold_value = isnothing(criteria.threshold) ? DEFAULT_SUITABILITY_THRESHOLD : criteria.threshold
+    threshold_value =
+        isnothing(criteria.threshold) ? DEFAULT_SUITABILITY_THRESHOLD : criteria.threshold
     ranges_dict["SuitabilityThreshold"] = "$(threshold_value)"
-    
+
     return ranges_dict
 end
 
 """
 Builds a parameters dictionary from SuitabilityAssessmentInput, applying overrides and adding suitability-specific parameters
 """
-function build_params_dictionary_from_suitability_input(
+function build_params_dictionary_from_suitability_input(;
     # The suitability criteria job input
     criteria::SuitabilityAssessmentInput,
     # Criteria ranges as [[min,max], name] i.e. [2, name] = max of name
@@ -179,20 +189,21 @@ function build_params_dictionary_from_suitability_input(
 )::Dict{String,String}
     # Get the structured ranges
     default_ranges = structured_ranges_from_criteria_ranges(criteria_ranges)
-    
+
     # Apply all overrides
     apply_criteria_overrides!(default_ranges, criteria)
-    
+
     # Base dictionary of ranges
     ranges_dict = relevant_ranges_to_dict(default_ranges)
-    
+
     # Add in suitability threshold
-    threshold_value = isnothing(criteria.threshold) ? DEFAULT_SUITABILITY_THRESHOLD : criteria.threshold
+    threshold_value =
+        isnothing(criteria.threshold) ? DEFAULT_SUITABILITY_THRESHOLD : criteria.threshold
     ranges_dict["SuitabilityThreshold"] = "$(threshold_value)"
-    
+
     # Suitability specific entries
     ranges_dict["xdist"] = "$(criteria.x_dist)"
     ranges_dict["ydist"] = "$(criteria.y_dist)"
-    
+
     return ranges_dict
 end
