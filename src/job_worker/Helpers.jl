@@ -121,14 +121,22 @@ end
 
 """
 Applies optional min/max overrides to a Range object
+
+Warns if suggested overrides are beyond the dataset bounds.
 """
 function apply_optional_overrides!(
     range::Range, min_value::OptionalValue{Float64}, max_value::OptionalValue{Float64}
 )
     if !isnothing(min_value)
+        if min_value < range.min
+            @warn "Minimum range value ($(min_value)) for $(range.label) was outside of the dataset bounds ($(range.min)). Proceeding regardless."
+        end
         range.min = min_value
     end
     if !isnothing(max_value)
+        if max_value < range.max
+            @warn "Maximum range value ($(max_value)) for $(range.label) was outside of the dataset bounds ($(range.max)). Proceeding regardless."
+        end
         range.max = max_value
     end
 end

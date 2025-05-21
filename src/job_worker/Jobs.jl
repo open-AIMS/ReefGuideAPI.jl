@@ -335,6 +335,8 @@ function handle_job(
         criteria_ranges=reg_assess_data["criteria_ranges"]
     )
 
+    @debug "Criteria after merging default and provided ranges" criteria_dictionary
+
     assessed_fn = build_regional_assessment_file_path(;
         query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
     )
@@ -446,6 +448,7 @@ function handle_job(
         criteria=input,
         criteria_ranges=reg_assess_data["criteria_ranges"]
     )
+    @debug "Criteria after merging default and provided ranges" criteria_dictionary
 
     assessed_fn = build_regional_assessment_file_path(;
         query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
