@@ -7,6 +7,8 @@ using JSON3
 using Logging
 using Dates
 
+const OptionalValue{T} = Union{T,Nothing};
+
 """
     create_job_id(query_params::Dict)::String
 
@@ -276,22 +278,18 @@ struct RegionalAssessmentInput <: AbstractJobInput
     region::String
     "The type of reef, slopes or flats"
     reef_type::String
-
-    # Criteria
-    "The depth range (min)"
-    depth_min::Float64
-    "The depth range (max)"
-    depth_max::Float64
-    "The slope range (min)"
-    slope_min::Float64
-    "The slope range (max)"
-    slope_max::Float64
-    "The rugosity range (min)"
-    rugosity_min::Float64
-    "The rugosity range (max)"
-    rugosity_max::Float64
-    "Suitability threshold (min)"
-    threshold::Int64
+    # Criteria (all optional - defaulting to min/max of criteria)
+    depth_min::OptionalValue{Float64}
+    depth_max::OptionalValue{Float64}
+    slope_min::OptionalValue{Float64}
+    slope_max::OptionalValue{Float64}
+    rugosity_min::OptionalValue{Float64}
+    rugosity_max::OptionalValue{Float64}
+    waves_period_min::OptionalValue{Float64}
+    waves_period_max::OptionalValue{Float64}
+    waves_height_min::OptionalValue{Float64}
+    waves_height_max::OptionalValue{Float64}
+    threshold::OptionalValue{Int64}
 end
 
 """
@@ -385,27 +383,23 @@ Input payload for SUITABILITY_ASSESSMENT job
 """
 struct SuitabilityAssessmentInput <: AbstractJobInput
     # High level config
-
     "Region for assessment"
     region::String
     "The type of reef, slopes or flats"
     reef_type::String
-
     # Criteria
-    "The depth range (min)"
-    depth_min::Float64
-    "The depth range (max)"
-    depth_max::Float64
-    "The slope range (min)"
-    slope_min::Float64
-    "The slope range (max)"
-    slope_max::Float64
-    "The rugosity range (min)"
-    rugosity_min::Float64
-    "The rugosity range (max)"
-    rugosity_max::Float64
-    "Suitability threshold (min)"
-    threshold::Int64
+    depth_min::OptionalValue{Float64}
+    depth_max::OptionalValue{Float64}
+    slope_min::OptionalValue{Float64}
+    slope_max::OptionalValue{Float64}
+    rugosity_min::OptionalValue{Float64}
+    rugosity_max::OptionalValue{Float64}
+    waves_period_min::OptionalValue{Float64}
+    waves_period_max::OptionalValue{Float64}
+    waves_height_min::OptionalValue{Float64}
+    waves_height_max::OptionalValue{Float64}
+    threshold::OptionalValue{Int64}
+    # Unique to suitability assessment - required
     "Length dimension of target polygon"
     x_dist::Int64
     "Width dimension of target polygon"
