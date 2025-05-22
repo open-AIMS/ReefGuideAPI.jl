@@ -318,7 +318,7 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = setup_regional_data(config)
+    reg_assess_data = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
     @info "Performing regional assessment"
@@ -432,7 +432,7 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = setup_regional_data(config)
+    reg_assess_data = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
     @info "Performing regional assessment (dependency of site assessment)"

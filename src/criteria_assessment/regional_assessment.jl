@@ -2,8 +2,13 @@
 DEPRECATED: To remove once jobs are migrated to new system fully
 """
 
+# HTTP response headers for COG files
+const COG_HEADERS = [
+    "Cache-Control" => "max-age=86400, no-transform"
+]
+
 function setup_job_routes(config, auth)
-    reg_assess_data = setup_regional_data(config)
+    reg_assess_data = get_regional_data(config)
 
     @get auth("/job/details/{job_id}") function (req::Request, job_id::String)
         srv = DiskService(_cache_location(config))
@@ -121,7 +126,7 @@ end
 Set up endpoints for regional assessment.
 """
 function setup_region_routes(config, auth)
-    reg_assess_data = setup_regional_data(config)
+    reg_assess_data = get_regional_data(config)
 
     @get auth("/assess/{reg}/{rtype}") function (req::Request, reg::String, rtype::String)
         qp = queryparams(req)
