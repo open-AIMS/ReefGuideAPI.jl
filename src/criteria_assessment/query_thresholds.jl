@@ -253,21 +253,22 @@ function apply_criteria_lookup(
     return lookup
 end
 
+"""
+Filters the slope table (which contains raster param values too) by building a
+bit mask AND'd for all thresholds
+"""
 function apply_criteria_lookup(
     slope_table::DataFrame,
     ruleset::Vector{CriteriaBounds}
 )::DataFrame
-    # TODO FINISH
     slope_table.all_crit .= 1
 
     for threshold in ruleset
         slope_table.all_crit =
-            slope_table.all_crit .& threshold.rule(lookup[!, threshold.name])
+            slope_table.all_crit .& threshold.rule(slope_table[!, threshold.name])
     end
 
-    lookup = lookup[BitVector(lookup.all_crit), :]
-
-    return lookup
+    return slope_table[BitVector(slope_table.all_crit), :]
 end
 
 """

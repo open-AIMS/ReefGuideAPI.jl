@@ -435,22 +435,20 @@ function assess_sites(;
     filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
 
     crit_pixels::DataFrame = apply_criteria_lookup(
-        params.region_data.raster_stack,
-        Symbol(rtype),
+        # Slope table
+        params.region_data.slope_table,
         filters
     )
 
     res = abs(step(dims(regional_raster, X)))
-    x_dist = parse(Int64, site_criteria["xdist"])
-    y_dist = parse(Int64, site_criteria["ydist"])
     @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(region)."
     @debug "Finding optimal site alignment"
     initial_polygons = find_optimal_site_alignment(
         crit_pixels,
         target_locs,
         res,
-        x_dist,
-        y_dist,
+        params.x_dist,
+        params.y_dist,
         target_crs
     )
 
