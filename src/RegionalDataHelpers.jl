@@ -477,23 +477,20 @@ function build_criteria_bounds_from_regional_criteria(
 
     criteria_bounds = CriteriaBounds[]
 
-    # Process each criteria field
-    criteria_mapping = [
-        (Symbol(criteria.id), criteria) for criteria in ASSESSMENT_CRITERIA_LIST
-    ]
-
-    for (field_symbol, criteria_metadata) in criteria_mapping
+    for field_symbol in REGIONAL_CRITERIA_SYMBOLS
         criteria_entry = getfield(regional_criteria, field_symbol)
 
         if !isnothing(criteria_entry)
             bounds = CriteriaBounds(
-                criteria_metadata.id,
+                # Field to get in the data
+                criteria_entry.metadata.id,
+                # Min/max bounds
                 criteria_entry.bounds.min,
                 criteria_entry.bounds.max
             )
             push!(criteria_bounds, bounds)
         else
-            @debug "Skipped criteria - not available" criteria_id = criteria_metadata.id
+            @debug "Skipped criteria - not available" criteria_id = String(field_symbol)
         end
     end
 

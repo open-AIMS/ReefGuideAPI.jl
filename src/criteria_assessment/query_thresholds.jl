@@ -157,6 +157,17 @@ end
 function apply_criteria_thresholds(
     criteria_stack::RasterStack,
     lookup::DataFrame,
+    ruleset::Vector{CriteriaBounds}
+)::Raster
+    ruleset = NamedTuple{([c.name for c in ruleset]...,)}(
+        Tuple([c.rule for c in ruleset])
+    )
+    return apply_criteria_thresholds(criteria_stack, lookup, ruleset)
+end
+
+function apply_criteria_thresholds(
+    criteria_stack::RasterStack,
+    lookup::DataFrame,
     ruleset::NamedTuple
 )::Raster
     # Result store
@@ -173,28 +184,6 @@ function apply_criteria_thresholds(
     res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
     return res
 end
-
-# TODO need this?
-#function apply_criteria_thresholds(
-#    criteria_stack::T,
-#    lookup::DataFrame,
-#    ruleset::Vector{CriteriaBounds{Function}}
-#)::Raster where {T}
-#    # Result store
-#    data = falses(size(criteria_stack))
-#
-#    res_lookup = trues(nrow(lookup))
-#    for threshold in ruleset
-#        res_lookup .= res_lookup .& threshold.rule(lookup[!, threshold.name])
-#    end
-#
-#    tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-#    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
-#
-#    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
-#
-#    return res
-#end
 
 """
     apply_criteria_lookup(
@@ -223,6 +212,57 @@ function apply_criteria_lookup(
 
     for threshold in ruleset
         lookup.all_crit = lookup.all_crit .& threshold.rule(lookup[!, threshold.name])
+    end
+
+    lookup = lookup[BitVector(lookup.all_crit), :]
+
+    return lookup
+end
+
+"""
+    apply_criteria_lookup(
+        raster_stack::RasterStack,
+        rtype::Symbol,
+        ruleset::Vector{CriteriaBounds{Function}}
+    )
+
+Filter lookup table by applying user defined `ruleset` criteria.
+
+# Arguments
+- `reg_criteria` : OldRegionalCriteria containing valid_rtype lookup table for filtering.
+- `rtype` : Flats or slope category for assessment.
+- `ruleset` : User defined ruleset for upper and lower bounds.
+
+# Returns
+Filtered lookup table containing points that meet all criteria in `ruleset`.
+"""
+function apply_criteria_lookup(
+    reg_criteria::OldRegionalCriteria,
+    rtype::Symbol,
+    ruleset
+)::DataFrame
+    lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
+    lookup.all_crit .= 1
+
+    for threshold in ruleset
+        lookup.all_crit = lookup.all_crit .& threshold.rule(lookup[!, threshold.name])
+    end
+
+    lookup = lookup[BitVector(lookup.all_crit), :]
+
+    return lookup
+end
+
+function apply_criteria_lookup(
+    slope_table::DataFrame,
+    ruleset::Vector{CriteriaBounds}
+)::DataFrame
+    # TODO FINISH
+    slope_table.all_crit .= 1
+
+    for threshold in ruleset
+        slope_table.all_crit =
+            slope_table.all_crit .& threshold.rule(lookup[!, threshold.name])
     end
 
     lookup = lookup[BitVector(lookup.all_crit), :]
@@ -312,6 +352,7 @@ function threshold_mask(
     filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
 
     # map our regional criteria 
+    @debug "Applying criteria thresholds to generate mask layer"
     mask_layer = apply_criteria_thresholds(
         # This is the raster stack
         params.region_data.raster_stack,

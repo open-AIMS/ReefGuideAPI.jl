@@ -9,15 +9,6 @@ using Dates
 
 const OptionalValue{T} = Union{T,Nothing};
 
-"""
-    create_job_id(query_params::Dict)::String
-
-Generate a job id based on query parameters.
-"""
-function create_job_id(query_params::Dict)::String
-    return string(hash(query_params))
-end
-
 # ================
 # Type Definitions
 # ================
@@ -390,8 +381,7 @@ Handler for the suitability assessment job.
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
-    context::HandlerContext
-)::SuitabilityAssessmentOutput
+    context::HandlerContext)::SuitabilityAssessmentOutput
     @info "Initiating site assessment task"
 
     @info "Parsing configuration from $(context.config_path)..."
@@ -399,40 +389,30 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = get_regional_data(config)
+    reg_assess_data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
-    @info "Performing regional assessment (dependency of site assessment)"
-
-    # Pull out these parameters in the format previously expected 
-    reg = input.region
-    rtype = input.reef_type
-
-    # Build the fully populated query params - noting that this merges defaults
-    # computed as part of the regional data setup with the user provided values
-    # (if present)
-    criteria_dictionary = build_params_dictionary_from_regional_input(;
-        criteria=input,
-        criteria_ranges=reg_assess_data["criteria_ranges"]
+    @info "Compiling regional assessment parameters from regional data and input data"
+    params = build_suitability_assessment_parameters(
+        input,
+        reg_assess_data
     )
-    @debug "Criteria after merging default and provided ranges" criteria_dictionary
+    @info "Done compiling parameters"
 
-    assessed_fn = build_regional_assessment_file_path(;
-        query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
-    )
+    @info "Performing regional assessment"
+    assessed_fn = build_regional_assessment_file_path(params; ext="tiff", config)
     @debug "COG File name: $(assessed_fn)"
 
     if !isfile(assessed_fn)
         @debug "File system cache was not hit for this task"
-        @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, criteria_dictionary, rtype)
+        @debug "Assessing region $(params.region)"
+        assessed = assess_region(params)
 
-        @debug "Writing COG to $(assessed_fn)"
+        @debug now() "Writing COG of regional assessment to $(assessed_fn)"
         _write_cog(assessed_fn, assessed, config)
+        @debug now() "Finished writing cog "
     else
-        @info "Cache hit - skipping regional assessment process!"
-        @debug "Pulling out raster from cache"
-        assessed = Raster(assessed_fn; missingval=0, lazy=true)
+        @info "Cache hit - skipping regional assessment process..."
     end
 
     # Extract criteria and assessment
