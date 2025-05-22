@@ -3,18 +3,16 @@ using Glob
 using GeoParquet
 using Serialization
 using Oxygen: json, Request
-using FileIO
+using Logging
+using Images
 
 # =============================================================================
 # Constants and Configuration
 # =============================================================================
 
 const REGIONAL_DATA_CACHE_FILENAME = "regional_cache_v2.dat"
-const SLOPES_LOOKUP_SUFFIX = "_lookup.parq"
+const SLOPES_LOOKUP_SUFFIX = "_valid_slopes_lookup.parq"
 const DEFAULT_CANONICAL_REEFS_FILE_NAME = "rrap_canonical_outlines.gpkg"
-
-# Global variable to store regional data cache
-REGIONAL_DATA::OptionalValue{RegionalData} = nothing
 
 # =============================================================================
 # Core Data Structures
@@ -26,16 +24,20 @@ Metadata container for regional information.
 # Fields
 - `display_name::String` : Human-readable name for UI display
 - `id::String` : Unique system identifier (changing this affects data loading)
+- `available_criteria::Vector{String}` : the criteria IDs that are relevant to this region
 """
 struct RegionMetadata
     display_name::String
     id::String
+    available_criteria::Vector{String}
 
     function RegionMetadata(;
         display_name::String,
-        id::String
+        id::String,
+        available_criteria::Vector{String}
     )
-        return new(display_name, id)
+        @debug "Creating RegionMetadata" display_name id
+        return new(display_name, id, available_criteria)
     end
 end
 
@@ -104,6 +106,7 @@ struct AssessmentCriteria
         waves_period::CriteriaMetadata,
         rugosity::CriteriaMetadata
     )
+        @debug "Initializing AssessmentCriteria with $(length(fieldnames(AssessmentCriteria))) criteria types"
         return new(
             depth, slope, turbidity, waves_height, waves_period, rugosity
         )
@@ -132,46 +135,63 @@ end
 """
 Complete set of regional criteria with computed bounds for each parameter.
 
+Note: Not all regions have all criteria available. Each field is optional to
+accommodate varying data availability across different regions.
+
 # Fields
-- `depth::RegionalCriteriaEntry` : Depth criteria and bounds
-- `slope::RegionalCriteriaEntry` : Slope criteria and bounds
-- `turbidity::RegionalCriteriaEntry` : Turbidity criteria and bounds
-- `waves_height::RegionalCriteriaEntry` : Wave height criteria and bounds
-- `waves_period::RegionalCriteriaEntry` : Wave period criteria and bounds
-- `rugosity::RegionalCriteriaEntry` : Rugosity criteria and bounds
+- `depth::Union{RegionalCriteriaEntry,Nothing}` : Depth criteria and bounds
+  (optional)
+- `slope::Union{RegionalCriteriaEntry,Nothing}` : Slope criteria and bounds
+  (optional)
+- `turbidity::Union{RegionalCriteriaEntry,Nothing}` : Turbidity criteria and
+  bounds (optional)
+- `waves_height::Union{RegionalCriteriaEntry,Nothing}` : Wave height criteria
+  and bounds (optional)
+- `waves_period::Union{RegionalCriteriaEntry,Nothing}` : Wave period criteria
+  and bounds (optional)
+- `rugosity::Union{RegionalCriteriaEntry,Nothing}` : Rugosity criteria and
+  bounds (optional)
 """
 struct RegionalCriteria
-    depth::RegionalCriteriaEntry
-    slope::RegionalCriteriaEntry
-    turbidity::RegionalCriteriaEntry
-    waves_height::RegionalCriteriaEntry
-    waves_period::RegionalCriteriaEntry
-    rugosity::RegionalCriteriaEntry
+    depth::OptionalValue{RegionalCriteriaEntry}
+    slope::OptionalValue{RegionalCriteriaEntry}
+    turbidity::OptionalValue{RegionalCriteriaEntry}
+    waves_height::OptionalValue{RegionalCriteriaEntry}
+    waves_period::OptionalValue{RegionalCriteriaEntry}
+    rugosity::OptionalValue{RegionalCriteriaEntry}
 
     function RegionalCriteria(;
-        depth_bounds::Bounds,
-        slope_bounds::Bounds,
-        turbidity_bounds::Bounds,
-        waves_height_bounds::Bounds,
-        waves_period_bounds::Bounds,
-        rugosity_bounds::Bounds
+        depth_bounds::OptionalValue{Bounds}=nothing,
+        slope_bounds::OptionalValue{Bounds}=nothing,
+        turbidity_bounds::OptionalValue{Bounds}=nothing,
+        waves_height_bounds::OptionalValue{Bounds}=nothing,
+        waves_period_bounds::OptionalValue{Bounds}=nothing,
+        rugosity_bounds::OptionalValue{Bounds}=nothing
     )
+        @debug "Creating RegionalCriteria with computed bounds for available criteria"
         return new(
+            # All criteria are now optional
+            isnothing(depth_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.depth, bounds=depth_bounds
             ),
+            isnothing(slope_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.slope, bounds=slope_bounds
             ),
+            isnothing(turbidity_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.turbidity, bounds=turbidity_bounds
             ),
+            isnothing(waves_height_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.waves_height, bounds=waves_height_bounds
             ),
+            isnothing(waves_period_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.waves_period, bounds=waves_period_bounds
             ),
+            isnothing(rugosity_bounds) ? nothing :
             RegionalCriteriaEntry(;
                 metadata=ASSESSMENT_CRITERIA.rugosity, bounds=rugosity_bounds
             )
@@ -182,14 +202,18 @@ end
 """
 Complete data package for a single region including rasters and metadata.
 
+Validates during construction that all criteria instantiated have a
+corresponding layer in the RasterStack
+
 # Fields
 - `region_id::String` : Unique identifier for the region
 - `region_metadata::RegionMetadata` : Display metadata for the region
 - `raster_stack::Rasters.RasterStack` : Geospatial raster data layers
-- `slope_table::DataFrame` : Coordinates and values for valid slope reef locations
+- `slope_table::DataFrame` : Coordinates and values for valid slope reef
+  locations
 - `criteria::RegionalCriteria` : Computed criteria bounds for this region
 """
-mutable struct RegionalDataEntry
+struct RegionalDataEntry
     region_id::String
     region_metadata::RegionMetadata
     raster_stack::Rasters.RasterStack
@@ -203,9 +227,89 @@ mutable struct RegionalDataEntry
         slope_table::DataFrame,
         criteria::RegionalCriteria
     )
+        # Get available layers and expected criteria from metadata
+        raster_layer_names = Set(string.(names(raster_stack)))
+        expected_criteria_set = Set(region_metadata.available_criteria)
+
+        # Collect criteria that are actually instantiated (non-nothing)
+        instantiated_criteria = String[]
+        missing_from_criteria = String[]
+        missing_from_rasters = String[]
+
+        # Check each criteria field for instantiation
+        for field_name in fieldnames(RegionalCriteria)
+            criteria_entry = getfield(criteria, field_name)
+            if !isnothing(criteria_entry)
+                layer_id = criteria_entry.metadata.id
+                push!(instantiated_criteria, layer_id)
+
+                # Validate this instantiated criteria has a corresponding raster layer
+                if layer_id ∉ raster_layer_names
+                    push!(missing_from_rasters, layer_id)
+                end
+            end
+        end
+
+        # Cross-validate: ensure all expected criteria from metadata are instantiated
+        for expected_criteria_id in expected_criteria_set
+            if expected_criteria_id ∉ instantiated_criteria
+                push!(missing_from_criteria, expected_criteria_id)
+            end
+        end
+
+        # Cross-validate: ensure all raster layers correspond to expected criteria
+        unexpected_layers = String[]
+        for layer_name in raster_layer_names
+            if layer_name ∉ expected_criteria_set
+                push!(unexpected_layers, layer_name)
+            end
+        end
+
+        # Report validation errors
+        validation_errors = String[]
+
+        if !isempty(missing_from_rasters)
+            push!(
+                validation_errors,
+                "RasterStack missing layers for instantiated criteria: $(join(missing_from_rasters, ", "))"
+            )
+        end
+
+        if !isempty(missing_from_criteria)
+            push!(
+                validation_errors,
+                "RegionalCriteria missing expected criteria from metadata: $(join(missing_from_criteria, ", "))"
+            )
+        end
+
+        if !isempty(unexpected_layers)
+            push!(
+                validation_errors,
+                "RasterStack contains unexpected layers not in metadata: $(join(unexpected_layers, ", "))"
+            )
+        end
+
+        # If any validation errors, log and throw
+        if !isempty(validation_errors)
+            @error "Validation failed for region $(region_metadata.display_name)" region_id validation_errors available_in_metadata = collect(
+                expected_criteria_set
+            ) instantiated_criteria available_raster_layers = collect(raster_layer_names)
+
+            error("RegionalDataEntry validation failed: $(join(validation_errors, "; "))")
+        end
+
+        @info "Created RegionalDataEntry for $(region_metadata.display_name)" region_id slope_locations = nrow(
+            slope_table
+        ) raster_layers = length(names(raster_stack)) validated_criteria_layers = length(
+            instantiated_criteria
+        ) expected_criteria = length(expected_criteria_set)
+
         return new(region_id, region_metadata, raster_stack, slope_table, criteria)
     end
 end
+
+# Type alias
+const RegionalDataMapType = Dict{String,RegionalDataEntry}
 
 """
 Top-level container for all regional data and reef outlines.
@@ -215,13 +319,16 @@ Top-level container for all regional data and reef outlines.
 - `reef_outlines::DataFrame` : Canonical reef outline geometries
 """
 struct RegionalData
-    regions::Dict{String,RegionalDataEntry}
+    regions::RegionalDataMapType
     reef_outlines::DataFrame
 
     function RegionalData(;
-        regions::Dict{String,RegionalDataEntry},
+        regions::RegionalDataMapType,
         reef_outlines::DataFrame
     )
+        total_locations = sum(nrow(entry.slope_table) for entry in values(regions))
+        @info "RegionalData initialized" num_regions = length(regions) total_valid_locations =
+            total_locations reef_outlines = nrow(reef_outlines)
         return new(regions, reef_outlines)
     end
 end
@@ -229,26 +336,6 @@ end
 # =============================================================================
 # Configuration Constants
 # =============================================================================
-
-# Define all available regions for the assessment system
-const REGIONS::Vector{RegionMetadata} = [
-    RegionMetadata(;
-        display_name="Townsville/Whitsunday Management Area",
-        id="Townsville-Whitsunday"
-    ),
-    RegionMetadata(;
-        display_name="Cairns/Cooktown Management Area",
-        id="Cairns-Cooktown"
-    ),
-    RegionMetadata(;
-        display_name="Mackay/Capricorn Management Area",
-        id="Mackay-Capricorn"
-    ),
-    RegionMetadata(;
-        display_name="Far Northern Management Area",
-        id="Far-Northern"
-    )
-]
 
 # Define all assessment criteria with file naming conventions
 const ASSESSMENT_CRITERIA::AssessmentCriteria = AssessmentCriteria(;
@@ -294,8 +381,43 @@ const ASSESSMENT_CRITERIA_LIST::Vector{CriteriaMetadata} = [
     ASSESSMENT_CRITERIA.rugosity
 ]
 
-# Type alias for cleaner code
-const RegionalDataMapType = Dict{String,RegionalDataEntry}
+# Normal list - only Townsville has rugosity
+const BASE_CRITERIA_IDS::Vector{String} = [
+    criteria.id for
+    criteria in ASSESSMENT_CRITERIA_LIST if criteria.id != ASSESSMENT_CRITERIA.rugosity.id
+]
+# All
+const ALL_CRITERIA_IDS::Vector{String} = [
+    criteria.id for
+    criteria in ASSESSMENT_CRITERIA_LIST
+]
+
+# Define all available regions for the assessment system
+const REGIONS::Vector{RegionMetadata} = [
+    RegionMetadata(;
+        display_name="Townsville/Whitsunday Management Area",
+        id="Townsville-Whitsunday",
+        available_criteria=ALL_CRITERIA_IDS
+    ),
+    RegionMetadata(;
+        display_name="Cairns/Cooktown Management Area",
+        id="Cairns-Cooktown",
+        available_criteria=BASE_CRITERIA_IDS
+    ),
+    RegionMetadata(;
+        display_name="Mackay/Capricorn Management Area",
+        id="Mackay-Capricorn",
+        available_criteria=BASE_CRITERIA_IDS
+    ),
+    RegionMetadata(;
+        display_name="Far Northern Management Area",
+        id="FarNorthern",
+        available_criteria=BASE_CRITERIA_IDS
+    )
+]
+
+# GLOBAL variable to store regional data cache
+REGIONAL_DATA::OptionalValue{RegionalData} = nothing
 
 # =============================================================================
 # Utility Functions
@@ -324,29 +446,78 @@ Generate the filename for slope lookup data for a given region.
 String filename in format "{region_id}_slope_lookup.parq"
 """
 function get_slope_parquet_filename(region::RegionMetadata)::String
-    return "$(region.id)$(ASSESSMENT_CRITERIA.slope.file_suffix)$(SLOPES_LOOKUP_SUFFIX)"
+    filename = "$(region.id)$(SLOPES_LOOKUP_SUFFIX)"
+    @debug "Generated slope parquet filename" region_id = region.id filename
+    return filename
 end
 
 """
 Create a dictionary mapping criteria IDs to regional criteria entries.
+
+NOTE: Only includes criteria that are available for the region, as specified in the
+region metadata and actually instantiated in the RegionalCriteria struct.
 
 # Arguments
 - `region_data::RegionalDataEntry` : Regional data containing criteria information
 
 # Returns
 Dictionary with criteria ID strings as keys and RegionalCriteriaEntry as values.
+Only includes criteria that are both listed in region metadata and available as non-nothing.
 """
 function build_regional_criteria_dictionary(
     region_data::RegionalDataEntry
 )::Dict{String,RegionalCriteriaEntry}
-    return Dict(
-        ASSESSMENT_CRITERIA.depth.id => region_data.criteria.depth,
-        ASSESSMENT_CRITERIA.slope.id => region_data.criteria.slope,
-        ASSESSMENT_CRITERIA.turbidity.id => region_data.criteria.turbidity,
-        ASSESSMENT_CRITERIA.waves_height.id => region_data.criteria.waves_height,
-        ASSESSMENT_CRITERIA.waves_period.id => region_data.criteria.waves_period,
-        ASSESSMENT_CRITERIA.rugosity.id => region_data.criteria.rugosity
-    )
+    @debug "Building criteria dictionary for region" region_id = region_data.region_id available_in_metadata =
+        region_data.region_metadata.available_criteria
+
+    criteria_dict = Dict{String,RegionalCriteriaEntry}()
+
+    # Only process criteria that are listed as available in the region metadata
+    available_criteria_set = Set(region_data.region_metadata.available_criteria)
+
+    # Check depth
+    if ASSESSMENT_CRITERIA.depth.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.depth)
+        criteria_dict[ASSESSMENT_CRITERIA.depth.id] = region_data.criteria.depth
+    end
+
+    # Check slope
+    if ASSESSMENT_CRITERIA.slope.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.slope)
+        criteria_dict[ASSESSMENT_CRITERIA.slope.id] = region_data.criteria.slope
+    end
+
+    # Check turbidity
+    if ASSESSMENT_CRITERIA.turbidity.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.turbidity)
+        criteria_dict[ASSESSMENT_CRITERIA.turbidity.id] = region_data.criteria.turbidity
+    end
+
+    # Check waves_height
+    if ASSESSMENT_CRITERIA.waves_height.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.waves_height)
+        criteria_dict[ASSESSMENT_CRITERIA.waves_height.id] =
+            region_data.criteria.waves_height
+    end
+
+    # Check waves_period
+    if ASSESSMENT_CRITERIA.waves_period.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.waves_period)
+        criteria_dict[ASSESSMENT_CRITERIA.waves_period.id] =
+            region_data.criteria.waves_period
+    end
+
+    # Check rugosity
+    if ASSESSMENT_CRITERIA.rugosity.id ∈ available_criteria_set &&
+        !isnothing(region_data.criteria.rugosity)
+        criteria_dict[ASSESSMENT_CRITERIA.rugosity.id] = region_data.criteria.rugosity
+    end
+
+    @debug "Built criteria dictionary" region_id = region_data.region_id available_in_metadata = length(
+        available_criteria_set
+    ) actually_available = length(criteria_dict) criteria_ids = collect(keys(criteria_dict))
+
+    return criteria_dict
 end
 
 """
@@ -359,12 +530,14 @@ from the centroid coordinates of each geometry feature.
 - `df::DataFrame` : DataFrame with geometry column containing spatial features
 """
 function add_lat_long_columns_to_dataframe(df::DataFrame)::Nothing
+    @debug "Adding lat/long columns to DataFrame" num_rows = nrow(df)
     # Extract coordinate tuples from geometry centroids
     coords = GI.coordinates.(df.geometry)
     # Add longitude column (first coordinate)
     df[!, :lons] .= first.(coords)
     # Add latitude column (second coordinate) 
     df[!, :lats] .= last.(coords)
+    @debug "Successfully added coordinate columns"
     return nothing
 end
 
@@ -376,30 +549,81 @@ end
 Build regional criteria bounds from slope table data.
 
 Computes min/max bounds for each assessment criteria by finding extrema
-in the slope table data columns.
+in the slope table data columns. Only processes criteria that are available
+for the specific region as defined in the region metadata.
 
 # Arguments
 - `table::DataFrame` : Slope table containing criteria data columns
+- `region_metadata::RegionMetadata` : Region metadata specifying available criteria
 
 # Returns
-`RegionalCriteria` struct with computed bounds for all criteria.
+`RegionalCriteria` struct with computed bounds for available criteria only.
 """
-function build_assessment_criteria_from_slope_table(table::DataFrame)::RegionalCriteria
-    # Compute bounds for each criteria using column extrema
-    const depth_bounds = bounds_from_tuple(extrema(table[:, ASSESSMENT_CRITERIA.depth.id]))
-    const slope_bounds = bounds_from_tuple(extrema(table[:, ASSESSMENT_CRITERIA.slope.id]))
-    const turbidity_bounds = bounds_from_tuple(
-        extrema(table[:, ASSESSMENT_CRITERIA.turbidity.id])
+function build_assessment_criteria_from_slope_table(
+    table::DataFrame,
+    region_metadata::RegionMetadata
+)::RegionalCriteria
+    @debug "Computing assessment criteria bounds from slope table" table_rows = nrow(table) region_id =
+        region_metadata.id available_criteria = region_metadata.available_criteria
+
+    # Create set for efficient lookup
+    available_criteria_set = Set(region_metadata.available_criteria)
+
+    # Initialize all bounds as nothing
+    depth_bounds = nothing
+    slope_bounds = nothing
+    turbidity_bounds = nothing
+    waves_height_bounds = nothing
+    waves_period_bounds = nothing
+    rugosity_bounds = nothing
+
+    # Helper function to compute bounds for a specific criteria
+    function compute_criteria_bounds(
+        criteria_metadata::CriteriaMetadata, criteria_name::String
     )
-    const waves_height_bounds = bounds_from_tuple(
-        extrema(table[:, ASSESSMENT_CRITERIA.waves_height.id])
+        if criteria_metadata.id ∈ available_criteria_set
+            if hasproperty(table, Symbol(criteria_metadata.id))
+                bounds = bounds_from_tuple(extrema(table[:, criteria_metadata.id]))
+                @debug "Computed $(criteria_name) bounds" range = "$(bounds.min):$(bounds.max)"
+                return bounds
+            else
+                @error "Region metadata lists $(criteria_name) as available but column missing from slope table" region_id =
+                    region_metadata.id column = criteria_metadata.id
+                throw(
+                    ErrorException(
+                        "Missing required column '$(criteria_metadata.id)' in slope table for region $(region_metadata.id)"
+                    )
+                )
+            end
+        end
+        return nothing
+    end
+
+    # Compute bounds only for available criteria
+    depth_bounds = compute_criteria_bounds(ASSESSMENT_CRITERIA.depth, "depth")
+    slope_bounds = compute_criteria_bounds(ASSESSMENT_CRITERIA.slope, "slope")
+    turbidity_bounds = compute_criteria_bounds(ASSESSMENT_CRITERIA.turbidity, "turbidity")
+    waves_height_bounds = compute_criteria_bounds(
+        ASSESSMENT_CRITERIA.waves_height, "waves_height"
     )
-    const waves_period_bounds = bounds_from_tuple(
-        extrema(table[:, ASSESSMENT_CRITERIA.waves_period.id])
+    waves_period_bounds = compute_criteria_bounds(
+        ASSESSMENT_CRITERIA.waves_period, "waves_period"
     )
-    const rugosity_bounds = bounds_from_tuple(
-        extrema(table[:, ASSESSMENT_CRITERIA.rugosity.id])
-    )
+    rugosity_bounds = compute_criteria_bounds(ASSESSMENT_CRITERIA.rugosity, "rugosity")
+
+    computed_criteria = length([
+        b for b in [
+            depth_bounds,
+            slope_bounds,
+            turbidity_bounds,
+            waves_height_bounds,
+            waves_period_bounds,
+            rugosity_bounds
+        ] if !isnothing(b)
+    ])
+    @debug "Computed criteria bounds" region_id = region_metadata.id total_available = length(
+        available_criteria_set
+    ) total_computed = computed_criteria
 
     return RegionalCriteria(;
         depth_bounds,
@@ -433,14 +657,21 @@ function find_data_source_for_criteria(;
     region::RegionMetadata,
     criteria::CriteriaMetadata
 )::String
+    pattern = "$(region.id)*$(criteria.file_suffix).tif"
+    @debug "Searching for data file" pattern directory = data_source_directory
+
     # Search for files matching the pattern: {region_id}*{criteria_suffix}.tif
-    matched_files = glob("$(region.id)*$(criteria.file_suffix).tif", data_source_directory)
+    matched_files = glob(pattern, data_source_directory)
 
     # Validate exactly one match exists
     if length(matched_files) == 0
+        @error "No data file found for criteria" criteria_id = criteria.id region_id =
+            region.id pattern
         throw(ErrorException("Did not find data for the criteria: $(criteria.id)."))
     end
     if length(matched_files) > 1
+        @error "Multiple data files found for criteria - ambiguous match" criteria_id =
+            criteria.id region_id = region.id matched_files
         throw(
             ErrorException(
                 "Found more than one data source match for criteria: $(criteria.id). This is ambiguous, unsure how to proceed."
@@ -448,7 +679,9 @@ function find_data_source_for_criteria(;
         )
     end
 
-    return first(matched_files)
+    file_path = first(matched_files)
+    @debug "Found data file" criteria_id = criteria.id file_path
+    return file_path
 end
 
 """
@@ -465,8 +698,17 @@ function load_canonical_reefs(
     source_dir::String;
     file_name::String=DEFAULT_CANONICAL_REEFS_FILE_NAME
 )::DataFrame
-    # Load reef outlines from geopackage format
-    return GDF.read(joinpath(source_dir, file_name))
+    file_path = joinpath(source_dir, file_name)
+    @info "Loading canonical reef outlines" file_path
+
+    try
+        reef_data = GDF.read(file_path)
+        @info "Successfully loaded reef outlines" num_reefs = nrow(reef_data)
+        return reef_data
+    catch e
+        @error "Failed to load canonical reef outlines" file_path error = e
+        rethrow(e)
+    end
 end
 
 # =============================================================================
@@ -481,9 +723,10 @@ Check if regional data is available in memory cache.
 """
 function check_existing_regional_data_from_memory()::OptionalValue{RegionalData}
     if !isnothing(REGIONAL_DATA)
-        @debug "Using previously generated regional data store."
+        @info "Using cached regional data from memory"
         return REGIONAL_DATA
     end
+    @debug "No regional data found in memory cache"
     return nothing
 end
 
@@ -503,14 +746,19 @@ function check_existing_regional_data_from_disk(
     reg_cache_filename = joinpath(cache_directory, REGIONAL_DATA_CACHE_FILENAME)
 
     if isfile(reg_cache_filename)
-        @debug "Loading regional data cache from disk"
+        @info "Loading regional data from disk cache" cache_file = reg_cache_filename
         try
-            return deserialize(reg_cache_filename)
+            data = deserialize(reg_cache_filename)
+            @info "Successfully loaded regional data from disk cache"
+            return data
         catch err
-            @warn "Failed to deserialize $(reg_cache_filename) with error:" err
+            @warn "Failed to deserialize regional data cache - removing corrupted file" cache_file =
+                reg_cache_filename error = err
             # Remove corrupted cache file
             rm(reg_cache_filename)
         end
+    else
+        @debug "No disk cache file found" expected_path = reg_cache_filename
     end
     # No cache available or load failed
     return nothing
@@ -541,8 +789,11 @@ Creates a blank PNG tile used for areas with no data coverage.
 function setup_empty_tile_cache(config::Dict)::Nothing
     file_path = get_empty_tile_path(config)
     if !isfile(file_path)
+        @info "Creating empty tile cache" file_path
         # Create empty RGBA tile with configured dimensions
         save(file_path, zeros(RGBA, tile_size(config)))
+    else
+        @debug "Empty tile cache already exists" file_path
     end
     return nothing
 end
@@ -564,60 +815,102 @@ This is the main data loading function that builds the complete data structure.
 `RegionalData` struct containing all loaded and processed regional information.
 """
 function initialise_data(config::Dict)::RegionalData
+    @info "Starting regional data initialization from source files"
+
     regional_data::RegionalDataMapType = Dict()
     data_source_directory = config["prepped_data"]["PREPPED_DATA_DIR"]
+    @info "Using data source directory" directory = data_source_directory
 
     # Process each region sequentially
     for region_metadata::RegionMetadata in REGIONS
-        @debug "$(now()) : Initializing cache for $(region_metadata)"
+        @info "Processing region" region = region_metadata.display_name region_id =
+            region_metadata.id
 
         # Initialize data collection arrays
         data_paths = String[]
         data_names = String[]
 
         # Load slope table containing valid reef coordinates and criteria values
-        slope_table::DataFrame = GeoParquet.read(
-            joinpath(data_source_directory, get_slope_parquet_filename(region_metadata))
-        )
+        slope_filename = get_slope_parquet_filename(region_metadata)
+        slope_file_path = joinpath(data_source_directory, slope_filename)
+        @debug "Loading slope table" file_path = slope_file_path
 
-        # Add coordinate columns for spatial referencing
-        add_lat_long_columns_to_dataframe(slope_table)
+        try
+            slope_table::DataFrame = GeoParquet.read(slope_file_path)
+            @info "Loaded slope table" region_id = region_metadata.id num_locations = nrow(
+                slope_table
+            )
 
-        # Collect raster file paths for all criteria
-        for criteria::CriteriaMetadata in ASSESSMENT_CRITERIA_LIST
-            # Find the corresponding .tif file for this criteria
-            push!(
-                data_paths,
-                find_data_source_for_criteria(;
+            # Add coordinate columns for spatial referencing
+            add_lat_long_columns_to_dataframe(slope_table)
+
+            # Filter criteria list to only those available for this region
+            available_criteria_set = Set(region_metadata.available_criteria)
+            region_criteria_list = filter(
+                criteria -> criteria.id ∈ available_criteria_set,
+                ASSESSMENT_CRITERIA_LIST
+            )
+
+            @debug "Filtered criteria for region" region_id = region_metadata.id total_criteria = length(
+                ASSESSMENT_CRITERIA_LIST
+            ) available_criteria = length(region_criteria_list) criteria_ids = [
+                c.id for c in region_criteria_list
+            ]
+
+            # Collect raster file paths for available criteria only
+            for criteria::CriteriaMetadata in region_criteria_list
+                @debug "Processing criteria" criteria_id = criteria.id region_id =
+                    region_metadata.id
+
+                # Find the corresponding .tif file for this criteria
+                data_file_path = find_data_source_for_criteria(;
                     data_source_directory,
                     region=region_metadata,
                     criteria
                 )
+
+                push!(data_paths, data_file_path)
+                # Use criteria ID as the raster layer name
+                push!(data_names, criteria.id)
+            end
+
+            @info "Found all criteria data files for region" region_id = region_metadata.id num_criteria = length(
+                data_paths
+            ) available_criteria = join([c.id for c in region_criteria_list], ", ")
+
+            # Compute regional criteria bounds from slope table data
+            criteria::RegionalCriteria = build_assessment_criteria_from_slope_table(
+                slope_table, region_metadata
             )
-            # Use criteria ID as the raster layer name
-            push!(data_names, criteria.id)
+
+            # Create lazy-loaded raster stack from all criteria files
+            @debug "Creating raster stack" region_id = region_metadata.id num_layers = length(
+                data_paths
+            )
+            raster_stack = RasterStack(data_paths; name=data_names, lazy=true)
+
+            # Store complete regional data entry
+            regional_data[region_metadata.id] = RegionalDataEntry(;
+                region_id=region_metadata.id,
+                region_metadata,
+                raster_stack,
+                slope_table,
+                criteria
+            )
+
+        catch e
+            @error "Failed to process region data" region_id = region_metadata.id error = e
+            rethrow(e)
         end
-
-        # Compute regional criteria bounds from slope table data
-        criteria::RegionalCriteria = build_assessment_criteria_from_slope_table(slope_table)
-
-        # Create lazy-loaded raster stack from all criteria files
-        raster_stack = RasterStack(data_paths; name=data_names, lazy=true)
-
-        # Store complete regional data entry
-        regional_data[region_metadata.id] = RegionalDataEntry(;
-            region_id=region_metadata.id,
-            region_metadata,
-            raster_stack,
-            slope_table,
-            criteria
-        )
     end
+
+    @info "Completed processing all regions" num_regions = length(regional_data)
 
     # Load canonical reef outlines that apply to all regions
     canonical_reefs = load_canonical_reefs(data_source_directory)
 
     # Return complete regional data structure
+    @info "Regional data initialization completed successfully"
     return RegionalData(; regions=regional_data, reef_outlines=canonical_reefs)
 end
 
@@ -632,11 +925,14 @@ to full data initialization. Handles cache invalidation and saves new data to di
 - `force_cache_invalidation::Bool` : If true, bypass all caches and reload data
 """
 function initialise_data_with_cache(config::Dict; force_cache_invalidation::Bool=false)
+    @info "Initializing regional data with caching" force_cache_invalidation
+
     # Access global cache variable
     global REGIONAL_DATA
 
     # Determine cache directory location
     regional_cache_directory = config["server_config"]["REGIONAL_CACHE_DIR"]
+    @debug "Using cache directory" directory = regional_cache_directory
 
     if !force_cache_invalidation
         # Try memory cache first (fastest)
@@ -652,9 +948,12 @@ function initialise_data_with_cache(config::Dict; force_cache_invalidation::Bool
             REGIONAL_DATA = disk_data
             return nothing
         end
+    else
+        @info "Cache invalidation forced - reloading from source files"
     end
 
     # No cache available or forced invalidation - load from source
+    @info "Loading regional data from source files (no cache available)"
     regional_data = initialise_data(config)
 
     # Update global cache
@@ -664,11 +963,16 @@ function initialise_data_with_cache(config::Dict; force_cache_invalidation::Bool
     setup_empty_tile_cache(config)
 
     # Save to disk for future use
-    @debug "Saving regional data cache to disk"
-    serialize(
-        joinpath(regional_cache_directory, REGIONAL_DATA_CACHE_FILENAME),
-        regional_data
-    )
+    @info "Saving regional data to disk cache" cache_directory = regional_cache_directory
+    try
+        serialize(
+            joinpath(regional_cache_directory, REGIONAL_DATA_CACHE_FILENAME),
+            regional_data
+        )
+        @info "Successfully saved regional data cache to disk"
+    catch e
+        @warn "Failed to save regional data cache to disk" error = e
+    end
 
     return nothing
 end
@@ -686,6 +990,7 @@ and caching automatically.
 `RegionalData` struct containing all regional information.
 """
 function get_regional_data(config::Dict)::RegionalData
+    @debug "Getting regional data with automatic cache management"
     # Ensure data is loaded (with caching)
     initialise_data_with_cache(config)
     # Return cached data
@@ -693,19 +998,83 @@ function get_regional_data(config::Dict)::RegionalData
 end
 
 # =============================================================================
-# Display and Routing Functions
+# Display Methods
 # =============================================================================
 
 """
-Custom display format for RegionalDataEntry showing key statistics.
+Enhanced display format for RegionalDataEntry showing key statistics.
 """
-function Base.show(io::IO, ::MIME"text/plain", z::RegionalDataEntry)
-    println("""
-    Criteria: $(names(z.raster_stack))
-    Number of valid slope locations: $(nrow(z.slope_table))
-    """)
-    return nothing
+function Base.show(io::IO, ::MIME"text/plain", entry::RegionalDataEntry)
+    println(io, "RegionalDataEntry: $(entry.region_metadata.display_name)")
+    println(io, "  Region ID: $(entry.region_id)")
+    println(io, "  Raster layers: $(join(names(entry.raster_stack), ", "))")
+    println(io, "  Valid slope locations: $(nrow(entry.slope_table))")
+    println(
+        io, "  Available criteria: $(join(entry.region_metadata.available_criteria, ", "))"
+    )
+    println(io, "  Criteria bounds:")
+
+    # Show each criteria with its bounds, only for non-nothing entries
+    for field_name in fieldnames(RegionalCriteria)
+        criteria_entry = getfield(entry.criteria, field_name)
+        if !isnothing(criteria_entry)
+            min_val = round(criteria_entry.bounds.min; digits=2)
+            max_val = round(criteria_entry.bounds.max; digits=2)
+            println(
+                io, "    $(criteria_entry.metadata.display_label): $(min_val) - $(max_val)"
+            )
+        else
+            # Get the criteria name for display
+            criteria_name = if field_name == :depth
+                ASSESSMENT_CRITERIA.depth.display_label
+            elseif field_name == :slope
+                ASSESSMENT_CRITERIA.slope.display_label
+            elseif field_name == :turbidity
+                ASSESSMENT_CRITERIA.turbidity.display_label
+            elseif field_name == :waves_height
+                ASSESSMENT_CRITERIA.waves_height.display_label
+            elseif field_name == :waves_period
+                ASSESSMENT_CRITERIA.waves_period.display_label
+            elseif field_name == :rugosity
+                ASSESSMENT_CRITERIA.rugosity.display_label
+            else
+                string(field_name)
+            end
+            println(io, "    $(criteria_name): Not available")
+        end
+    end
 end
+
+"""
+Display format for RegionalData showing system overview.
+"""
+function Base.show(io::IO, ::MIME"text/plain", data::RegionalData)
+    total_locations = sum(nrow(entry.slope_table) for entry in values(data.regions))
+
+    println(io, "RegionalData:")
+    println(io, "  Regions: $(length(data.regions))")
+    println(io, "  Total valid locations: $(total_locations)")
+    println(io, "  Reef outlines: $(nrow(data.reef_outlines))")
+    println(io, "")
+
+    println(io, "Regional breakdown:")
+    for (_, region_entry) in data.regions
+        locations = nrow(region_entry.slope_table)
+        println(
+            io, "  $(region_entry.region_metadata.display_name): $(locations) locations"
+        )
+    end
+    println(io, "")
+
+    return println(
+        io,
+        "Assessment criteria: $(join([c.display_label for c in ASSESSMENT_CRITERIA_LIST], ", "))"
+    )
+end
+
+# =============================================================================
+# Routes
+# =============================================================================
 
 """
 Setup HTTP routes for criteria information endpoints.
@@ -717,11 +1086,21 @@ Creates REST endpoints for accessing regional criteria bounds and metadata.
 - `auth` : Authentication/authorization handler
 """
 function setup_criteria_routes(config, auth)
+    @info "Setting up criteria routes"
     regional_data::RegionalData = get_regional_data(config)
 
     # Endpoint: GET /criteria/{region}/ranges
     # Returns JSON with min/max values for all criteria in specified region
     @get auth("/criteria/{region}/ranges") function (_::Request, region::String)
+        @info "Processing criteria ranges request" region
+
+        if !haskey(regional_data.regions, region)
+            @warn "Request for unknown region" region available_regions = keys(
+                regional_data.regions
+            )
+            return json(Dict("error" => "Region not found"))
+        end
+
         @debug "Transforming criteria information to JSON for region $(region)"
         output_dict = OrderedDict()
 
@@ -738,8 +1117,11 @@ function setup_criteria_routes(config, auth)
             )
         end
 
+        @debug "Returning criteria ranges" region num_criteria = length(output_dict)
         return json(output_dict)
     end
+
+    @info "Criteria routes setup completed"
 end
 
 """
@@ -773,4 +1155,76 @@ end
 
 function suitability_criteria()::Vector{String}
     return vcat(search_criteria(), ["SuitabilityThreshold"])
+end
+
+function criteria_data_map()
+    # TODO: Load from config?
+    return OrderedDict(
+        :Depth => "_bathy",
+        :Benthic => "_benthic",
+        :Geomorphic => "_geomorphic",
+        :Slope => "_slope",
+        :Turbidity => "_turbid",
+        :WavesHs => "_waves_Hs",
+        :WavesTp => "_waves_Tp",
+        :Rugosity => "_rugosity",
+        :ValidSlopes => "_valid_slopes",
+        :ValidFlats => "_valid_flats"
+
+        # Unused datasets
+        # :PortDistSlopes => "_PortDistSlopes",
+        # :PortDistFlats => "_PortDistFlats"
+    )
+end
+
+function search_criteria()::Vector{String}
+    return string.(keys(criteria_data_map()))
+end
+
+function site_criteria()::Vector{String}
+    return ["SuitabilityThreshold", "xdist", "ydist"]
+end
+
+function suitability_criteria()::Vector{String}
+    return vcat(search_criteria(), ["SuitabilityThreshold"])
+end
+
+function extract_criteria(qp::T, criteria::Vector{String})::T where {T<:Dict{String,String}}
+    return filter(
+        k -> string(k.first) ∈ criteria, qp
+    )
+end
+
+struct OldRegionalCriteria{T}
+    stack::RasterStack
+    valid_slopes::T
+    valid_flats::T
+end
+
+function valid_slope_lon_inds(reg::OldRegionalCriteria)
+    return reg.valid_slopes.lon_idx
+end
+function valid_slope_lat_inds(reg::OldRegionalCriteria)
+    return reg.valid_slopes.lat_idx
+end
+function valid_flat_lon_inds(reg::OldRegionalCriteria)
+    return reg.valid_flats.lon_idx
+end
+function valid_flat_lat_inds(reg::OldRegionalCriteria)
+    return reg.valid_flats.lat_idx
+end
+
+struct CriteriaBounds{F<:Function}
+    name::Symbol
+    lower_bound::Float32
+    upper_bound::Float32
+    rule::F
+
+    function CriteriaBounds(name::String, lb::S, ub::S)::CriteriaBounds where {S<:String}
+        lower_bound::Float32 = parse(Float32, lb)
+        upper_bound::Float32 = parse(Float32, ub)
+        func = (x) -> lower_bound .<= x .<= upper_bound
+
+        return new{Function}(Symbol(name), lower_bound, upper_bound, func)
+    end
 end

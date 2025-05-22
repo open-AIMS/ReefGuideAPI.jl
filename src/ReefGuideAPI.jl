@@ -30,13 +30,11 @@ include("setup.jl")
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")
-include("server_cache.jl")
 
 # TODO Remove these due to deprecation
 include("job_management/JobInterface.jl")
 include("job_management/DiskService.jl")
 
-include("criteria_assessment/criteria.jl")
 include("criteria_assessment/query_thresholds.jl")
 include("criteria_assessment/regional_assessment.jl")
 
@@ -111,6 +109,10 @@ This is a blocking operation until the worker times out.
 function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
+    @info "Parsing TOML config"
+    config = TOML.parsefile(worker.config.config_path)
+    @info "Loading regional data"
+    initialise_data_with_cache(config)
     @info "Starting worker loop from ReefGuideAPI.jl"
     start(worker)
     @info "Worker closed itself..."

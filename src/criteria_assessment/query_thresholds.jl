@@ -173,26 +173,28 @@ function apply_criteria_thresholds(
     res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
     return res
 end
-function apply_criteria_thresholds(
-    criteria_stack::T,
-    lookup::DataFrame,
-    ruleset::Vector{CriteriaBounds{Function}}
-)::Raster where {T}
-    # Result store
-    data = falses(size(criteria_stack))
 
-    res_lookup = trues(nrow(lookup))
-    for threshold in ruleset
-        res_lookup .= res_lookup .& threshold.rule(lookup[!, threshold.name])
-    end
-
-    tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
-
-    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
-
-    return res
-end
+# TODO need this?
+#function apply_criteria_thresholds(
+#    criteria_stack::T,
+#    lookup::DataFrame,
+#    ruleset::Vector{CriteriaBounds{Function}}
+#)::Raster where {T}
+#    # Result store
+#    data = falses(size(criteria_stack))
+#
+#    res_lookup = trues(nrow(lookup))
+#    for threshold in ruleset
+#        res_lookup .= res_lookup .& threshold.rule(lookup[!, threshold.name])
+#    end
+#
+#    tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
+#    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
+#
+#    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
+#
+#    return res
+#end
 
 """
     apply_criteria_lookup(
