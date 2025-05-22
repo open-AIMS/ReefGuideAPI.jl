@@ -130,6 +130,22 @@ function mask_region(reg_assess_data, reg, qp, rtype)
 end
 
 """
+# Arguments
+- params::RegionalAssessmentParameters - parameters needed to perform assessment
+
+# Returns
+Raster of region with locations that meet criteria masked.
+"""
+function mask_region(params::RegionalAssessmentParameters)
+    @debug "$(now()) : Masking area based on criteria"
+    mask_data = threshold_mask(
+        params
+    )
+
+    return mask_data
+end
+
+"""
     lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_dist=100.0)
 
 Perform suitability assessment with the lookup table based on user-defined criteria.
@@ -202,6 +218,31 @@ function lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_d
     @debug "$(now()) : Finished suitability assessment"
 
     return assess_locs
+end
+
+"""
+    assess_region(reg_assess_data, reg, qp, rtype)
+
+Perform raster suitability assessment based on user-defined criteria.
+
+# Arguments
+- params :: RegionalAssessmentParameters
+
+# Returns
+GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
+by a user.
+"""
+function assess_region(params::RegionalAssessmentParameters)::Raster
+    # Make mask of suitable locations
+    @debug "$(now()) : Creating mask for region"
+    mask_data = mask_region(params::RegionalAssessmentParameters)
+
+    # Assess remaining pixels for their suitability
+    @debug "$(now()) : Calculating proportional suitability score"
+    suitability_scores = proportion_suitable(mask_data.data)
+
+    @debug "$(now()) : Rebuilding raster and returning results"
+    return rebuild(mask_data, suitability_scores)
 end
 
 """

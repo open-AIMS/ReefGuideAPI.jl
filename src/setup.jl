@@ -5,6 +5,7 @@ using Serialization
 using Oxygen: json, Request
 using Logging
 using Images
+include("criteria_assessment/tiles.jl")
 
 # =============================================================================
 # Constants and Configuration
@@ -198,6 +199,17 @@ struct RegionalCriteria
         )
     end
 end
+
+# A lookup list of all symbols/criteria available on the regional criteria
+# object, helpful when iterating through it's values
+const REGIONAL_CRITERIA_SYMBOLS::Vector{Symbol} = [
+    :depth,
+    :slope,
+    :turbidity,
+    :waves_height,
+    :waves_period,
+    :rugosity
+]
 
 """
 Complete data package for a single region including rasters and metadata.
@@ -1226,5 +1238,12 @@ struct CriteriaBounds{F<:Function}
         func = (x) -> lower_bound .<= x .<= upper_bound
 
         return new{Function}(Symbol(name), lower_bound, upper_bound, func)
+    end
+
+    function CriteriaBounds(
+        name::String, lb::Float32, ub::Float32
+    )::CriteriaBounds
+        func = (x) -> lb .<= x .<= ub
+        return new{Function}(Symbol(name), lb, ub, func)
     end
 end

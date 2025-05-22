@@ -18,29 +18,6 @@ function create_job_id(query_params::Dict)::String
     return string(hash(query_params))
 end
 
-"""
-Builds a predictable file name based on extracted regional assessment criteria
-in the configured cache location.
-"""
-function build_regional_assessment_file_path(;
-    query_params::Dict, region::String, reef_type::String, ext::String,
-    config::Dict
-)::String
-    @debug "Ascertaining file name for regional assessment"
-    cache_path = _cache_location(config)
-
-    # Use only the criteria relevant to regional assessment
-    regional_assess_criteria = extract_criteria(query_params, suitability_criteria())
-
-    # NOTE: This is where we could add additional hash params to invalidate
-    # cache
-    job_id = create_job_id(regional_assess_criteria)
-
-    return joinpath(
-        cache_path, "$(job_id)_$(region)_$(reef_type)_regional_assessment.$(ext)"
-    )
-end
-
 # ================
 # Type Definitions
 # ================
@@ -318,34 +295,24 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = get_regional_data(config)
+    reg_assess_data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
+    @info "Compiling regional assessment parameters from regional data and input data"
+    params = build_regional_assessment_parameters(
+        input,
+        reg_assess_data
+    )
+    @info "Done compiling parameters"
+
     @info "Performing regional assessment"
-
-    # Pull out these parameters in the format previously expected 
-    reg = input.region
-    rtype = input.reef_type
-
-    # Build the fully populated query params - noting that this merges defaults
-    # computed as part of the regional data setup with the user provided values
-    # (if present)
-    criteria_dictionary = build_params_dictionary_from_regional_input(;
-        criteria=input,
-        criteria_ranges=reg_assess_data["criteria_ranges"]
-    )
-
-    @debug "Criteria after merging default and provided ranges" criteria_dictionary
-
-    assessed_fn = build_regional_assessment_file_path(;
-        query_params=criteria_dictionary, region=reg, reef_type=rtype, ext="tiff", config
-    )
+    assessed_fn = build_regional_assessment_file_path(params; ext="tiff", config)
     @debug "COG File name: $(assessed_fn)"
 
     if !isfile(assessed_fn)
         @debug "File system cache was not hit for this task"
-        @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, criteria_dictionary, rtype)
+        @debug "Assessing region $(params.region)"
+        assessed = assess_region(params)
 
         @debug now() "Writing COG of regional assessment to $(assessed_fn)"
         _write_cog(assessed_fn, assessed, config)

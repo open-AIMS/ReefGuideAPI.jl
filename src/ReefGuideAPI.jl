@@ -26,7 +26,10 @@ using
 
 include("job_worker/Worker.jl")
 
+# New work including setup logic and helper functions
 include("setup.jl")
+include("RegionalDataHelpers.jl")
+
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")
@@ -37,21 +40,11 @@ include("job_management/DiskService.jl")
 
 include("criteria_assessment/query_thresholds.jl")
 include("criteria_assessment/regional_assessment.jl")
+include("criteria_assessment/site_identification.jl")
 
 include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
 
-function get_regions()
-    # TODO: Comes from config?
-    regions = String[
-        "Townsville-Whitsunday",
-        "Cairns-Cooktown",
-        "Mackay-Capricorn",
-        "FarNorthern"
-    ]
-
-    return regions
-end
 
 function get_auth_router(config::Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
@@ -62,10 +55,11 @@ end
 function start_server(config_path)
     @info "Launching server... please wait"
 
-    warmup_cache(config_path)
-
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
+
+    @info "Initialising regional data and setting up tile cache"
+    initialise_data_with_cache(config)
 
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)

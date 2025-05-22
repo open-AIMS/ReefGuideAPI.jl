@@ -231,6 +231,7 @@ function apply_criteria_lookup(
 end
 
 """
+    threshold_mask(params :: RegionalAssessmentParameters)::Raster
     threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
     threshold_mask(reg_criteria, rtype::Symbol, crit_map, lons::Tuple, lats::Tuple)::Raster
 
@@ -298,6 +299,29 @@ function threshold_mask(
     # Extract data between lon/lats
     view_of_data = view(res, X(lons[1] .. lons[2]), Y(lat1 .. lat2))
     return rebuild(view_of_data, sparse(convert.(UInt8, view_of_data)))
+end
+
+"""
+Handles threshold masking using the integrated assessment parameter struct
+"""
+function threshold_mask(
+    params::RegionalAssessmentParameters
+)::Raster
+    # build out a set of criteria filters using the regional criteria
+    # NOTE this will only filter over available criteria
+    filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
+
+    # map our regional criteria 
+    mask_layer = apply_criteria_thresholds(
+        # This is the raster stack
+        params.region_data.raster_stack,
+        # The slope table dataframe
+        params.region_data.slope_table,
+        # The list of criteria bounds
+        filters
+    )
+
+    return mask_layer
 end
 
 """

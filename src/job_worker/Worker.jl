@@ -14,7 +14,6 @@ include("ECS.jl")
 include("HttpClient.jl")
 include("Jobs.jl")
 include("Storage.jl")
-include("Helpers.jl")
 
 """
 Represents a job that needs to be processed
