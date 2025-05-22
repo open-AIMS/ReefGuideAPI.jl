@@ -55,26 +55,26 @@ function extract_criteria(qp::T, criteria::Vector{String})::T where {T<:Dict{Str
     )
 end
 
-struct RegionalCriteria{T}
+struct OldRegionalCriteria{T}
     stack::RasterStack
     valid_slopes::T
     valid_flats::T
 end
 
-function valid_slope_lon_inds(reg::RegionalCriteria)
+function valid_slope_lon_inds(reg::OldRegionalCriteria)
     return reg.valid_slopes.lon_idx
 end
-function valid_slope_lat_inds(reg::RegionalCriteria)
+function valid_slope_lat_inds(reg::OldRegionalCriteria)
     return reg.valid_slopes.lat_idx
 end
-function valid_flat_lon_inds(reg::RegionalCriteria)
+function valid_flat_lon_inds(reg::OldRegionalCriteria)
     return reg.valid_flats.lon_idx
 end
-function valid_flat_lat_inds(reg::RegionalCriteria)
+function valid_flat_lat_inds(reg::OldRegionalCriteria)
     return reg.valid_flats.lat_idx
 end
 
-function Base.show(io::IO, ::MIME"text/plain", z::RegionalCriteria)
+function Base.show(io::IO, ::MIME"text/plain", z::OldRegionalCriteria)
     # TODO: Include the extent
     println("""
     Criteria: $(names(z.stack))

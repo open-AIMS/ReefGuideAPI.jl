@@ -117,7 +117,7 @@ function start_worker()
 end
 
 export
-    RegionalCriteria,
+    OldRegionalCriteria,
     criteria_data_map
 
 # Methods to assess/identify deployment "plots" of reef.

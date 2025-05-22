@@ -196,7 +196,7 @@ end
 
 """
     apply_criteria_lookup(
-        reg_criteria::RegionalCriteria,
+        reg_criteria::OldRegionalCriteria,
         rtype::Symbol,
         ruleset::Vector{CriteriaBounds{Function}}
     )
@@ -204,7 +204,7 @@ end
 Filter lookup table by applying user defined `ruleset` criteria.
 
 # Arguments
-- `reg_criteria` : RegionalCriteria containing valid_rtype lookup table for filtering.
+- `reg_criteria` : OldRegionalCriteria containing valid_rtype lookup table for filtering.
 - `rtype` : Flats or slope category for assessment.
 - `ruleset` : User defined ruleset for upper and lower bounds.
 
@@ -212,7 +212,7 @@ Filter lookup table by applying user defined `ruleset` criteria.
 Filtered lookup table containing points that meet all criteria in `ruleset`.
 """
 function apply_criteria_lookup(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     ruleset
 )::DataFrame
@@ -240,7 +240,7 @@ applied to a set of criteria.
 - Ones indicate locations to **keep**.
 
 # Arguments
-- `reg_criteria` : RegionalCriteria to assess
+- `reg_criteria` : OldRegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
 - `lons` : Longitudinal extent (min and max, required when generating masks for tiles)
@@ -250,7 +250,7 @@ applied to a set of criteria.
 True/false mask indicating locations within desired thresholds.
 """
 function threshold_mask(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     crit_map::Vector{CriteriaBounds{Function}}
 )::Raster
@@ -264,7 +264,7 @@ function threshold_mask(
     return mask_layer
 end
 function threshold_mask(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     crit_map::Vector{CriteriaBounds{Function}},
     lons::Tuple,
@@ -310,7 +310,7 @@ applied to a set of criteria.
 
 # Arguments
 - `fn` : File to write geotiff to
-- `reg_criteria` : RegionalCriteria to assess
+- `reg_criteria` : OldRegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
 

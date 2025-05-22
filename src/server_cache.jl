@@ -66,7 +66,7 @@ data and save to `reg_cache_fn` path.
 """
 function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::String)
     regional_assessment_data = OrderedDict{
-        String,Union{RegionalCriteria,DataFrame,Dict}
+        String,Union{OldRegionalCriteria,DataFrame,Dict}
     }()
     for reg in get_regions()
         @debug "$(now()) : Initializing cache for $reg"
@@ -111,7 +111,7 @@ function initialize_regional_data_cache(reef_data_path::String, reg_cache_fn::St
         # flat_table[!, :lats] .= last.(coords)
 
         rst_stack = RasterStack(data_paths; name=data_names, lazy=true)
-        regional_assessment_data[reg] = RegionalCriteria(
+        regional_assessment_data[reg] = OldRegionalCriteria(
             rst_stack,
             slope_table,
             slope_table[[1], :]  # Dummy entry for flat_table
@@ -146,7 +146,7 @@ Load regional data to act as an in-memory cache.
 - `reef_data_path` : Path to pre-prepared reef data
 
 # Returns
-OrderedDict of `RegionalCriteria` for each region.
+OrderedDict of `OldRegionalCriteria` for each region.
 """
 function setup_regional_data(config::Dict)
     reef_data_path = config["prepped_data"]["PREPPED_DATA_DIR"]
