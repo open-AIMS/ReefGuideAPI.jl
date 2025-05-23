@@ -157,6 +157,17 @@ end
 function apply_criteria_thresholds(
     criteria_stack::RasterStack,
     lookup::DataFrame,
+    ruleset::Vector{CriteriaBounds}
+)::Raster
+    ruleset = NamedTuple{([c.name for c in ruleset]...,)}(
+        Tuple([c.rule for c in ruleset])
+    )
+    return apply_criteria_thresholds(criteria_stack, lookup, ruleset)
+end
+
+function apply_criteria_thresholds(
+    criteria_stack::RasterStack,
+    lookup::DataFrame,
     ruleset::NamedTuple
 )::Raster
     # Result store
@@ -173,30 +184,10 @@ function apply_criteria_thresholds(
     res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
     return res
 end
-function apply_criteria_thresholds(
-    criteria_stack::T,
-    lookup::DataFrame,
-    ruleset::Vector{CriteriaBounds{Function}}
-)::Raster where {T}
-    # Result store
-    data = falses(size(criteria_stack))
-
-    res_lookup = trues(nrow(lookup))
-    for threshold in ruleset
-        res_lookup .= res_lookup .& threshold.rule(lookup[!, threshold.name])
-    end
-
-    tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
-    data[CartesianIndex.(tmp.lon_idx, tmp.lat_idx)] .= true
-
-    res = Raster(criteria_stack.Depth; data=sparse(data), missingval=0)
-
-    return res
-end
 
 """
     apply_criteria_lookup(
-        reg_criteria::RegionalCriteria,
+        reg_criteria::OldRegionalCriteria,
         rtype::Symbol,
         ruleset::Vector{CriteriaBounds{Function}}
     )
@@ -204,7 +195,7 @@ end
 Filter lookup table by applying user defined `ruleset` criteria.
 
 # Arguments
-- `reg_criteria` : RegionalCriteria containing valid_rtype lookup table for filtering.
+- `reg_criteria` : OldRegionalCriteria containing valid_rtype lookup table for filtering.
 - `rtype` : Flats or slope category for assessment.
 - `ruleset` : User defined ruleset for upper and lower bounds.
 
@@ -212,7 +203,7 @@ Filter lookup table by applying user defined `ruleset` criteria.
 Filtered lookup table containing points that meet all criteria in `ruleset`.
 """
 function apply_criteria_lookup(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     ruleset
 )::DataFrame
@@ -229,6 +220,59 @@ function apply_criteria_lookup(
 end
 
 """
+    apply_criteria_lookup(
+        raster_stack::RasterStack,
+        rtype::Symbol,
+        ruleset::Vector{CriteriaBounds{Function}}
+    )
+
+Filter lookup table by applying user defined `ruleset` criteria.
+
+# Arguments
+- `reg_criteria` : OldRegionalCriteria containing valid_rtype lookup table for filtering.
+- `rtype` : Flats or slope category for assessment.
+- `ruleset` : User defined ruleset for upper and lower bounds.
+
+# Returns
+Filtered lookup table containing points that meet all criteria in `ruleset`.
+"""
+function apply_criteria_lookup(
+    reg_criteria::OldRegionalCriteria,
+    rtype::Symbol,
+    ruleset
+)::DataFrame
+    lookup = getfield(reg_criteria, Symbol(:valid_, rtype))
+    lookup.all_crit .= 1
+
+    for threshold in ruleset
+        lookup.all_crit = lookup.all_crit .& threshold.rule(lookup[!, threshold.name])
+    end
+
+    lookup = lookup[BitVector(lookup.all_crit), :]
+
+    return lookup
+end
+
+"""
+Filters the slope table (which contains raster param values too) by building a
+bit mask AND'd for all thresholds
+"""
+function apply_criteria_lookup(
+    slope_table::DataFrame,
+    ruleset::Vector{CriteriaBounds}
+)::DataFrame
+    slope_table.all_crit .= 1
+
+    for threshold in ruleset
+        slope_table.all_crit =
+            slope_table.all_crit .& threshold.rule(slope_table[!, threshold.name])
+    end
+
+    return slope_table[BitVector(slope_table.all_crit), :]
+end
+
+"""
+    threshold_mask(params :: RegionalAssessmentParameters)::Raster
     threshold_mask(reg_criteria, rtype::Symbol, crit_map)::Raster
     threshold_mask(reg_criteria, rtype::Symbol, crit_map, lons::Tuple, lats::Tuple)::Raster
 
@@ -240,7 +284,7 @@ applied to a set of criteria.
 - Ones indicate locations to **keep**.
 
 # Arguments
-- `reg_criteria` : RegionalCriteria to assess
+- `reg_criteria` : OldRegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
 - `lons` : Longitudinal extent (min and max, required when generating masks for tiles)
@@ -250,7 +294,7 @@ applied to a set of criteria.
 True/false mask indicating locations within desired thresholds.
 """
 function threshold_mask(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     crit_map::Vector{CriteriaBounds{Function}}
 )::Raster
@@ -264,7 +308,7 @@ function threshold_mask(
     return mask_layer
 end
 function threshold_mask(
-    reg_criteria::RegionalCriteria,
+    reg_criteria::OldRegionalCriteria,
     rtype::Symbol,
     crit_map::Vector{CriteriaBounds{Function}},
     lons::Tuple,
@@ -299,6 +343,30 @@ function threshold_mask(
 end
 
 """
+Handles threshold masking using the integrated assessment parameter struct
+"""
+function threshold_mask(
+    params::RegionalAssessmentParameters
+)::Raster
+    # build out a set of criteria filters using the regional criteria
+    # NOTE this will only filter over available criteria
+    filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
+
+    # map our regional criteria 
+    @debug "Applying criteria thresholds to generate mask layer"
+    mask_layer = apply_criteria_thresholds(
+        # This is the raster stack
+        params.region_data.raster_stack,
+        # The slope table dataframe
+        params.region_data.slope_table,
+        # The list of criteria bounds
+        filters
+    )
+
+    return mask_layer
+end
+
+"""
     generate_criteria_mask!(fn::String, rst_stack::RasterStack, lookup::DataFrame, ruleset::Vector{CriteriaBounds{Function}})
 
 Generate mask file for a given region and reef type (slopes or flats) according to thresholds
@@ -310,7 +378,7 @@ applied to a set of criteria.
 
 # Arguments
 - `fn` : File to write geotiff to
-- `reg_criteria` : RegionalCriteria to assess
+- `reg_criteria` : OldRegionalCriteria to assess
 - `rtype` : reef type to assess (`:slopes` or `:flats`)
 - `crit_map` : List of criteria thresholds to apply (see `apply_criteria_thresholds()`)
 

@@ -130,6 +130,22 @@ function mask_region(reg_assess_data, reg, qp, rtype)
 end
 
 """
+# Arguments
+- params::RegionalAssessmentParameters - parameters needed to perform assessment
+
+# Returns
+Raster of region with locations that meet criteria masked.
+"""
+function mask_region(params::RegionalAssessmentParameters)
+    @debug "$(now()) : Masking area based on criteria"
+    mask_data = threshold_mask(
+        params
+    )
+
+    return mask_data
+end
+
+"""
     lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_dist=100.0)
 
 Perform suitability assessment with the lookup table based on user-defined criteria.
@@ -202,6 +218,31 @@ function lookup_assess_region(reg_assess_data, reg, qp, rtype; x_dist=100.0, y_d
     @debug "$(now()) : Finished suitability assessment"
 
     return assess_locs
+end
+
+"""
+    assess_region(reg_assess_data, reg, qp, rtype)
+
+Perform raster suitability assessment based on user-defined criteria.
+
+# Arguments
+- params :: RegionalAssessmentParameters
+
+# Returns
+GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
+by a user.
+"""
+function assess_region(params::RegionalAssessmentParameters)::Raster
+    # Make mask of suitable locations
+    @debug "$(now()) : Creating mask for region"
+    mask_data = mask_region(params::RegionalAssessmentParameters)
+
+    # Assess remaining pixels for their suitability
+    @debug "$(now()) : Calculating proportional suitability score"
+    suitability_scores = proportion_suitable(mask_data.data)
+
+    @debug "$(now()) : Rebuilding raster and returning results"
+    return rebuild(mask_data, suitability_scores)
 end
 
 """
@@ -361,6 +402,53 @@ function assess_sites(
         res,
         x_dist,
         y_dist,
+        target_crs
+    )
+
+    return initial_polygons
+end
+
+function assess_sites(
+    params::SuitabilityAssessmentParameters,
+    regional_raster::Raster
+)
+    target_crs = convert(EPSG, crs(regional_raster))
+    suitability_threshold = params.suitability_threshold
+    region = params.region
+
+    @debug "$(now()) : Identifying search pixels for $(region)"
+    target_locs = search_lookup(regional_raster, suitability_threshold)
+
+    if size(target_locs, 1) == 0
+        # No viable set of locations, return empty dataframe
+        return DataFrame(;
+            score=[],
+            orientation=[],
+            qc_flag=[],
+            geometry=[]
+        )
+    end
+
+    # Otherwise, create the file
+    @debug "$(now()) : Assessing criteria table for $(region)"
+    # Get criteria bounds list from criteria
+    filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
+
+    crit_pixels::DataFrame = apply_criteria_lookup(
+        # Slope table
+        params.region_data.slope_table,
+        filters
+    )
+
+    res = abs(step(dims(regional_raster, X)))
+    @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(region)."
+    @debug "Finding optimal site alignment"
+    initial_polygons = find_optimal_site_alignment(
+        crit_pixels,
+        target_locs,
+        res,
+        params.x_dist,
+        params.y_dist,
         target_crs
     )
 

@@ -24,35 +24,27 @@ using
     HTTP,
     Oxygen
 
-include("job_worker/Worker.jl")
+# Worker system
+include("job_worker/index.jl")
+
+# Utilities and helpers for assessments
+include("utility/index.jl")
 
 include("Middleware.jl")
 include("admin.jl")
 include("file_io.jl")
-include("server_cache.jl")
 
 # TODO Remove these due to deprecation
 include("job_management/JobInterface.jl")
 include("job_management/DiskService.jl")
 
-include("criteria_assessment/criteria.jl")
 include("criteria_assessment/query_thresholds.jl")
 include("criteria_assessment/regional_assessment.jl")
+include("criteria_assessment/site_identification.jl")
 
 include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
-
-function get_regions()
-    # TODO: Comes from config?
-    regions = String[
-        "Townsville-Whitsunday",
-        "Cairns-Cooktown",
-        "Mackay-Capricorn",
-        "FarNorthern"
-    ]
-
-    return regions
-end
+include("criteria_assessment/tiles.jl")
 
 function get_auth_router(config::Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
@@ -63,10 +55,11 @@ end
 function start_server(config_path)
     @info "Launching server... please wait"
 
-    warmup_cache(config_path)
-
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
+
+    @info "Initialising regional data and setting up tile cache"
+    initialise_data_with_cache(config)
 
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)
@@ -110,13 +103,17 @@ This is a blocking operation until the worker times out.
 function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
+    @info "Parsing TOML config"
+    config = TOML.parsefile(worker.config.config_path)
+    @info "Loading regional data"
+    initialise_data_with_cache(config)
     @info "Starting worker loop from ReefGuideAPI.jl"
     start(worker)
     @info "Worker closed itself..."
 end
 
 export
-    RegionalCriteria,
+    OldRegionalCriteria,
     criteria_data_map
 
 # Methods to assess/identify deployment "plots" of reef.

@@ -176,7 +176,7 @@ function setup_tile_routes(config, auth)
         )
     end
 
-    reg_assess_data = setup_regional_data(config)
+    reg_assess_data = get_regional_data(config)
     @get auth("/tile/{z}/{x}/{y}") function (req::Request, z::Int64, x::Int64, y::Int64)
         # http://127.0.0.1:8000/tile/{z}/{x}/{y}?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
         # http://127.0.0.1:8000/tile/8/231/139?region=Cairns-Cooktown&rtype=slopes&Depth=-9.0:0.0&Slope=0.0:40.0&Rugosity=0.0:3.0
