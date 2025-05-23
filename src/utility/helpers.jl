@@ -6,68 +6,47 @@ function build_hash_from_components(components::Vector{String})::String
 end
 
 """
-Combines present regional criteria including bounds into hash components
+Returns a hash component for bounded criteria
 """
 function get_hash_components_from_regional_criteria(
-    criteria::RegionalCriteria
+    criteria::BoundedCriteriaDict
 )::Vector{String}
-    hash_components::Vector{String} = []
-    for field in REGIONAL_CRITERIA_SYMBOLS
-        criteria_entry::OptionalValue{RegionalCriteriaEntry} = getfield(
-            criteria, field
-        )
-        if !isnothing(criteria_entry)
-            push!(
-                hash_components,
-                "$(field)_$(criteria_entry.bounds.min)_$(criteria_entry.bounds.max)"
-            )
-        else
-            push!(hash_components, "$(field)_null")
-        end
-    end
-    return hash_components
+    return [hash(criteria)]
 end
 
 """
-Convert RegionalCriteria to a vector of CriteriaBounds for assessment processing.
+Convert BoundedCriteriaDict to a vector of CriteriaBounds for assessment processing.
+Transforms the BoundedCriteriaDict into CriteriaBounds objects that include
+evaluation functions. Only includes criteria that are available in the dictionary.
 
-Transforms the RegionalCriteria struct into CriteriaBounds objects that include
-evaluation functions. Only includes criteria that are available (non-nothing).
-
-# Arguments
-- `regional_criteria::RegionalCriteria` : Regional criteria with bounds to convert
+# Arguments 
+- `bounded_criteria_dict::BoundedCriteriaDict` : Dictionary of bounded criteria to convert
 
 # Returns
 Vector of `CriteriaBounds` objects for available criteria.
 """
 function build_criteria_bounds_from_regional_criteria(
-    regional_criteria::RegionalCriteria
+    bounded_criteria_dict::BoundedCriteriaDict
 )::Vector{CriteriaBounds}
-    @debug "Converting RegionalCriteria to CriteriaBounds vector"
-
+    @debug "Converting BoundedCriteriaDict to CriteriaBounds vector"
     criteria_bounds = CriteriaBounds[]
 
-    for field_symbol in REGIONAL_CRITERIA_SYMBOLS
-        criteria_entry = getfield(regional_criteria, field_symbol)
-
-        if !isnothing(criteria_entry)
-            bounds = CriteriaBounds(
-                # Field to get in the data
-                criteria_entry.metadata.id,
-                # Min/max bounds
-                criteria_entry.bounds.min,
-                criteria_entry.bounds.max
-            )
-            push!(criteria_bounds, bounds)
-        else
-            @debug "Skipped criteria - not available" criteria_id = String(field_symbol)
-        end
+    for (criteria_id, bounded_criteria) in bounded_criteria_dict
+        bounds = CriteriaBounds(
+            # Field to get in the data
+            bounded_criteria.metadata.id,
+            # Min/max bounds  
+            bounded_criteria.bounds.min,
+            bounded_criteria.bounds.max
+        )
+        push!(criteria_bounds, bounds)
+        @debug "Added criteria bounds" criteria_id = criteria_id min_val =
+            bounded_criteria.bounds.min max_val = bounded_criteria.bounds.max
     end
 
     @debug "Built CriteriaBounds vector" total_criteria = length(criteria_bounds) criteria_ids = [
-        String(cb.name) for cb in criteria_bounds
+        cb.name for cb in criteria_bounds
     ]
-
     return criteria_bounds
 end
 
@@ -97,77 +76,6 @@ function get_slope_parquet_filename(region::RegionMetadata)::String
     filename = "$(region.id)$(SLOPES_LOOKUP_SUFFIX)"
     @debug "Generated slope parquet filename" region_id = region.id filename
     return filename
-end
-
-"""
-Create a dictionary mapping criteria IDs to regional criteria entries.
-
-NOTE: Only includes criteria that are available for the region, as specified in the
-region metadata and actually instantiated in the RegionalCriteria struct.
-
-Uses the defined set of symbols on the regional criteria struct to iterate through
-
-# Arguments
-- `region_data::RegionalDataEntry` : Regional data containing criteria information
-
-# Returns
-Dictionary with criteria ID strings as keys and RegionalCriteriaEntry as values.
-Only includes criteria that are both listed in region metadata and available as non-nothing.
-"""
-function build_regional_criteria_dictionary(
-    region_data::RegionalDataEntry
-)::Dict{String,RegionalCriteriaEntry}
-    @debug "Building criteria dictionary for region" region_id = region_data.region_id available_in_metadata =
-        region_data.region_metadata.available_criteria
-
-    regional_criteria = region_data.criteria
-    criteria_dict = Dict{String,RegionalCriteriaEntry}()
-
-    # Only process criteria that are listed as available in the region metadata
-    available_criteria_set = Set(region_data.region_metadata.available_criteria)
-
-    for symbol in REGIONAL_CRITERIA_SYMBOLS
-        possible_value::OptionalValue{RegionalCriteriaEntry} = getfield(
-            regional_criteria, symbol
-        )
-        if (
-            !isnothing(possible_value) &&
-            possible_value.metadata.id ∈ available_criteria_set
-        )
-            criteria_dict[possible_value.metadata.id] = possible_value
-        end
-    end
-
-    @debug "Built criteria dictionary" region_id = region_data.region_id available_in_metadata = length(
-        available_criteria_set
-    ) actually_available = length(criteria_dict) criteria_ids = collect(keys(criteria_dict))
-
-    return criteria_dict
-end
-
-"""
-Given a dictionary mapping criteria ID -> optional bounds, builds out a
-RegionalCriteria object.
-"""
-function build_regional_criteria_from_criteria_dictionary(
-    criteria::Dict{String,OptionalValue{Bounds}}
-)
-    function check_criteria(metadata::CriteriaMetadata)::OptionalValue{Bounds}
-        if haskey(criteria, metadata.id) && !isnothing(criteria[metadata.id])
-            return criteria[metadata.id]
-        end
-        return nothing
-    end
-
-    @debug "Creating RegionalCriteria by assessing each entry of criteria dictionary"
-    return RegionalCriteria(;
-        depth_bounds=check_criteria(ASSESSMENT_CRITERIA.depth),
-        slope_bounds=check_criteria(ASSESSMENT_CRITERIA.slope),
-        turbidity_bounds=check_criteria(ASSESSMENT_CRITERIA.turbidity),
-        waves_height_bounds=check_criteria(ASSESSMENT_CRITERIA.waves_height),
-        waves_period_bounds=check_criteria(ASSESSMENT_CRITERIA.waves_period),
-        rugosity_bounds=check_criteria(ASSESSMENT_CRITERIA.rugosity)
-    )
 end
 
 """

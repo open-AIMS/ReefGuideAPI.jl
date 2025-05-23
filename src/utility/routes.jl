@@ -31,12 +31,10 @@ function setup_criteria_routes(config, auth)
         output_dict = OrderedDict()
 
         # Build lookup dictionary for regional criteria
-        regional_criteria_lookup = build_regional_criteria_dictionary(
-            regional_data.regions[region]
-        )
+        regional_criteria_lookup = regional_data.regions[region].criteria
 
         # Format each criteria with min/max bounds
-        for (id::String, criteria::RegionalCriteriaEntry) in regional_criteria_lookup
+        for (id::String, criteria::BoundedCriteria) in regional_criteria_lookup
             output_dict[id] = OrderedDict(
                 :min_val => criteria.bounds.min,
                 :max_val => criteria.bounds.max

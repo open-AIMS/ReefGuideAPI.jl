@@ -403,7 +403,7 @@ function handle_job(
     @info "Done compiling parameters"
 
     @debug "Converting suitability job into regional job for regional assessment"
-    regional_params = regional_params_from_suitability(params)
+    regional_params = regional_params_from_suitability_params(params)
     @debug "Conversion complete"
 
     @info "Performing regional assessment"

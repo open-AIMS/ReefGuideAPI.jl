@@ -58,6 +58,13 @@ mutable struct Bounds
 end
 
 """
+Helper function to create Bounds from a tuple.
+"""
+function bounds_from_tuple(extrema_tuple::Tuple{T,T}) where T<:Number
+    return Bounds(; min=extrema_tuple[1], max=extrema_tuple[2])
+end
+
+"""
 Metadata for assessment criteria including file naming conventions.
 
 # Fields
@@ -86,80 +93,53 @@ struct CriteriaMetadata
 end
 
 # NOTE: This is where you add to list of all possible criteria
-const AVAILABLE_CRITERIA_METADATA::Vector{CriteriaMetadata} = [
-    CriteriaMetadata(;
+const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
+    "Depth" => CriteriaMetadata(;
         id="Depth",
         file_suffix="_bathy",
         display_label="Depth",
         description="TODO",
         units="TODO"
     ),
-    CriteriaMetadata(;
+    "Slope" => CriteriaMetadata(;
         id="Slope",
         file_suffix="_slope",
         display_label="Slope",
         description="TODO",
         units="TODO"
     ),
-    CriteriaMetadata(;
+    "Turbidity" => CriteriaMetadata(;
         id="Turbidity",
         file_suffix="_turbid",
         display_label="Turbidity",
         description="TODO",
-        units="TODO"),
-    CriteriaMetadata(;
+        units="TODO"
+    ),
+    "WavesHs" => CriteriaMetadata(;
         id="WavesHs",
         file_suffix="_waves_Hs",
         display_label="Wave Height (m)",
         description="TODO",
-        units="TODO"),
-    CriteriaMetadata(;
+        units="TODO"
+    ),
+    "WavesTp" => CriteriaMetadata(;
         id="WavesTp",
         file_suffix="_waves_Tp",
         display_label="Wave Period (s)",
         description="TODO",
-        units="TODO"),
-    CriteriaMetadata(;
+        units="TODO"
+    ),
+    "Rugosity" => CriteriaMetadata(;
         id="Rugosity",
         file_suffix="_rugosity",
         display_label="Rugosity",
         description="TODO",
-        units="TODO")
-]
-
-"""
-Container for all assessment criteria metadata.
-
-# Fields
-- `depth::CriteriaMetadata` : Bathymetry/depth criteria
-- `slope::CriteriaMetadata` : Slope gradient criteria  
-- `turbidity::CriteriaMetadata` : Water turbidity criteria
-- `waves_height::CriteriaMetadata` : Wave height criteria
-- `waves_period::CriteriaMetadata` : Wave period criteria
-- `rugosity::CriteriaMetadata` : Seafloor rugosity criteria
-"""
-struct AssessmentCriteria
-    depth::CriteriaMetadata
-    slope::CriteriaMetadata
-    turbidity::CriteriaMetadata
-    waves_height::CriteriaMetadata
-    waves_period::CriteriaMetadata
-    rugosity::CriteriaMetadata
-
-    function AssessmentCriteria(;
-        depth::CriteriaMetadata,
-        slope::CriteriaMetadata,
-        turbidity::CriteriaMetadata,
-        waves_height::CriteriaMetadata,
-        waves_period::CriteriaMetadata,
-        rugosity::CriteriaMetadata
+        units="TODO"
     )
-        @debug "Initializing AssessmentCriteria with $(length(fieldnames(AssessmentCriteria))) criteria types"
-        return new(
-            depth, slope, turbidity, waves_height, waves_period, rugosity
-        )
-    end
-end
+)
+
+# Create list from the dictionary values
+const ASSESSMENT_CRITERIA_LIST = collect(values(ASSESSMENT_CRITERIA))
 
 """
 Combines criteria metadata with regional boundary values.
@@ -168,11 +148,11 @@ Combines criteria metadata with regional boundary values.
 - `metadata::CriteriaMetadata` : Criteria definition and metadata
 - `bounds::Bounds` : Min/max values for this criteria in the region
 """
-struct RegionalCriteriaEntry
+struct BoundedCriteria
     metadata::CriteriaMetadata
     bounds::Bounds
 
-    function RegionalCriteriaEntry(;
+    function BoundedCriteria(;
         metadata::CriteriaMetadata,
         bounds::Bounds
     )
@@ -180,76 +160,8 @@ struct RegionalCriteriaEntry
     end
 end
 
-"""
-Complete set of regional criteria with computed bounds for each parameter.
-
-Note: Not all regions have all criteria available. Each field is optional to
-accommodate varying data availability across different regions.
-
-# Fields
-- `depth::Union{RegionalCriteriaEntry,Nothing}` : Depth criteria and bounds
-  (optional)
-- `slope::Union{RegionalCriteriaEntry,Nothing}` : Slope criteria and bounds
-  (optional)
-- `turbidity::Union{RegionalCriteriaEntry,Nothing}` : Turbidity criteria and
-  bounds (optional)
-- `waves_height::Union{RegionalCriteriaEntry,Nothing}` : Wave height criteria
-  and bounds (optional)
-- `waves_period::Union{RegionalCriteriaEntry,Nothing}` : Wave period criteria
-  and bounds (optional)
-- `rugosity::Union{RegionalCriteriaEntry,Nothing}` : Rugosity criteria and
-  bounds (optional)
-"""
-struct RegionalCriteria
-    depth::OptionalValue{RegionalCriteriaEntry}
-    slope::OptionalValue{RegionalCriteriaEntry}
-    turbidity::OptionalValue{RegionalCriteriaEntry}
-    waves_height::OptionalValue{RegionalCriteriaEntry}
-    waves_period::OptionalValue{RegionalCriteriaEntry}
-    rugosity::OptionalValue{RegionalCriteriaEntry}
-
-    function RegionalCriteria(;
-        depth_bounds::OptionalValue{Bounds}=nothing,
-        slope_bounds::OptionalValue{Bounds}=nothing,
-        turbidity_bounds::OptionalValue{Bounds}=nothing,
-        waves_height_bounds::OptionalValue{Bounds}=nothing,
-        waves_period_bounds::OptionalValue{Bounds}=nothing,
-        rugosity_bounds::OptionalValue{Bounds}=nothing
-    )
-        @debug "Creating RegionalCriteria with computed bounds for available criteria"
-        return new(
-            # All criteria are now optional
-            isnothing(depth_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.depth, bounds=depth_bounds
-            ),
-            isnothing(slope_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.slope, bounds=slope_bounds
-            ),
-            isnothing(turbidity_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.turbidity, bounds=turbidity_bounds
-            ),
-            isnothing(waves_height_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.waves_height, bounds=waves_height_bounds
-            ),
-            isnothing(waves_period_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.waves_period, bounds=waves_period_bounds
-            ),
-            isnothing(rugosity_bounds) ? nothing :
-            RegionalCriteriaEntry(;
-                metadata=ASSESSMENT_CRITERIA.rugosity, bounds=rugosity_bounds
-            )
-        )
-    end
-end
-
-# A lookup list of all symbols/criteria available on the regional criteria
-# object, helpful when iterating through it's values
-const REGIONAL_CRITERIA_SYMBOLS::Vector{Symbol} = collect(fieldnames(RegionalCriteria))
+# Maps criteria ID to bounded criteria
+const BoundedCriteriaDict = Dict{String,BoundedCriteria}
 
 """
 Complete data package for a single region including rasters and metadata.
@@ -263,21 +175,21 @@ corresponding layer in the RasterStack
 - `raster_stack::Rasters.RasterStack` : Geospatial raster data layers
 - `slope_table::DataFrame` : Coordinates and values for valid slope reef
   locations
-- `criteria::RegionalCriteria` : Computed criteria bounds for this region
+- `criteria::Dict{String, BoundedCriteria}` : Computed criteria bounds for this region
 """
 struct RegionalDataEntry
     region_id::String
     region_metadata::RegionMetadata
     raster_stack::Rasters.RasterStack
     slope_table::DataFrame
-    criteria::RegionalCriteria
+    criteria::BoundedCriteriaDict
 
     function RegionalDataEntry(;
         region_id::String,
         region_metadata::RegionMetadata,
         raster_stack::Rasters.RasterStack,
         slope_table::DataFrame,
-        criteria::RegionalCriteria
+        criteria::BoundedCriteriaDict
     )
         # Get available layers and expected criteria from metadata
         raster_layer_names = Set(string.(names(raster_stack)))
@@ -289,8 +201,8 @@ struct RegionalDataEntry
         missing_from_rasters = String[]
 
         # Check each criteria field for instantiation
-        for field_name in REGIONAL_CRITERIA_SYMBOLS
-            criteria_entry = getfield(criteria, field_name)
+        for desired_criteria in expected_criteria_set
+            criteria_entry = get(criteria, desired_criteria, nothing)
             if !isnothing(criteria_entry)
                 layer_id = criteria_entry.metadata.id
                 push!(instantiated_criteria, layer_id)
@@ -361,21 +273,21 @@ struct RegionalDataEntry
 end
 
 # Type alias
-const RegionalDataMapType = Dict{String,RegionalDataEntry}
+const RegionalDataDict = Dict{String,RegionalDataEntry}
 
 """
 Top-level container for all regional data and reef outlines.
 
 # Fields
-- `regions::Dict{String,RegionalDataEntry}` : Regional data indexed by region ID
+- `regions::RegionalDataDict` : Regional data indexed by region ID
 - `reef_outlines::DataFrame` : Canonical reef outline geometries
 """
 struct RegionalData
-    regions::RegionalDataMapType
+    regions::RegionalDataDict
     reef_outlines::DataFrame
 
     function RegionalData(;
-        regions::RegionalDataMapType,
+        regions::RegionalDataDict,
         reef_outlines::DataFrame
     )
         total_locations = sum(nrow(entry.slope_table) for entry in values(regions))
@@ -389,54 +301,13 @@ end
 # Configuration Constants
 # =============================================================================
 
-# Define all assessment criteria with file naming conventions
-const ASSESSMENT_CRITERIA::AssessmentCriteria = AssessmentCriteria(;
-    depth=CriteriaMetadata(;
-        id="Depth",
-        file_suffix="_bathy",
-        display_label="Depth"
-    ),
-    slope=CriteriaMetadata(;
-        id="Slope",
-        file_suffix="_slope",
-        display_label="Slope"
-    ),
-    turbidity=CriteriaMetadata(;
-        id="Turbidity",
-        file_suffix="_turbid",
-        display_label="Turbidity"
-    ),
-    waves_height=CriteriaMetadata(;
-        id="WavesHs",
-        file_suffix="_waves_Hs",
-        display_label="Wave Height (m)"
-    ),
-    waves_period=CriteriaMetadata(;
-        id="WavesTp",
-        file_suffix="_waves_Tp",
-        display_label="Wave Period (s)"
-    ),
-    rugosity=CriteriaMetadata(;
-        id="Rugosity",
-        file_suffix="_rugosity",
-        display_label="Rugosity"
-    )
-)
-
-# Convenience list for iteration over all criteria metadata
-const ASSESSMENT_CRITERIA_LIST::Vector{CriteriaMetadata} = [
-    getfield(ASSESSMENT_CRITERIA, name) for name in fieldnames(AssessmentCriteria)
-]
-
-# Normal list - only Townsville has rugosity
+# Normal list - only Townsville has rugosity!
 const BASE_CRITERIA_IDS::Vector{String} = [
-    criteria.id for
-    criteria in ASSESSMENT_CRITERIA_LIST if criteria.id != ASSESSMENT_CRITERIA.rugosity.id
+    criteria.id for criteria in values(ASSESSMENT_CRITERIA) if criteria.id != "Rugosity"
 ]
 # All criteria
 const ALL_CRITERIA_IDS::Vector{String} = [
-    criteria.id for
-    criteria in ASSESSMENT_CRITERIA_LIST
+    criteria.id for criteria in values(ASSESSMENT_CRITERIA)
 ]
 
 # Define all available regions for the assessment system NOTE: Here is where you
@@ -483,24 +354,24 @@ for the specific region as defined in the region metadata.
 - `region_metadata::RegionMetadata` : Region metadata specifying available criteria
 
 # Returns
-`RegionalCriteria` struct with computed bounds for available criteria only.
+`BoundedCriteriaDict` with computed bounds for relevant criteria
 """
 function derive_criteria_bounds_from_slope_table(
     table::DataFrame,
     region_metadata::RegionMetadata
-)::RegionalCriteria
+)::BoundedCriteriaDict
     @debug "Computing assessment criteria bounds from slope table" table_rows = nrow(table) region_id =
         region_metadata.id available_criteria = region_metadata.available_criteria
 
     # Helper function to compute bounds for a specific criteria
     function compute_criteria_bounds(
         criteria::CriteriaMetadata
-    )
+    )::Union{BoundedCriteria,Nothing}
         if criteria.id ∈ region_metadata.available_criteria
             if hasproperty(table, Symbol(criteria.id))
                 bounds = bounds_from_tuple(extrema(table[:, criteria.id]))
                 @debug "Computed $(criteria.display_label) bounds" range = "$(bounds.min):$(bounds.max)"
-                return bounds
+                return BoundedCriteria(; metadata=criteria, bounds=bounds)
             else
                 @error "Region metadata lists $(criteria.display_label) with id $(criteria.id) as available but column missing from slope table" region_id =
                     region_metadata.id column = criteria.id
@@ -515,13 +386,17 @@ function derive_criteria_bounds_from_slope_table(
     end
 
     # For each criteria, if available in region, try to find bounds
-    criteria_dict::Dict{String,OptionalValue{Bounds}} = Dict()
-    for criteria in ASSESSMENT_CRITERIA_LIST
-        criteria_dict[criteria.id] = compute_criteria_bounds(criteria)
+    criteria_dict::BoundedCriteriaDict = Dict()
+    for criteria in values(ASSESSMENT_CRITERIA)
+        bounded_criteria = compute_criteria_bounds(criteria)
+        # Only include criteria relevant to the region
+        if !isnothing(bounded_criteria)
+            criteria_dict[criteria.id] = bounded_criteria
+        end
     end
 
-    @debug "Completed computation of criteria bounds, returning populated RegionalCriteria"
-    return build_regional_criteria_from_criteria_dictionary(criteria_dict)
+    @debug "Completed computation of criteria bounds, returning populated BoundedCriteriaDict"
+    return criteria_dict
 end
 
 """
@@ -705,7 +580,7 @@ This is the main data loading function that builds the complete data structure.
 function initialise_data(config::Dict)::RegionalData
     @info "Starting regional data initialization from source files"
 
-    regional_data::RegionalDataMapType = Dict()
+    regional_data::RegionalDataDict = Dict()
     data_source_directory = config["prepped_data"]["PREPPED_DATA_DIR"]
     @info "Using data source directory" directory = data_source_directory
 
@@ -733,14 +608,13 @@ function initialise_data(config::Dict)::RegionalData
             add_lat_long_columns_to_dataframe(slope_table)
 
             # Filter criteria list to only those available for this region
-            available_criteria_set = Set(region_metadata.available_criteria)
-            region_criteria_list = filter(
-                criteria -> criteria.id ∈ available_criteria_set,
-                ASSESSMENT_CRITERIA_LIST
-            )
+            available_criteria::Vector{String} = region_metadata.available_criteria
+            region_criteria_list::Vector{CriteriaMetadata} = [
+                ASSESSMENT_CRITERIA[id] for id in available_criteria
+            ]
 
             @debug "Filtered criteria for region" region_id = region_metadata.id total_criteria = length(
-                ASSESSMENT_CRITERIA_LIST
+                ASSESSMENT_CRITERIA
             ) available_criteria = length(region_criteria_list) criteria_ids = [
                 c.id for c in region_criteria_list
             ]
@@ -767,7 +641,7 @@ function initialise_data(config::Dict)::RegionalData
             ) available_criteria = join([c.id for c in region_criteria_list], ", ")
 
             # Compute regional criteria bounds from slope table data
-            criteria::RegionalCriteria = derive_criteria_bounds_from_slope_table(
+            bounds::BoundedCriteriaDict = derive_criteria_bounds_from_slope_table(
                 slope_table, region_metadata
             )
 
@@ -783,7 +657,7 @@ function initialise_data(config::Dict)::RegionalData
                 region_metadata,
                 raster_stack,
                 slope_table,
-                criteria
+                criteria=bounds
             )
 
         catch e
@@ -902,33 +776,23 @@ function Base.show(io::IO, ::MIME"text/plain", entry::RegionalDataEntry)
     )
     println(io, "  Criteria bounds:")
 
-    # Show each criteria with its bounds, only for non-nothing entries
-    for field_name in fieldnames(RegionalCriteria)
-        criteria_entry = getfield(entry.criteria, field_name)
-        if !isnothing(criteria_entry)
-            min_val = round(criteria_entry.bounds.min; digits=2)
-            max_val = round(criteria_entry.bounds.max; digits=2)
-            println(
-                io, "    $(criteria_entry.metadata.display_label): $(min_val) - $(max_val)"
-            )
-        else
-            # Get the criteria name for display
-            criteria_name = if field_name == :depth
-                ASSESSMENT_CRITERIA.depth.display_label
-            elseif field_name == :slope
-                ASSESSMENT_CRITERIA.slope.display_label
-            elseif field_name == :turbidity
-                ASSESSMENT_CRITERIA.turbidity.display_label
-            elseif field_name == :waves_height
-                ASSESSMENT_CRITERIA.waves_height.display_label
-            elseif field_name == :waves_period
-                ASSESSMENT_CRITERIA.waves_period.display_label
-            elseif field_name == :rugosity
-                ASSESSMENT_CRITERIA.rugosity.display_label
-            else
-                string(field_name)
-            end
-            println(io, "    $(criteria_name): Not available")
+    # Show each criteria with its bounds from the dictionary
+    for (_, bounded_criteria) in entry.criteria
+        min_val = round(bounded_criteria.bounds.min; digits=2)
+        max_val = round(bounded_criteria.bounds.max; digits=2)
+        display_label = bounded_criteria.metadata.display_label
+        println(io, "    $(display_label): $(min_val) - $(max_val)")
+    end
+
+    # Show criteria that are expected but not available
+    expected_criteria = Set(entry.region_metadata.available_criteria)
+    available_criteria = Set(keys(entry.criteria))
+    missing_criteria = setdiff(expected_criteria, available_criteria)
+
+    for criteria_id in missing_criteria
+        if haskey(ASSESSMENT_CRITERIA, criteria_id)
+            display_label = ASSESSMENT_CRITERIA[criteria_id].display_label
+            println(io, "    $(display_label): Not available")
         end
     end
 end
@@ -956,6 +820,6 @@ function Base.show(io::IO, ::MIME"text/plain", data::RegionalData)
 
     return println(
         io,
-        "Assessment criteria: $(join([c.display_label for c in ASSESSMENT_CRITERIA_LIST], ", "))"
+        "Assessment criteria: $(join([c.display_label for c in values(ASSESSMENT_CRITERIA)], ", "))"
     )
 end

@@ -14,19 +14,19 @@ regional data.
 
 # Fields
 - `region::String` : The region that is being assessed
-- `regional_criteria::RegionalCriteria` : The criteria to assess, including user provided bounds
+- `regional_criteria::BoundedCriteriaDict` : The criteria to assess, including user provided bounds
 - `region_data::RegionalDataEntry` : The data to consider for this region
 - `suitability_threshold::Int64` : The cutoff to consider a site suitable
 """
 struct RegionalAssessmentParameters
     region::String
-    regional_criteria::RegionalCriteria
+    regional_criteria::BoundedCriteriaDict
     region_data::RegionalDataEntry
     suitability_threshold::Int64
 
     function RegionalAssessmentParameters(;
         region::String,
-        regional_criteria::RegionalCriteria,
+        regional_criteria::BoundedCriteriaDict,
         region_data::RegionalDataEntry,
         suitability_threshold::Int64
     )
@@ -41,7 +41,7 @@ regional data plus spatial dimensions.
 
 # Fields
 - `region::String` : The region that is being assessed
-- `regional_criteria::RegionalCriteria` : The criteria to assess, including user provided bounds
+- `regional_criteria::BoundedCriteriaDict` : The criteria to assess, including user provided bounds
 - `region_data::RegionalDataEntry` : The data to consider for this region
 - `suitability_threshold::Int64` : The cutoff to consider a site suitable
 - `x_dist::Int64` : X dimension of polygon (metres)
@@ -50,7 +50,7 @@ regional data plus spatial dimensions.
 struct SuitabilityAssessmentParameters
     # Regional criteria
     region::String
-    regional_criteria::RegionalCriteria
+    regional_criteria::BoundedCriteriaDict
     region_data::RegionalDataEntry
     suitability_threshold::Int64
 
@@ -60,7 +60,7 @@ struct SuitabilityAssessmentParameters
 
     function SuitabilityAssessmentParameters(;
         region::String,
-        regional_criteria::RegionalCriteria,
+        regional_criteria::BoundedCriteriaDict,
         region_data::RegionalDataEntry,
         suitability_threshold::Int64,
         x_dist::Int64,
@@ -94,15 +94,15 @@ bounds for unspecified values. Returns nothing if regional criteria is not avail
 function merge_bounds(
     user_min::OptionalValue{Float64},
     user_max::OptionalValue{Float64},
-    regional_criteria::OptionalValue{RegionalCriteriaEntry}
+    criteria::OptionalValue{BoundedCriteria}
 )::OptionalValue{Bounds}
-    if isnothing(regional_criteria)
+    if isnothing(criteria)
         return nothing
     end
 
     bounds = Bounds(;
-        min=!isnothing(user_min) ? user_min : regional_criteria.bounds.min,
-        max=!isnothing(user_max) ? user_max : regional_criteria.bounds.max
+        min=!isnothing(user_min) ? user_min : criteria.bounds.min,
+        max=!isnothing(user_max) ? user_max : criteria.bounds.max
     )
 
     @debug "Merged bounds" min_val = bounds.min max_val = bounds.max user_specified_min =
@@ -110,6 +110,16 @@ function merge_bounds(
 
     return bounds
 end
+
+# Parameter mapping: criteria_id => (min_field, max_field) or nothing
+const PARAM_MAP::Dict{String,OptionalValue{Tuple{Symbol,Symbol}}} = Dict(
+    "Depth" => (:depth_min, :depth_max),
+    "Slope" => (:slope_min, :slope_max),
+    "Turbidity" => nothing,  # Not user-configurable
+    "WavesHs" => (:waves_height_min, :waves_height_max),
+    "WavesTp" => (:waves_period_min, :waves_period_max),
+    "Rugosity" => (:rugosity_min, :rugosity_max)
+)
 
 """
 Build regional assessment parameters from user input and regional data.
@@ -150,42 +160,17 @@ function build_regional_assessment_parameters(
     threshold =
         !isnothing(input.threshold) ? input.threshold : DEFAULT_SUITABILITY_THRESHOLD
 
-    # Build merged criteria
-    regional_criteria = RegionalCriteria(;
-        depth_bounds=merge_bounds(
-            input.depth_min, input.depth_max, region_data.criteria.depth
-        ),
-        slope_bounds=merge_bounds(
-            input.slope_min, input.slope_max, region_data.criteria.slope
-        ),
-        waves_height_bounds=merge_bounds(
-            input.waves_height_min,
-            input.waves_height_max,
-            region_data.criteria.waves_height
-        ),
-        waves_period_bounds=merge_bounds(
-            input.waves_period_min,
-            input.waves_period_max,
-            region_data.criteria.waves_period
-        ),
-        rugosity_bounds=merge_bounds(
-            input.rugosity_min, input.rugosity_max, region_data.criteria.rugosity
-        ),
-        # Turbidity is not user-configurable, always use regional bounds
-        turbidity_bounds=merge_bounds(nothing, nothing, region_data.criteria.turbidity)
-    )
+    regional_criteria::BoundedCriteriaDict = Dict()
 
-    # Count active criteria for logging
-    active_criteria = length([
-        b for b in [
-            regional_criteria.depth, regional_criteria.slope, regional_criteria.turbidity,
-            regional_criteria.waves_height, regional_criteria.waves_period,
-            regional_criteria.rugosity
-        ] if !isnothing(b)
-    ])
-
-    @info "Built regional assessment parameters" region = input.region threshold active_criteria user_specified_threshold =
-        !isnothing(input.threshold)
+    for (criteria_id, possible_symbols) in PARAM_MAP
+        regional_bounds = get(region_data.criteria, criteria_id, nothing)
+        user_bounds =
+            isnothing(possible_symbols) ? nothing :
+            (get(input, first(possible_symbols)), get(input, first(possible_symbols)))
+        regional_criteria[criteria_id] = merge_bounds(
+            user_bounds[1], user_bounds[2], regional_bounds
+        )
+    end
 
     return RegionalAssessmentParameters(;
         region=input.region,
@@ -347,7 +332,6 @@ function build_regional_assessment_file_path(
     return file_path
 end
 
-
 """
 Converts parameters from a suitability job into a regional job
 """
@@ -374,7 +358,7 @@ end
 """
 Converts parameters from a suitability assessment into a regional assessment
 """
-function regional_params_from_suitability(
+function regional_params_from_suitability_params(
     suitability_params::SuitabilityAssessmentParameters
 )::RegionalAssessmentParameters
     return RegionalAssessmentParameters(;
