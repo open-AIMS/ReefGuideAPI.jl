@@ -2,7 +2,7 @@
 # Assessment Parameters Constants
 # =============================================================================
 
-const DEFAULT_SUITABILITY_THRESHOLD::Int32 = 80
+const DEFAULT_SUITABILITY_THRESHOLD::Int64 = 80
 
 # =============================================================================
 # Assessment Parameters Data Structures
@@ -16,19 +16,19 @@ regional data.
 - `region::String` : The region that is being assessed
 - `regional_criteria::RegionalCriteria` : The criteria to assess, including user provided bounds
 - `region_data::RegionalDataEntry` : The data to consider for this region
-- `suitability_threshold::Int32` : The cutoff to consider a site suitable
+- `suitability_threshold::Int64` : The cutoff to consider a site suitable
 """
 struct RegionalAssessmentParameters
     region::String
     regional_criteria::RegionalCriteria
     region_data::RegionalDataEntry
-    suitability_threshold::Int32
+    suitability_threshold::Int64
 
     function RegionalAssessmentParameters(;
         region::String,
         regional_criteria::RegionalCriteria,
         region_data::RegionalDataEntry,
-        suitability_threshold::Int32
+        suitability_threshold::Int64
     )
         @debug "Created RegionalAssessmentParameters" region suitability_threshold
         return new(region, regional_criteria, region_data, suitability_threshold)
@@ -43,25 +43,28 @@ regional data plus spatial dimensions.
 - `region::String` : The region that is being assessed
 - `regional_criteria::RegionalCriteria` : The criteria to assess, including user provided bounds
 - `region_data::RegionalDataEntry` : The data to consider for this region
-- `suitability_threshold::Int32` : The cutoff to consider a site suitable
-- `x_dist::Int32` : X dimension of polygon (metres)
-- `y_dist::Int32` : Y dimension of polygon (metres)
+- `suitability_threshold::Int64` : The cutoff to consider a site suitable
+- `x_dist::Int64` : X dimension of polygon (metres)
+- `y_dist::Int64` : Y dimension of polygon (metres)
 """
 struct SuitabilityAssessmentParameters
+    # Regional criteria
     region::String
     regional_criteria::RegionalCriteria
     region_data::RegionalDataEntry
-    suitability_threshold::Int32
-    x_dist::Int32
-    y_dist::Int32
+    suitability_threshold::Int64
+
+    # Additional criteria
+    x_dist::Int64
+    y_dist::Int64
 
     function SuitabilityAssessmentParameters(;
         region::String,
         regional_criteria::RegionalCriteria,
         region_data::RegionalDataEntry,
-        suitability_threshold::Int32,
-        x_dist::Int32,
-        y_dist::Int32
+        suitability_threshold::Int64,
+        x_dist::Int64,
+        y_dist::Int64
     )
         @debug "Created SuitabilityAssessmentParameters" region suitability_threshold x_dist y_dist
         return new(
@@ -71,7 +74,7 @@ struct SuitabilityAssessmentParameters
 end
 
 # =============================================================================
-# Assessment Parameters Builder Functions
+# Assessment Parameters Helper Functions
 # =============================================================================
 
 """
@@ -188,7 +191,7 @@ function build_regional_assessment_parameters(
         region=input.region,
         regional_criteria,
         region_data,
-        suitability_threshold=Int32(threshold)
+        suitability_threshold=Int64(threshold)
     )
 end
 
@@ -215,103 +218,22 @@ function build_suitability_assessment_parameters(
     @info "Building suitability assessment parameters" region = input.region x_dist =
         input.x_dist y_dist = input.y_dist
 
-    # Validate region exists
-    if !haskey(regional_data.regions, input.region)
-        available_regions = collect(keys(regional_data.regions))
-        @error "Region not found in regional data" region = input.region available_regions
-        throw(
-            ErrorException(
-                "Regional data did not have data for region $(input.region). Available regions: $(join(available_regions, ", "))"
-            )
-        )
-    end
-
-    region_data = regional_data.regions[input.region]
-
-    # Extract threshold with default fallback
-    threshold =
-        !isnothing(input.threshold) ? input.threshold : DEFAULT_SUITABILITY_THRESHOLD
-
-    # Build merged criteria
-    regional_criteria = RegionalCriteria(;
-        depth_bounds=merge_bounds(
-            input.depth_min, input.depth_max, region_data.criteria.depth
-        ),
-        slope_bounds=merge_bounds(
-            input.slope_min, input.slope_max, region_data.criteria.slope
-        ),
-        waves_height_bounds=merge_bounds(
-            input.waves_height_min,
-            input.waves_height_max,
-            region_data.criteria.waves_height
-        ),
-        waves_period_bounds=merge_bounds(
-            input.waves_period_min,
-            input.waves_period_max,
-            region_data.criteria.waves_period
-        ),
-        rugosity_bounds=merge_bounds(
-            input.rugosity_min, input.rugosity_max, region_data.criteria.rugosity
-        ),
-        # Turbidity is not user-configurable, always use regional bounds
-        turbidity_bounds=merge_bounds(nothing, nothing, region_data.criteria.turbidity)
+    @debug "Building regional parameters first"
+    regional_input = regional_job_from_suitability_job(input)
+    regional_parameters = build_regional_assessment_parameters(
+        regional_input,
+        regional_data
     )
-
-    # Count active criteria for logging
-    active_criteria = length([
-        b for b in [
-            regional_criteria.depth, regional_criteria.slope, regional_criteria.turbidity,
-            regional_criteria.waves_height, regional_criteria.waves_period,
-            regional_criteria.rugosity
-        ] if !isnothing(b)
-    ])
-
-    @info "Built suitability assessment parameters" region = input.region threshold active_criteria x_dist =
-        input.x_dist y_dist = input.y_dist user_specified_threshold =
-        !isnothing(input.threshold)
-
+    @debug "Extending regional parameters with suitability inputs x_dist and ydist" x =
+        input.x_dist y = input.y_dist
     return SuitabilityAssessmentParameters(;
-        region=input.region,
-        regional_criteria,
-        region_data,
-        suitability_threshold=Int32(threshold),
-        x_dist=Int32(input.x_dist),
-        y_dist=Int32(input.y_dist)
+        region=regional_parameters.region,
+        regional_criteria=regional_parameters.regional_criteria,
+        region_data=regional_parameters.region_data,
+        suitability_threshold=regional_parameters.suitability_threshold,
+        x_dist=input.x_dist,
+        y_dist=input.y_dist
     )
-end
-
-# =============================================================================
-# Cache File Name Generation
-# =============================================================================
-
-"""
-Builds a hash by combining strings and hashing result
-"""
-function build_hash_from_components(components::Vector{String})::String
-    return string(hash(join(components, "|")))
-end
-
-"""
-Combines present regional criteria including bounds into hash components
-"""
-function get_hash_components_from_regional_criteria(
-    criteria::RegionalCriteria
-)::Vector{String}
-    hash_components::Vector{String} = []
-    for field in REGIONAL_CRITERIA_SYMBOLS
-        criteria_entry::OptionalValue{RegionalCriteriaEntry} = getfield(
-            criteria, field
-        )
-        if !isnothing(criteria_entry)
-            push!(
-                hash_components,
-                "$(field)_$(criteria_entry.bounds.min)_$(criteria_entry.bounds.max)"
-            )
-        else
-            push!(hash_components, "$(field)_null")
-        end
-    end
-    return hash_components
 end
 
 """
@@ -425,78 +347,40 @@ function build_regional_assessment_file_path(
     return file_path
 end
 
+
 """
-Build predictable file path for suitability assessment results in configured cache
-location.
-
-Creates a complete file path for caching suitability assessment results using the
-configured cache directory and deterministic parameter-based naming.
-
-# Arguments
-- `params::SuitabilityAssessmentParameters` : Suitability assessment parameters
-- `ext::String` : File extension for the cache file
-- `config::Dict` : Configuration dictionary containing cache settings
-
-# Returns
-String path to cache file location.
+Converts parameters from a suitability job into a regional job
 """
-function build_suitability_assessment_file_path(
-    params::SuitabilityAssessmentParameters;
-    ext::String,
-    config::Dict
-)::String
-    @debug "Building file path for suitability assessment cache" region = params.region ext
-
-    cache_path = _cache_location(config)
-    param_hash = suitability_assessment_params_hash(params)
-    filename = "$(param_hash)_$(params.region)_suitability_assessment.$(ext)"
-    file_path = joinpath(cache_path, filename)
-
-    @debug "Built suitability assessment file path" file_path region = params.region hash =
-        param_hash
-
-    return file_path
+function regional_job_from_suitability_job(
+    suitability_job::SuitabilityAssessmentInput
+)::RegionalAssessmentInput
+    return RegionalAssessmentInput(
+        suitability_job.region,
+        suitability_job.reef_type,
+        suitability_job.depth_min,
+        suitability_job.depth_max,
+        suitability_job.slope_min,
+        suitability_job.slope_max,
+        suitability_job.rugosity_min,
+        suitability_job.rugosity_max,
+        suitability_job.waves_period_min,
+        suitability_job.waves_period_max,
+        suitability_job.waves_height_min,
+        suitability_job.waves_height_max,
+        suitability_job.threshold
+    )
 end
 
 """
-Convert RegionalCriteria to a vector of CriteriaBounds for assessment processing.
-
-Transforms the RegionalCriteria struct into CriteriaBounds objects that include
-evaluation functions. Only includes criteria that are available (non-nothing).
-
-# Arguments
-- `regional_criteria::RegionalCriteria` : Regional criteria with bounds to convert
-
-# Returns
-Vector of `CriteriaBounds` objects for available criteria.
+Converts parameters from a suitability assessment into a regional assessment
 """
-function build_criteria_bounds_from_regional_criteria(
-    regional_criteria::RegionalCriteria
-)::Vector{CriteriaBounds}
-    @debug "Converting RegionalCriteria to CriteriaBounds vector"
-
-    criteria_bounds = CriteriaBounds[]
-
-    for field_symbol in REGIONAL_CRITERIA_SYMBOLS
-        criteria_entry = getfield(regional_criteria, field_symbol)
-
-        if !isnothing(criteria_entry)
-            bounds = CriteriaBounds(
-                # Field to get in the data
-                criteria_entry.metadata.id,
-                # Min/max bounds
-                criteria_entry.bounds.min,
-                criteria_entry.bounds.max
-            )
-            push!(criteria_bounds, bounds)
-        else
-            @debug "Skipped criteria - not available" criteria_id = String(field_symbol)
-        end
-    end
-
-    @debug "Built CriteriaBounds vector" total_criteria = length(criteria_bounds) criteria_ids = [
-        String(cb.name) for cb in criteria_bounds
-    ]
-
-    return criteria_bounds
+function regional_params_from_suitability(
+    suitability_params::SuitabilityAssessmentParameters
+)::RegionalAssessmentParameters
+    return RegionalAssessmentParameters(;
+        region=suitability_params.region,
+        regional_criteria=suitability_params.regional_criteria,
+        region_data=suitability_params.region_data,
+        suitability_threshold=suitability_params.suitability_threshold
+    )
 end

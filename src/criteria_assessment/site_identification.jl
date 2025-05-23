@@ -408,7 +408,7 @@ function assess_sites(
     return initial_polygons
 end
 
-function assess_sites(;
+function assess_sites(
     params::SuitabilityAssessmentParameters,
     regional_raster::Raster
 )

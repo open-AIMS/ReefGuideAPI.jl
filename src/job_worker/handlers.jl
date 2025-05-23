@@ -338,6 +338,9 @@ end
 
 """
 Input payload for SUITABILITY_ASSESSMENT job
+
+NOTE this is a RegionalAssessmentInput (and more) and therefore also an
+AbstractJobInput
 """
 struct SuitabilityAssessmentInput <: AbstractJobInput
     # High level config
@@ -389,46 +392,50 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data::RegionalData = get_regional_data(config)
+    regional_data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
-    @info "Compiling regional assessment parameters from regional data and input data"
-    params = build_suitability_assessment_parameters(
+    @info "Compiling suitability assessment parameters from regional data and job inputs"
+    params::SuitabilityAssessmentParameters = build_suitability_assessment_parameters(
         input,
-        reg_assess_data
+        regional_data
     )
     @info "Done compiling parameters"
 
-    @info "Performing regional assessment"
-    assessed_fn = build_regional_assessment_file_path(params; ext="tiff", config)
-    @debug "COG File name: $(assessed_fn)"
+    @debug "Converting suitability job into regional job for regional assessment"
+    regional_params = regional_params_from_suitability(params)
+    @debug "Conversion complete"
 
-    if !isfile(assessed_fn)
+    @info "Performing regional assessment"
+    regional_assessment_fn = build_regional_assessment_file_path(
+        regional_params; ext="tiff", config=config
+    )
+    @debug "COG File name: $(regional_assessment_fn)"
+
+    if !isfile(regional_assessment_fn)
         @debug "File system cache was not hit for this task"
         @debug "Assessing region $(params.region)"
-        assessed = assess_region(params)
+        regional_raster = assess_region(regional_params)
 
-        @debug now() "Writing COG of regional assessment to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed, config)
+        @debug now() "Writing COG of regional assessment to $(regional_assessment_fn)"
+        _write_cog(regional_assessment_fn, regional_raster, config)
         @debug now() "Finished writing cog "
     else
         @info "Cache hit - skipping regional assessment process..."
+        @debug "Pulling out raster from cache"
+        regional_raster = Raster(regional_assessment_fn; missingval=0, lazy=true)
     end
-
-    # Extract criteria and assessment
-    pixel_criteria = extract_criteria(criteria_dictionary, search_criteria())
-    deploy_site_criteria = extract_criteria(criteria_dictionary, site_criteria())
 
     @debug "Performing site assessment"
     best_sites = filter_sites(
         assess_sites(
-            reg_assess_data, reg, rtype, pixel_criteria, deploy_site_criteria,
-            assessed
+            params,
+            regional_raster
         )
     )
 
     # Specifically clear from memory to invoke garbage collector
-    assessed = nothing
+    regional_raster = nothing
 
     @debug "Writing to temporary file"
     geojson_name = "$(tempname()).geojson"

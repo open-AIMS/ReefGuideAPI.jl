@@ -24,11 +24,11 @@ using
     HTTP,
     Oxygen
 
-include("job_worker/Worker.jl")
+# Worker system
+include("job_worker/index.jl")
 
-# New work including setup logic and helper functions
-include("setup.jl")
-include("RegionalDataHelpers.jl")
+# Utilities and helpers for assessments
+include("utility/index.jl")
 
 include("Middleware.jl")
 include("admin.jl")
@@ -44,7 +44,7 @@ include("criteria_assessment/site_identification.jl")
 
 include("site_assessment/common_functions.jl")
 include("site_assessment/best_fit_polygons.jl")
-
+include("criteria_assessment/tiles.jl")
 
 function get_auth_router(config::Dict)
     # Setup auth middleware - depends on config.toml - can return identity func
