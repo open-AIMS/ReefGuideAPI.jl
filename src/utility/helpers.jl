@@ -11,7 +11,8 @@ Returns a hash component for bounded criteria
 function get_hash_components_from_regional_criteria(
     criteria::BoundedCriteriaDict
 )::Vector{String}
-    return [hash(criteria)]
+    # TODO Fix 
+    return [String(hash(criteria))]
 end
 
 """

@@ -161,15 +161,28 @@ function build_regional_assessment_parameters(
         !isnothing(input.threshold) ? input.threshold : DEFAULT_SUITABILITY_THRESHOLD
 
     regional_criteria::BoundedCriteriaDict = Dict()
+    regional_bounds::BoundedCriteriaDict = region_data.criteria
 
     for (criteria_id, possible_symbols) in PARAM_MAP
-        regional_bounds = get(region_data.criteria, criteria_id, nothing)
-        user_bounds =
+        bounds = get(regional_bounds, criteria_id, nothing)
+        user_min =
             isnothing(possible_symbols) ? nothing :
-            (get(input, first(possible_symbols)), get(input, first(possible_symbols)))
-        regional_criteria[criteria_id] = merge_bounds(
-            user_bounds[1], user_bounds[2], regional_bounds
+            getproperty(input, first(possible_symbols))
+        user_max =
+            isnothing(possible_symbols) ? nothing :
+            getproperty(input, last(possible_symbols))
+
+        merged = merge_bounds(
+            user_min,
+            user_max,
+            bounds
         )
+        if !isnothing(merged)
+            regional_criteria[criteria_id] = BoundedCriteria(;
+                metadata=ASSESSMENT_CRITERIA[criteria_id],
+                bounds=merged
+            )
+        end
     end
 
     return RegionalAssessmentParameters(;
