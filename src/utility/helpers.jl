@@ -6,13 +6,24 @@ function build_hash_from_components(components::Vector{String})::String
 end
 
 """
-Returns a hash component for bounded criteria
+Returns a hash component for bounded criteria 
+
+Carefully orders hash predictably and only includes present criteria
 """
 function get_hash_components_from_regional_criteria(
     criteria::BoundedCriteriaDict
 )::Vector{String}
-    # TODO Fix 
-    return [String(hash(criteria))]
+    @debug "Hashing criteria..." criteria
+    components::Vector{String} = []
+    for id in keys(ASSESSMENT_CRITERIA)
+        components = vcat(components,
+            haskey(criteria, id) ?
+            [
+                id, string(criteria[id].bounds.min), string(criteria[id].bounds.max)
+            ] : []
+        )
+    end
+    return components
 end
 
 """

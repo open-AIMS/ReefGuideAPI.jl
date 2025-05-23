@@ -252,14 +252,12 @@ function regional_assessment_params_hash(params::RegionalAssessmentParameters)::
 
     # Create hash input from key parameters
     hash_components = [
+        # Region
         params.region,
-        string(params.suitability_threshold)
-    ]
-
-    # Add criteria bounds to hash (only non-nothing criteria)
-    hash_components::Vector{String} = [
-        hash_components;
-        get_hash_components_from_regional_criteria(params.regional_criteria)
+        # Suitability threshold
+        string(params.suitability_threshold),
+        # Criteria
+        get_hash_components_from_regional_criteria(params.regional_criteria)...
     ]
 
     # Create deterministic hash

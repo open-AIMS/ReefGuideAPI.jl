@@ -286,27 +286,27 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data::RegionalData = get_regional_data(config)
+    data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
     @info "Compiling regional assessment parameters from regional data and input data"
     params = build_regional_assessment_parameters(
         input,
-        reg_assess_data
+        data
     )
     @info "Done compiling parameters"
 
     @info "Performing regional assessment"
-    assessed_fn = build_regional_assessment_file_path(params; ext="tiff", config)
-    @debug "COG File name: $(assessed_fn)"
+    regional_assessment_filename = build_regional_assessment_file_path(params; ext="tiff", config)
+    @debug "COG File name: $(regional_assessment_filename)"
 
-    if !isfile(assessed_fn)
+    if !isfile(regional_assessment_filename)
         @debug "File system cache was not hit for this task"
         @debug "Assessing region $(params.region)"
         assessed = assess_region(params)
 
-        @debug now() "Writing COG of regional assessment to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed, config)
+        @debug now() "Writing COG of regional assessment to $(regional_assessment_filename)"
+        _write_cog(regional_assessment_filename, assessed, config)
         @debug now() "Finished writing cog "
     else
         @info "Cache hit - skipping regional assessment process and re-uploading to output!"
@@ -321,7 +321,7 @@ function handle_job(
     @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
 
     @debug now() "Initiating file upload"
-    upload_file(client, assessed_fn, full_s3_target)
+    upload_file(client, regional_assessment_filename, full_s3_target)
     @debug now() "File upload completed"
 
     @debug "Finished regional assessment job."
