@@ -3,6 +3,7 @@
 DEPRECATED 
 ==========
 """
+
 function criteria_data_map()
     # TODO: Load from config?
     return OrderedDict(

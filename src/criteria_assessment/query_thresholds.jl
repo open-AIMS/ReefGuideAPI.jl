@@ -221,7 +221,7 @@ end
 
 """
     apply_criteria_lookup(
-        raster_stack::RasterStack,
+        raster_stack::OldRegionalCriteria,
         rtype::Symbol,
         ruleset::Vector{CriteriaBounds{Function}}
     )
@@ -348,7 +348,7 @@ Handles threshold masking using the integrated assessment parameter struct
 function threshold_mask(
     params::RegionalAssessmentParameters
 )::Raster
-    # build out a set of criteria filters using the regional criteria
+    # Builds out a set of criteria filters using the regional criteria.
     # NOTE this will only filter over available criteria
     filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
 
