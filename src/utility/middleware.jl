@@ -88,3 +88,9 @@ function setup_jwt_middleware(config::Dict)
 
     return jwt_auth_middleware
 end
+
+function get_auth_router(config::Dict)
+    # Setup auth middleware - depends on config.toml - can return identity func
+    auth = setup_jwt_middleware(config)
+    return router(""; middleware=[auth])
+end

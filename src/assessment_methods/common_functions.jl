@@ -3,8 +3,6 @@
 using LinearAlgebra
 using GeoDataFrames
 
-include("geom_ops.jl")
-
 """
     meters_to_degrees(x, lat)
 
@@ -283,28 +281,6 @@ function output_geojson(
     return nothing
 end
 
-"""
-    search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
-
-Build a look up table identifying all pixels in a raster that meet a suitability threshold.
-
-# Arguments
-- `raster` : Raster of regional data
-- `threshold` : Suitability threshold value (greater or equal than)
-
-# Returns
-DataFrame containing indices, lon and lat for each pixel that is intended for further
-analysis.
-"""
-function search_lookup(raster::Raster, threshold::Union{Int64,Float64})::DataFrame
-    criteria_matches::SparseMatrixCSC{Bool,Int64} = sparse(falses(size(raster)))
-    Rasters.read!(raster .>= threshold, criteria_matches)
-    indices::Vector{CartesianIndex{2}} = findall(criteria_matches)
-    indices_lon::Vector{Float64} = lookup(raster, X)[first.(Tuple.(indices))]
-    indices_lat::Vector{Float64} = lookup(raster, Y)[last.(Tuple.(indices))]
-
-    return DataFrame(; indices=indices, lons=indices_lon, lats=indices_lat)
-end
 
 """
     buffer_simplify(

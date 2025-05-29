@@ -1,56 +1,30 @@
 module ReefGuideAPI
 
-using Base.Threads
-using
-    Glob,
-    TOML
-
-using Serialization
-
-using DataFrames
-using OrderedCollections
-using Memoization
-using SparseArrays
-
-using FLoops, ThreadsX
-
 import GeoDataFrames as GDF
 using
+    Base.Threads,
+    Glob,
+    TOML,
     ArchGDAL,
     GeoParquet,
-    Rasters
-
-using
+    Rasters,
     HTTP,
-    Oxygen
-
-# Worker system
-include("job_worker/index.jl")
+    Oxygen,
+    Serialization,
+    DataFrames,
+    OrderedCollections,
+    Memoization,
+    SparseArrays,
+    FLoops, ThreadsX
 
 # Utilities and helpers for assessments
 include("utility/index.jl")
 
-include("Middleware.jl")
-include("admin.jl")
-include("file_io.jl")
+# Assessment logic
+include("assessment_methods/index.jl")
 
-# TODO Remove these due to deprecation
-include("job_management/JobInterface.jl")
-include("job_management/DiskService.jl")
-
-include("criteria_assessment/query_thresholds.jl")
-include("criteria_assessment/regional_assessment.jl")
-include("criteria_assessment/site_identification.jl")
-
-include("site_assessment/common_functions.jl")
-include("site_assessment/best_fit_polygons.jl")
-include("criteria_assessment/tiles.jl")
-
-function get_auth_router(config::Dict)
-    # Setup auth middleware - depends on config.toml - can return identity func
-    auth = setup_jwt_middleware(config)
-    return router(""; middleware=[auth])
-end
+# Worker system
+include("job_worker/index.jl")
 
 function start_server(config_path)
     @info "Launching server... please wait"
@@ -64,23 +38,15 @@ function start_server(config_path)
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)
 
-    @info "Setting up criteria routes..."
-    setup_criteria_routes(config, auth)
-
-    @info "Setting up region routes..."
-    setup_region_routes(config, auth)
-
-    @info "Setting up tile routes..."
-    setup_tile_routes(config, auth)
-
     @info "Setting up job routes..."
     setup_job_routes(config, auth)
 
-    @info "Setting up admin routes..."
-    setup_admin_routes(config)
+    @info "Setting up utility routes..."
+    setup_utility_routes(config, auth)
 
     # Which host should we listen on?
     host = config["server_config"]["HOST"]
+
     # Which port should we listen on?
     port = 8000
 
@@ -112,30 +78,6 @@ function start_worker()
     @info "Worker closed itself..."
 end
 
-export
-    OldRegionalCriteria,
-    criteria_data_map
-
-# Methods to assess/identify deployment "plots" of reef.
-export
-    assess_reef_site,
-    identify_edge_aligned_sites,
-    filter_sites,
-    output_geojson
-
-# Geometry handling
-export
-    create_poly,
-    create_bbox,
-    port_buffer_mask,
-    meters_to_degrees,
-    polygon_to_lines
-
-# Raster->Index interactions (defunct?)
-export
-    valid_slope_lon_inds,
-    valid_slope_lat_inds,
-    valid_flat_lon_inds,
-    valid_flat_lat_inds
+export start_worker, start_server
 
 end

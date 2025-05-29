@@ -85,6 +85,7 @@ function assess_reef_site(
     best_poly[argmax(score)],
     maximum(qc_flag)
 end
+
 function assess_reef_site(
     rel_pix::DataFrame,
     rotated::Vector{GI.Wrappers.Polygon},
@@ -511,68 +512,6 @@ function find_optimal_site_alignment(
         geometry=best_poly
     )
 end
-
-# Raster based assessment methods
-
-# """
-#     assess_reef_site(
-#         rst::Union{Raster,RasterStack},
-#         geom::GI.Wrappers.Polygon,
-#         ruleset::Dict{Symbol,Function};
-#         degree_step::Float64=15.0,
-#         start_rot::Float64=0.0,
-#         n_per_side::Int64=1
-#     )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
-
-# Assess given reef site for it's suitability score at different specified rotations around the
-# initial reef-edge rotation.
-
-# # Arguments
-# - `rst` : Raster of suitability scores.
-# - `geom` : Initial site polygon with no rotation applied.
-# - `ruleset` : Criteria ruleset to apply to `rst` pixels when assessing which pixels are suitable.
-# - `degree_step` : Degree value to vary each rotation by. Default = 15 degrees.
-# - `start_rot` : Initial rotation used to align the site polygon with the nearest reef edge. Default = 0 degrees.
-# - `n_per_side` : Number of times to rotate polygon on each side (clockwise and anticlockwise). Default = 2 rotations on each side.
-
-# # Returns
-# - Highest score identified with rotating polygons.
-# - The index of the highest scoring rotation.
-# - The polygon with the highest score out of the assessed rotated polygons.
-# """
-# function assess_reef_site(
-#     rst::Union{Raster,RasterStack},
-#     geom::GI.Wrappers.Polygon;
-#     degree_step::Float64=15.0,
-#     start_rot::Float64=0.0,
-#     n_per_side::Int64=2
-# )::Tuple{Float64,Int64,GI.Wrappers.Polygon}
-#     rotations =
-#         (start_rot - (degree_step * n_per_side)):degree_step:(start_rot + (degree_step * n_per_side))
-#     n_rotations = length(rotations)
-#     score = zeros(n_rotations)
-#     best_poly = Vector(undef, n_rotations)
-
-#     target_crs = convert(EPSG, GI.crs(rst))
-#     for (j, r) in enumerate(rotations)
-#         rot_geom = rotate_geom(geom, r, target_crs)
-#         c_rst = crop(rst; to=rot_geom)
-#         if !all(size(c_rst) .> (0, 0))
-#             @warn "No data found!"
-#             continue
-#         end
-
-#         score[j] = mean(c_rst)
-#         best_poly[j] = rot_geom
-
-#         if score[j] > 95.0
-#             # Found a good enough rotation
-#             break
-#         end
-#     end
-
-#     return score[argmax(score)], argmax(score) - (n_per_side + 1), best_poly[argmax(score)]
-# end
 
 """
     assess_reef_site(

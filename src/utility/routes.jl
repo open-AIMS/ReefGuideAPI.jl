@@ -11,9 +11,14 @@ Creates REST endpoints for accessing regional criteria bounds and metadata.
 - `config` : Configuration object
 - `auth` : Authentication/authorization handler
 """
-function setup_criteria_routes(config, auth)
+function setup_utility_routes(config, auth)
     @info "Setting up criteria routes"
     regional_data::RegionalData = get_regional_data(config)
+
+    # Health check
+    @get "/health" function ()
+        return json(Dict(:status => "healthy"))
+    end
 
     # Endpoint: GET /criteria/{region}/ranges
     # Returns JSON with min/max values for all criteria in specified region
@@ -43,6 +48,13 @@ function setup_criteria_routes(config, auth)
 
         @debug "Returning criteria ranges" region num_criteria = length(output_dict)
         return json(output_dict)
+    end
+
+    """Obtain the spatial bounds for a given region of interest"""
+    @get auth("/bounds/{region}") function (req::Request, region::String)
+        rst_stack = regional_data.regions[region].raster_stack
+
+        return json(Rasters.bounds(rst_stack))
     end
 
     @info "Criteria routes setup completed"

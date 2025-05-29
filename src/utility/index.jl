@@ -1,5 +1,7 @@
 include("regions_criteria_setup.jl")
+include("config.jl")
 include("helpers.jl")
-include("deprecated.jl")
 include("routes.jl")
 include("assessment_interfaces.jl")
+include("file_io.jl")
+include("middleware.jl")

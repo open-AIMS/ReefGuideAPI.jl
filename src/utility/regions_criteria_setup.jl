@@ -527,40 +527,6 @@ function check_existing_regional_data_from_disk(
     return nothing
 end
 
-"""
-Get the file path for the empty tile cache.
-
-# Arguments
-- `config::Dict` : Configuration dictionary containing cache settings
-
-# Returns
-String path to the empty tile cache file.
-"""
-function get_empty_tile_path(config::Dict)::String
-    cache_location = _cache_location(config)
-    return joinpath(cache_location, "no_data_tile.png")
-end
-
-"""
-Initialize empty tile cache if it doesn't exist.
-
-Creates a blank PNG tile used for areas with no data coverage.
-
-# Arguments
-- `config::Dict` : Configuration dictionary containing tile and cache settings
-"""
-function setup_empty_tile_cache(config::Dict)::Nothing
-    file_path = get_empty_tile_path(config)
-    if !isfile(file_path)
-        @info "Creating empty tile cache" file_path
-        # Create empty RGBA tile with configured dimensions
-        save(file_path, zeros(RGBA, tile_size(config)))
-    else
-        @debug "Empty tile cache already exists" file_path
-    end
-    return nothing
-end
-
 # =============================================================================
 # Main Data Initialization Functions
 # =============================================================================
@@ -720,9 +686,6 @@ function initialise_data_with_cache(config::Dict; force_cache_invalidation::Bool
 
     # Update global cache
     REGIONAL_DATA = regional_data
-
-    # Initialize empty tile cache for map rendering
-    setup_empty_tile_cache(config)
 
     # Save to disk for future use
     @info "Saving regional data to disk cache" cache_directory = regional_cache_directory
