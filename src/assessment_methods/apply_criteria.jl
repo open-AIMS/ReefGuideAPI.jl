@@ -10,7 +10,7 @@ struct CriteriaBounds{F<:Function}
     "A function which takes a value and returns if matches the criteria"
     rule::F
 
-    function CriteriaBounds(name::String, lb::S, ub::S)::CriteriaBounds where {S<:String}
+    function CriteriaBounds(name::S, lb::S, ub::S)::CriteriaBounds where {S<:String}
         lower_bound::Float32 = parse(Float32, lb)
         upper_bound::Float32 = parse(Float32, ub)
         func = (x) -> lower_bound .<= x .<= upper_bound
