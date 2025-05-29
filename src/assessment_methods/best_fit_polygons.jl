@@ -1,6 +1,5 @@
 """Geometry-based assessment methods."""
 
-using NearestNeighbors
 
 # Tabular data assessment methods
 

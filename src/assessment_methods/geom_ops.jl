@@ -1,23 +1,6 @@
 """
 Helper functions to support interaction with geometries.
 """
-
-using Statistics
-
-import ArchGDAL as AG
-import GeoInterface as GI
-import GeoInterface.Wrappers as GIWrap
-
-import GeometryOps as GO
-using Proj
-using LibGEOS
-using GeometryBasics
-
-using CoordinateTransformations
-
-using Rasters
-using StaticArrays
-
 function create_poly(verts, crs)
     sel_lines = GI.LineString(GI.Point.(verts))
     ring = GI.LinearRing(GI.getpoint(sel_lines))

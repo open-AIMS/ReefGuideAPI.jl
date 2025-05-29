@@ -1,6 +1,4 @@
 module ReefGuideAPI
-
-import GeoDataFrames as GDF
 using
     Base.Threads,
     Glob,
@@ -37,9 +35,6 @@ function start_server(config_path)
 
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)
-
-    @info "Setting up job routes..."
-    setup_job_routes(config, auth)
 
     @info "Setting up utility routes..."
     setup_utility_routes(config, auth)

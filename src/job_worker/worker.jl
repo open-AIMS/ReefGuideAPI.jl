@@ -4,12 +4,6 @@ components to orchestrate consuming jobs. Principally polls for, completes and
 reports back jobs done, on a loop, until idle for a configurable idle time.
 """
 
-using Dates
-using Random
-using Logging
-using JSON3
-
-
 """
 Represents a job that needs to be processed
 """

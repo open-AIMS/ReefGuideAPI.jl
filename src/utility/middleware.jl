@@ -1,8 +1,3 @@
-using JSONWebTokens
-using HTTP
-using Dates
-using JSON
-
 # TODO tighten restrictions
 const CORS_HEADERS = [
     "Access-Control-Allow-Origin" => "*",
