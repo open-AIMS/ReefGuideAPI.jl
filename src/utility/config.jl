@@ -43,3 +43,19 @@ function _n_gdal_threads(config::Dict)::String
 
     return n_cog_threads
 end
+
+"""
+    tile_size(config::Dict)::Tuple
+
+Retrieve the configured size of map tiles in pixels (width and height / lon and lat).
+"""
+function tile_size(config::Dict)::Tuple
+    tile_dims = try
+        res = parse(Int, config["server_config"]["TILE_SIZE"])
+        (res, res)
+    catch
+        (256, 256)  # 256x256
+    end
+
+    return tile_dims
+end

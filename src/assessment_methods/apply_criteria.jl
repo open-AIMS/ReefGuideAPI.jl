@@ -51,7 +51,7 @@ function filter_raster_by_criteria(
     # Apply criteria
     res_lookup = trues(nrow(lookup))
     for filter::CriteriaBounds in criteria_bounds
-        res_lookup .= res_lookup .& filter.rule(lookup[!, rule_name])
+        res_lookup .= res_lookup .& filter.rule(lookup[!, filter.name])
     end
 
     tmp = lookup[res_lookup, [:lon_idx, :lat_idx]]
