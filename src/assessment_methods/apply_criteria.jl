@@ -1,5 +1,9 @@
 """Methods to filter criteria bounds over rasters and lookup tables"""
 
+"""
+CriteriaBounds combine lookup information for a given criteria, bounds, and a
+rule (function) which enforces it for a given value
+"""
 struct CriteriaBounds{F<:Function}
     "The field ID of the criteria"
     name::Symbol
@@ -25,8 +29,6 @@ struct CriteriaBounds{F<:Function}
         return new{Function}(Symbol(name), lb, ub, func)
     end
 end
-
-"""Methods to support querying data layers."""
 
 """
 Apply thresholds for each criteria.

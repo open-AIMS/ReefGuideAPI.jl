@@ -1,28 +1,31 @@
 module ReefGuideAPI
-using
-    Base.Threads,
-    Glob,
-    TOML,
-    ArchGDAL,
-    GeoParquet,
-    Rasters,
-    HTTP,
-    Oxygen,
-    Serialization,
-    DataFrames,
-    OrderedCollections,
-    Memoization,
-    SparseArrays,
-    FLoops, ThreadsX
+
+# System imports 
+using Base.Threads
+
+# File IO
+using Glob, TOML, Serialization
+
+# Geospatial
+using ArchGDAL, GeoParquet, Rasters
+
+# Server
+using HTTP, Oxygen
+
+# Collections
+using DataFrames, OrderedCollections, SparseArrays
+
+# Multithreading
+using FLoops, ThreadsX
 
 # Utilities and helpers for assessments
-include("utility/index.jl")
+include("utility/utility.jl")
 
 # Assessment logic
-include("assessment_methods/index.jl")
+include("assessment_methods/assessment_methods.jl")
 
 # Worker system
-include("job_worker/index.jl")
+include("job_worker/job_worker.jl")
 
 function start_server(config_path)
     @info "Launching server... please wait"
