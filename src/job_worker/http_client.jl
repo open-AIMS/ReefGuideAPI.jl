@@ -3,11 +3,6 @@ A HTTP client which wraps auth/headers to talk to the web API for the job
 system.
 """
 
-using HTTP
-using JSON3
-using Dates
-using JSONWebTokens
-
 """
 Custom error type for API errors
 """

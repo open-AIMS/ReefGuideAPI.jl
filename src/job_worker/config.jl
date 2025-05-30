@@ -2,8 +2,6 @@
 Manages config for the worker node.
 """
 
-using Dates
-
 """
 Configuration for the worker
 These are populated from the environment and are only loaded when the worker

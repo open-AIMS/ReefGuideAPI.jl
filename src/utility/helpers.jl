@@ -1,3 +1,4 @@
+
 """
 Builds a hash by combining strings and hashing result
 """

@@ -3,12 +3,6 @@ This is the file where handlers, input and output payloads are registered to
 handle jobs for this worker.
 """
 
-using JSON3
-using Logging
-using Dates
-
-const OptionalValue{T} = Union{T,Nothing};
-
 # ================
 # Type Definitions
 # ================

@@ -3,11 +3,6 @@ An abstract storage client and implementation for S3 - which is untested/not
 used yet.
 """
 
-using Logging
-using JSON3
-using AWSS3
-using AWS
-
 """
 Abstract type for storage clients
 All concrete storage clients should inherit from this
