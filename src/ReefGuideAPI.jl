@@ -71,7 +71,7 @@ function start_worker()
     config = TOML.parsefile(worker.config.config_path)
     @info "Loading regional data"
     initialise_data_with_cache(config)
-    @info "Starting worker loop from ReefGuideAPI.jl"
+    @info "Starting worker loop from ReefGuideAPI.jl with $(Threads.nthreads()) threads."
     start(worker)
     @info "Worker closed itself..."
 end

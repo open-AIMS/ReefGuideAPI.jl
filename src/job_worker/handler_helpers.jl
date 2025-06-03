@@ -38,11 +38,6 @@ function build_regional_assessment_parameters(
     end
 
     region_data = regional_data.regions[input.region]
-
-    # Extract threshold with default fallback
-    threshold =
-        !isnothing(input.threshold) ? input.threshold : DEFAULT_SUITABILITY_THRESHOLD
-
     regional_criteria::BoundedCriteriaDict = Dict()
     regional_bounds::BoundedCriteriaDict = region_data.criteria
 
@@ -71,8 +66,7 @@ function build_regional_assessment_parameters(
     return RegionalAssessmentParameters(;
         region=input.region,
         regional_criteria,
-        region_data,
-        suitability_threshold=Int64(threshold)
+        region_data
     )
 end
 
@@ -105,13 +99,16 @@ function build_suitability_assessment_parameters(
         regional_input,
         regional_data
     )
+    # Extract threshold with default fallback
+    threshold =
+        !isnothing(input.threshold) ? input.threshold : DEFAULT_SUITABILITY_THRESHOLD
     @debug "Extending regional parameters with suitability inputs x_dist and ydist" x =
         input.x_dist y = input.y_dist
     return SuitabilityAssessmentParameters(;
         region=regional_parameters.region,
         regional_criteria=regional_parameters.regional_criteria,
         region_data=regional_parameters.region_data,
-        suitability_threshold=regional_parameters.suitability_threshold,
+        suitability_threshold=Int64(threshold),
         x_dist=input.x_dist,
         y_dist=input.y_dist
     )
@@ -135,7 +132,6 @@ function regional_job_from_suitability_job(
         suitability_job.waves_period_min,
         suitability_job.waves_period_max,
         suitability_job.waves_height_min,
-        suitability_job.waves_height_max,
-        suitability_job.threshold
+        suitability_job.waves_height_max
     )
 end

@@ -251,7 +251,6 @@ struct RegionalAssessmentInput <: AbstractJobInput
     waves_period_max::OptionalValue{Float64}
     waves_height_min::OptionalValue{Float64}
     waves_height_max::OptionalValue{Float64}
-    threshold::OptionalValue{Int64}
 end
 
 """

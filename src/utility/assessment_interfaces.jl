@@ -16,22 +16,18 @@ regional data.
 - `region::String` : The region that is being assessed
 - `regional_criteria::BoundedCriteriaDict` : The criteria to assess, including user provided bounds
 - `region_data::RegionalDataEntry` : The data to consider for this region
-- `suitability_threshold::Int64` : The cutoff to consider a site suitable
 """
 struct RegionalAssessmentParameters
     region::String
     regional_criteria::BoundedCriteriaDict
     region_data::RegionalDataEntry
-    suitability_threshold::Int64
 
     function RegionalAssessmentParameters(;
         region::String,
         regional_criteria::BoundedCriteriaDict,
         region_data::RegionalDataEntry,
-        suitability_threshold::Int64
     )
-        @debug "Created RegionalAssessmentParameters" region suitability_threshold
-        return new(region, regional_criteria, region_data, suitability_threshold)
+        return new(region, regional_criteria, region_data)
     end
 end
 
@@ -135,16 +131,12 @@ for cache file naming. Same parameters will always produce the same hash.
 String hash suitable for use in cache file names.
 """
 function regional_assessment_params_hash(params::RegionalAssessmentParameters)::String
-    @debug "Generating hash for regional assessment parameters" region = params.region threshold =
-        params.suitability_threshold
+    @debug "Generating hash for regional assessment parameters" region = params.region
 
     # Create hash input from key parameters
     hash_components = [
-        # Region
         params.region,
-        # Suitability threshold
-        string(params.suitability_threshold),
-        # Criteria
+        # spread result list of components from regional criteria
         get_hash_components_from_regional_criteria(params.regional_criteria)...
     ]
 
@@ -242,6 +234,5 @@ function regional_params_from_suitability_params(
         region=suitability_params.region,
         regional_criteria=suitability_params.regional_criteria,
         region_data=suitability_params.region_data,
-        suitability_threshold=suitability_params.suitability_threshold
     )
 end
