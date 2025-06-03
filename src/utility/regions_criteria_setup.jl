@@ -74,6 +74,8 @@ struct CriteriaMetadata
     units::String
     payload_prefix::String
     default_bounds::OptionalValue{Bounds}
+    min_tooltip::String
+    max_tooltip::String
 
     function CriteriaMetadata(;
         id::String,
@@ -82,7 +84,9 @@ struct CriteriaMetadata
         description::String,
         units::String,
         payload_prefix::String,
-        default_bounds::OptionalValue{Bounds}=nothing
+        default_bounds::OptionalValue{Bounds}=nothing,
+        min_tooltip::String,
+        max_tooltip::String
     )
         return new(
             id,
@@ -91,7 +95,9 @@ struct CriteriaMetadata
             description,
             units,
             payload_prefix,
-            default_bounds
+            default_bounds,
+            min_tooltip,
+            max_tooltip
         )
     end
 end
@@ -105,7 +111,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         description="TODO",
         units="TODO",
         payload_prefix="depth_",
-        default_bounds=Bounds(; min=-10, max=-2)
+        default_bounds=Bounds(; min=-10, max=-2),
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     ),
     "Slope" => CriteriaMetadata(;
         id="Slope",
@@ -113,7 +121,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         display_label="Slope",
         description="TODO",
         units="TODO",
-        payload_prefix="slope_"
+        payload_prefix="slope_",
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     ),
     "Turbidity" => CriteriaMetadata(;
         id="Turbidity",
@@ -121,7 +131,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         display_label="Turbidity",
         description="TODO",
         units="TODO",
-        payload_prefix="turbidity_"
+        payload_prefix="turbidity_",
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     ),
     "WavesHs" => CriteriaMetadata(;
         id="WavesHs",
@@ -130,7 +142,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         description="TODO",
         units="TODO",
         payload_prefix="waves_height_",
-        default_bounds=Bounds(; min=0, max=1)
+        default_bounds=Bounds(; min=0, max=1),
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     ),
     "WavesTp" => CriteriaMetadata(;
         id="WavesTp",
@@ -139,7 +153,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         description="TODO",
         units="TODO",
         payload_prefix="waves_period_",
-        default_bounds=Bounds(; min=0, max=6)
+        default_bounds=Bounds(; min=0, max=6),
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     ),
     "Rugosity" => CriteriaMetadata(;
         id="Rugosity",
@@ -147,7 +163,9 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         display_label="Rugosity",
         description="TODO",
         units="TODO",
-        payload_prefix="rugosity_"
+        payload_prefix="rugosity_",
+        min_tooltip="TODO",
+        max_tooltip="TODO"
     )
 )
 
