@@ -55,7 +55,7 @@ function setup_utility_routes(config, auth)
 
                 # display info
                 :display_title => criteria.metadata.display_label,
-                :display_subtitle => criteria.metadata.description,
+                :display_subtitle => criteria.metadata.subtitle,
                 :units => criteria.metadata.units,
                 :min_tooltip => criteria.metadata.min_tooltip,
                 :max_tooltip => criteria.metadata.max_tooltip,

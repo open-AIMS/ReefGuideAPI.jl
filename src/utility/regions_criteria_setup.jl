@@ -63,14 +63,18 @@ Metadata for assessment criteria including file naming conventions.
 - `id::String` : Unique system identifier for the criteria
 - `file_suffix::String` : File suffix pattern for data files
 - `display_label::String` : Human-readable label for UI display
-- `description::String` : Human-readable info about this criteria
+- `subtitle::String` : Human-readable info about this criteria on subtitle of slider
 - `units::String` : Human-readable info about relevant units
+- `payload_prefix::String` : The prefix for building the job payload
+- `default_bounds::OptionalValue{Bounds}` : The default bounds for the parameter sliders
+- `min_tooltip::String` : Tooltip text on min slider
+- `max_tooltip::String` : Tooltip text on max slider
 """
 struct CriteriaMetadata
     id::String
     file_suffix::String
     display_label::String
-    description::String
+    subtitle::String
     units::String
     payload_prefix::String
     default_bounds::OptionalValue{Bounds}
@@ -81,7 +85,7 @@ struct CriteriaMetadata
         id::String,
         file_suffix::String,
         display_label::String,
-        description::String,
+        subtitle::String,
         units::String,
         payload_prefix::String,
         default_bounds::OptionalValue{Bounds}=nothing,
@@ -92,7 +96,7 @@ struct CriteriaMetadata
             id,
             file_suffix,
             display_label,
-            description,
+            subtitle,
             units,
             payload_prefix,
             default_bounds,
@@ -108,7 +112,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="Depth",
         file_suffix="_bathy",
         display_label="Depth",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="depth_",
         default_bounds=Bounds(; min=-10, max=-2),
@@ -119,7 +123,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="Slope",
         file_suffix="_slope",
         display_label="Slope",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="slope_",
         min_tooltip="TODO",
@@ -129,7 +133,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="Turbidity",
         file_suffix="_turbid",
         display_label="Turbidity",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="turbidity_",
         min_tooltip="TODO",
@@ -139,7 +143,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="WavesHs",
         file_suffix="_waves_Hs",
         display_label="Wave Height (m)",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="waves_height_",
         default_bounds=Bounds(; min=0, max=1),
@@ -150,7 +154,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="WavesTp",
         file_suffix="_waves_Tp",
         display_label="Wave Period (s)",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="waves_period_",
         default_bounds=Bounds(; min=0, max=6),
@@ -161,7 +165,7 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         id="Rugosity",
         file_suffix="_rugosity",
         display_label="Rugosity",
-        description="TODO",
+        subtitle="TODO",
         units="TODO",
         payload_prefix="rugosity_",
         min_tooltip="TODO",
