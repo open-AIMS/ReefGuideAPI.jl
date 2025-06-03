@@ -111,65 +111,65 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
     "Depth" => CriteriaMetadata(;
         id="Depth",
         file_suffix="_bathy",
-        display_label="Depth",
-        subtitle="TODO",
-        units="TODO",
+        display_label="Depth [m]",
+        subtitle="Depth from Mean Astronomical Tide",
+        units="meters",
         payload_prefix="depth_",
         default_bounds=Bounds(; min=-10, max=-2),
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Maximum depth",
+        max_tooltip="Minimum depth"
     ),
     "Slope" => CriteriaMetadata(;
         id="Slope",
         file_suffix="_slope",
-        display_label="Slope",
-        subtitle="TODO",
-        units="TODO",
+        display_label="Slope [degrees]",
+        subtitle="Slope of reef",
+        units="degrees",
         payload_prefix="slope_",
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Minimum slope angle (0 is flat)",
+        max_tooltip="Maximum slope angle"
     ),
     "Turbidity" => CriteriaMetadata(;
         id="Turbidity",
         file_suffix="_turbid",
         display_label="Turbidity",
-        subtitle="TODO",
-        units="TODO",
+        subtitle="Usual clarity of water",
+        units="Secchi depth meters",
         payload_prefix="turbidity_",
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Minimum Secchi depth",
+        max_tooltip="Maximum Secchi depth"
     ),
     "WavesHs" => CriteriaMetadata(;
         id="WavesHs",
         file_suffix="_waves_Hs",
-        display_label="Wave Height (m)",
-        subtitle="TODO",
-        units="TODO",
+        display_label="Wave Height [m]",
+        subtitle="Significant Wave Height (90th percentile)",
+        units="meters",
         payload_prefix="waves_height_",
         default_bounds=Bounds(; min=0, max=1),
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Minimum wave height",
+        max_tooltip="Maximum wave height"
     ),
     "WavesTp" => CriteriaMetadata(;
         id="WavesTp",
         file_suffix="_waves_Tp",
-        display_label="Wave Period (s)",
-        subtitle="TODO",
-        units="TODO",
+        display_label="Wave Period [s]",
+        subtitle="Time between waves in seconds (90th percentile)",
+        units="seconds",
         payload_prefix="waves_period_",
         default_bounds=Bounds(; min=0, max=6),
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Minimum periodicity",
+        max_tooltip="Maximum periodicity"
     ),
     "Rugosity" => CriteriaMetadata(;
         id="Rugosity",
         file_suffix="_rugosity",
         display_label="Rugosity",
-        subtitle="TODO",
-        units="TODO",
+        subtitle="Roughness of the sea floor",
+        units="stdev",
         payload_prefix="rugosity_",
-        min_tooltip="TODO",
-        max_tooltip="TODO"
+        min_tooltip="Minimum variability",
+        max_tooltip="Maximum variability"
     )
 )
 
