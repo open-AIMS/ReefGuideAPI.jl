@@ -72,15 +72,27 @@ struct CriteriaMetadata
     display_label::String
     description::String
     units::String
+    payload_prefix::String
+    default_bounds::OptionalValue{Bounds}
 
     function CriteriaMetadata(;
         id::String,
         file_suffix::String,
         display_label::String,
         description::String,
-        units::String
+        units::String,
+        payload_prefix::String,
+        default_bounds::OptionalValue{Bounds}=nothing
     )
-        return new(id, file_suffix, display_label, description, units)
+        return new(
+            id,
+            file_suffix,
+            display_label,
+            description,
+            units,
+            payload_prefix,
+            default_bounds
+        )
     end
 end
 
@@ -91,42 +103,51 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         file_suffix="_bathy",
         display_label="Depth",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="depth_",
+        default_bounds=Bounds(; min=-10, max=-2)
     ),
     "Slope" => CriteriaMetadata(;
         id="Slope",
         file_suffix="_slope",
         display_label="Slope",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="slope_"
     ),
     "Turbidity" => CriteriaMetadata(;
         id="Turbidity",
         file_suffix="_turbid",
         display_label="Turbidity",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="turbidity_"
     ),
     "WavesHs" => CriteriaMetadata(;
         id="WavesHs",
         file_suffix="_waves_Hs",
         display_label="Wave Height (m)",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="waves_height_",
+        default_bounds=Bounds(; min=0, max=1)
     ),
     "WavesTp" => CriteriaMetadata(;
         id="WavesTp",
         file_suffix="_waves_Tp",
         display_label="Wave Period (s)",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="waves_period_",
+        default_bounds=Bounds(; min=0, max=6)
     ),
     "Rugosity" => CriteriaMetadata(;
         id="Rugosity",
         file_suffix="_rugosity",
         display_label="Rugosity",
         description="TODO",
-        units="TODO"
+        units="TODO",
+        payload_prefix="rugosity_"
     )
 )
 

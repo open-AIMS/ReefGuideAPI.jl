@@ -40,9 +40,30 @@ function setup_utility_routes(config, auth)
 
         # Format each criteria with min/max bounds
         for (id::String, criteria::BoundedCriteria) in regional_criteria_lookup
+            # build default min/max
+            default_bounds::Bounds = something(
+                criteria.metadata.default_bounds, criteria.bounds
+            )
+
             output_dict[id] = OrderedDict(
+                # Unique ID (and data field name)
+                :id => id,
+
+                # min/max bounds
                 :min_val => criteria.bounds.min,
-                :max_val => criteria.bounds.max
+                :max_val => criteria.bounds.max,
+
+                # display info
+                :display_title => criteria.metadata.display_label,
+                :display_subtitle => criteria.metadata.description,
+                :units => criteria.metadata.units,
+
+                # default min/max
+                :default_min_val => default_bounds.min,
+                :default_max_val => default_bounds.max,
+
+                # how to build a job payload (prefix of job i.e. depth_) then build depth_min depth_max
+                :payload_property_prefix => criteria.metadata.payload_prefix
             )
         end
 
