@@ -116,8 +116,8 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
         units="meters",
         payload_prefix="depth_",
         default_bounds=Bounds(; min=-10, max=-2),
-        min_tooltip="Maximum depth",
-        max_tooltip="Minimum depth"
+        min_tooltip="Minimum depth",
+        max_tooltip="Maximum depth"
     ),
     "Slope" => CriteriaMetadata(;
         id="Slope",
