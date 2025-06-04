@@ -63,24 +63,46 @@ Metadata for assessment criteria including file naming conventions.
 - `id::String` : Unique system identifier for the criteria
 - `file_suffix::String` : File suffix pattern for data files
 - `display_label::String` : Human-readable label for UI display
-- `description::String` : Human-readable info about this criteria
+- `subtitle::String` : Human-readable info about this criteria on subtitle of slider
 - `units::String` : Human-readable info about relevant units
+- `payload_prefix::String` : The prefix for building the job payload
+- `default_bounds::OptionalValue{Bounds}` : The default bounds for the parameter sliders
+- `min_tooltip::String` : Tooltip text on min slider
+- `max_tooltip::String` : Tooltip text on max slider
 """
 struct CriteriaMetadata
     id::String
     file_suffix::String
     display_label::String
-    description::String
+    subtitle::String
     units::String
+    payload_prefix::String
+    default_bounds::OptionalValue{Bounds}
+    min_tooltip::String
+    max_tooltip::String
 
     function CriteriaMetadata(;
         id::String,
         file_suffix::String,
         display_label::String,
-        description::String,
-        units::String
+        subtitle::String,
+        units::String,
+        payload_prefix::String,
+        default_bounds::OptionalValue{Bounds}=nothing,
+        min_tooltip::String,
+        max_tooltip::String
     )
-        return new(id, file_suffix, display_label, description, units)
+        return new(
+            id,
+            file_suffix,
+            display_label,
+            subtitle,
+            units,
+            payload_prefix,
+            default_bounds,
+            min_tooltip,
+            max_tooltip
+        )
     end
 end
 
@@ -89,44 +111,65 @@ const ASSESSMENT_CRITERIA::Dict{String,CriteriaMetadata} = Dict(
     "Depth" => CriteriaMetadata(;
         id="Depth",
         file_suffix="_bathy",
-        display_label="Depth",
-        description="TODO",
-        units="TODO"
+        display_label="Depth [m]",
+        subtitle="Depth from Mean Astronomical Tide",
+        units="meters",
+        payload_prefix="depth_",
+        default_bounds=Bounds(; min=-10, max=-2),
+        min_tooltip="Minimum depth",
+        max_tooltip="Maximum depth"
     ),
     "Slope" => CriteriaMetadata(;
         id="Slope",
         file_suffix="_slope",
-        display_label="Slope",
-        description="TODO",
-        units="TODO"
+        display_label="Slope [degrees]",
+        subtitle="Slope of reef",
+        units="degrees",
+        payload_prefix="slope_",
+        min_tooltip="Minimum slope angle (0 is flat)",
+        max_tooltip="Maximum slope angle"
     ),
     "Turbidity" => CriteriaMetadata(;
         id="Turbidity",
         file_suffix="_turbid",
         display_label="Turbidity",
-        description="TODO",
-        units="TODO"
+        subtitle="Usual clarity of water",
+        units="Secchi depth meters",
+        payload_prefix="turbidity_",
+        min_tooltip="Minimum Secchi depth",
+        max_tooltip="Maximum Secchi depth"
     ),
     "WavesHs" => CriteriaMetadata(;
         id="WavesHs",
         file_suffix="_waves_Hs",
-        display_label="Wave Height (m)",
-        description="TODO",
-        units="TODO"
+        display_label="Wave Height [m]",
+        subtitle="Significant Wave Height (90th percentile)",
+        units="meters",
+        payload_prefix="waves_height_",
+        default_bounds=Bounds(; min=0, max=1),
+        min_tooltip="Minimum wave height",
+        max_tooltip="Maximum wave height"
     ),
     "WavesTp" => CriteriaMetadata(;
         id="WavesTp",
         file_suffix="_waves_Tp",
-        display_label="Wave Period (s)",
-        description="TODO",
-        units="TODO"
+        display_label="Wave Period [s]",
+        subtitle="Time between waves in seconds (90th percentile)",
+        units="seconds",
+        payload_prefix="waves_period_",
+        default_bounds=Bounds(; min=0, max=6),
+        min_tooltip="Minimum periodicity",
+        max_tooltip="Maximum periodicity"
     ),
     "Rugosity" => CriteriaMetadata(;
         id="Rugosity",
         file_suffix="_rugosity",
         display_label="Rugosity",
-        description="TODO",
-        units="TODO"
+        subtitle="Roughness of the sea floor",
+        units="stdev",
+        payload_prefix="rugosity_",
+        min_tooltip="Minimum variability",
+        max_tooltip="Maximum variability"
     )
 )
 
