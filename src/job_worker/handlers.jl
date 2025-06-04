@@ -3,42 +3,6 @@ This is the file where handlers, input and output payloads are registered to
 handle jobs for this worker.
 """
 
-using JSON3
-using Logging
-using Dates
-
-"""
-    create_job_id(query_params::Dict)::String
-
-Generate a job id based on query parameters.
-"""
-function create_job_id(query_params::Dict)::String
-    return string(hash(query_params))
-end
-
-"""
-Builds a predictable file name based on extracted regional assessment criteria
-in the configured cache location.
-"""
-function build_regional_assessment_file_path(;
-    query_params::Dict, region::String, reef_type::String, ext::String,
-    config::Dict
-)::String
-    @debug "Ascertaining file name for regional assessment"
-    cache_path = _cache_location(config)
-
-    # Use only the criteria relevant to regional assessment
-    regional_assess_criteria = extract_criteria(query_params, suitability_criteria())
-
-    # NOTE: This is where we could add additional hash params to invalidate
-    # cache
-    job_id = create_job_id(regional_assess_criteria)
-
-    return joinpath(
-        cache_path, "$(job_id)_$(region)_$(reef_type)_regional_assessment.$(ext)"
-    )
-end
-
 # ================
 # Type Definitions
 # ================
@@ -276,22 +240,17 @@ struct RegionalAssessmentInput <: AbstractJobInput
     region::String
     "The type of reef, slopes or flats"
     reef_type::String
-
-    # Criteria
-    "The depth range (min)"
-    depth_min::Float64
-    "The depth range (max)"
-    depth_max::Float64
-    "The slope range (min)"
-    slope_min::Float64
-    "The slope range (max)"
-    slope_max::Float64
-    "The rugosity range (min)"
-    rugosity_min::Float64
-    "The rugosity range (max)"
-    rugosity_max::Float64
-    "Suitability threshold (min)"
-    threshold::Int64
+    # Criteria (all optional - defaulting to min/max of criteria)
+    depth_min::OptionalValue{Float64}
+    depth_max::OptionalValue{Float64}
+    slope_min::OptionalValue{Float64}
+    slope_max::OptionalValue{Float64}
+    rugosity_min::OptionalValue{Float64}
+    rugosity_max::OptionalValue{Float64}
+    waves_period_min::OptionalValue{Float64}
+    waves_period_max::OptionalValue{Float64}
+    waves_height_min::OptionalValue{Float64}
+    waves_height_max::OptionalValue{Float64}
 end
 
 """
@@ -320,37 +279,27 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = setup_regional_data(config)
+    data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
+    @info "Compiling regional assessment parameters from regional data and input data"
+    params = build_regional_assessment_parameters(
+        input,
+        data
+    )
+    @info "Done compiling parameters"
+
     @info "Performing regional assessment"
+    regional_assessment_filename = build_regional_assessment_file_path(params; ext="tiff", config)
+    @debug "COG File name: $(regional_assessment_filename)"
 
-    # Pull out these parameters in the format previously expected 
-    reg = input.region
-    rtype = input.reef_type
-
-    # This is the format expected by prior methods TODO improve the separation
-    # of concerns between query string parameters and function inputs - the API
-    # routing concerns should not be exposed to the application layer
-    qp::Dict{String,String} = Dict{String,String}(
-        "Depth" => "$(input.depth_min):$(input.depth_max)",
-        "Slope" => "$(input.slope_min):$(input.slope_max)",
-        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
-        "SuitabilityThreshold" => "$(input.threshold)"
-    )
-
-    assessed_fn = build_regional_assessment_file_path(;
-        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
-    )
-    @debug "COG File name: $(assessed_fn)"
-
-    if !isfile(assessed_fn)
+    if !isfile(regional_assessment_filename)
         @debug "File system cache was not hit for this task"
-        @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+        @debug "Assessing region $(params.region)"
+        assessed = assess_region(params)
 
-        @debug now() "Writing COG of regional assessment to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed, config)
+        @debug now() "Writing COG of regional assessment to $(regional_assessment_filename)"
+        _write_cog(regional_assessment_filename, assessed, config)
         @debug now() "Finished writing cog "
     else
         @info "Cache hit - skipping regional assessment process and re-uploading to output!"
@@ -365,7 +314,7 @@ function handle_job(
     @debug "File paths:" relative = output_file_name_rel absolute = full_s3_target
 
     @debug now() "Initiating file upload"
-    upload_file(client, assessed_fn, full_s3_target)
+    upload_file(client, regional_assessment_filename, full_s3_target)
     @debug now() "File upload completed"
 
     @debug "Finished regional assessment job."
@@ -382,30 +331,29 @@ end
 
 """
 Input payload for SUITABILITY_ASSESSMENT job
+
+NOTE this is a RegionalAssessmentInput (and more) and therefore also an
+AbstractJobInput
 """
 struct SuitabilityAssessmentInput <: AbstractJobInput
     # High level config
-
     "Region for assessment"
     region::String
     "The type of reef, slopes or flats"
     reef_type::String
-
     # Criteria
-    "The depth range (min)"
-    depth_min::Float64
-    "The depth range (max)"
-    depth_max::Float64
-    "The slope range (min)"
-    slope_min::Float64
-    "The slope range (max)"
-    slope_max::Float64
-    "The rugosity range (min)"
-    rugosity_min::Float64
-    "The rugosity range (max)"
-    rugosity_max::Float64
-    "Suitability threshold (min)"
-    threshold::Int64
+    depth_min::OptionalValue{Float64}
+    depth_max::OptionalValue{Float64}
+    slope_min::OptionalValue{Float64}
+    slope_max::OptionalValue{Float64}
+    rugosity_min::OptionalValue{Float64}
+    rugosity_max::OptionalValue{Float64}
+    waves_period_min::OptionalValue{Float64}
+    waves_period_max::OptionalValue{Float64}
+    waves_height_min::OptionalValue{Float64}
+    waves_height_max::OptionalValue{Float64}
+    threshold::OptionalValue{Int64}
+    # Unique to suitability assessment - required
     "Length dimension of target polygon"
     x_dist::Int64
     "Width dimension of target polygon"
@@ -429,8 +377,7 @@ Handler for the suitability assessment job.
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
-    context::HandlerContext
-)::SuitabilityAssessmentOutput
+    context::HandlerContext)::SuitabilityAssessmentOutput
     @info "Initiating site assessment task"
 
     @info "Parsing configuration from $(context.config_path)..."
@@ -438,59 +385,50 @@ function handle_job(
     @info "Configuration parsing complete."
 
     @info "Setting up regional assessment data"
-    reg_assess_data = setup_regional_data(config)
+    regional_data::RegionalData = get_regional_data(config)
     @info "Done setting up regional assessment data"
 
-    @info "Performing regional assessment (dependency of site assessment)"
-
-    # Pull out these parameters in the format previously expected 
-    reg = input.region
-    rtype = input.reef_type
-
-    # This is the format expected by prior methods TODO improve the separation
-    # of concerns between query string parameters and function inputs - the API
-    # routing concerns should not be exposed to the application layer
-    qp::Dict{String,String} = Dict{String,String}(
-        "Depth" => "$(input.depth_min):$(input.depth_max)",
-        "Slope" => "$(input.slope_min):$(input.slope_max)",
-        "Rugosity" => "$(input.rugosity_min):$(input.rugosity_max)",
-        "SuitabilityThreshold" => "$(input.threshold)",
-        "xdist" => "$(input.x_dist)",
-        "ydist" => "$(input.y_dist)"
+    @info "Compiling suitability assessment parameters from regional data and job inputs"
+    params::SuitabilityAssessmentParameters = build_suitability_assessment_parameters(
+        input,
+        regional_data
     )
+    @info "Done compiling parameters"
 
-    assessed_fn = build_regional_assessment_file_path(;
-        query_params=qp, region=reg, reef_type=rtype, ext="tiff", config
+    @debug "Converting suitability job into regional job for regional assessment"
+    regional_params = regional_params_from_suitability_params(params)
+    @debug "Conversion complete"
+
+    @info "Performing regional assessment"
+    regional_assessment_fn = build_regional_assessment_file_path(
+        regional_params; ext="tiff", config=config
     )
-    @debug "COG File name: $(assessed_fn)"
+    @debug "COG File name: $(regional_assessment_fn)"
 
-    if !isfile(assessed_fn)
+    if !isfile(regional_assessment_fn)
         @debug "File system cache was not hit for this task"
-        @debug "Assessing region $(reg)"
-        assessed = assess_region(reg_assess_data, reg, qp, rtype)
+        @debug "Assessing region $(params.region)"
+        regional_raster = assess_region(regional_params)
 
-        @debug "Writing COG to $(assessed_fn)"
-        _write_cog(assessed_fn, assessed, config)
+        @debug now() "Writing COG of regional assessment to $(regional_assessment_fn)"
+        _write_cog(regional_assessment_fn, regional_raster, config)
+        @debug now() "Finished writing cog "
     else
-        @info "Cache hit - skipping regional assessment process!"
+        @info "Cache hit - skipping regional assessment process..."
         @debug "Pulling out raster from cache"
-        assessed = Raster(assessed_fn; missingval=0, lazy=true)
+        regional_raster = Raster(regional_assessment_fn; missingval=0, lazy=true)
     end
-
-    # Extract criteria and assessment
-    pixel_criteria = extract_criteria(qp, search_criteria())
-    deploy_site_criteria = extract_criteria(qp, site_criteria())
 
     @debug "Performing site assessment"
     best_sites = filter_sites(
         assess_sites(
-            reg_assess_data, reg, rtype, pixel_criteria, deploy_site_criteria,
-            assessed
+            params,
+            regional_raster
         )
     )
 
     # Specifically clear from memory to invoke garbage collector
-    assessed = nothing
+    regional_raster = nothing
 
     @debug "Writing to temporary file"
     geojson_name = "$(tempname()).geojson"

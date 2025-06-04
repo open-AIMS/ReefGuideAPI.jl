@@ -1,93 +1,50 @@
 module ReefGuideAPI
 
+# System imports 
 using Base.Threads
-using
-    Glob,
-    TOML
 
-using Serialization
+# File IO
+using Glob, TOML, Serialization
 
-using DataFrames
-using OrderedCollections
-using Memoization
-using SparseArrays
+# Geospatial
+using ArchGDAL, GeoParquet, Rasters
 
+# Server
+using HTTP, Oxygen
+
+# Collections
+using DataFrames, OrderedCollections, SparseArrays
+
+# Multithreading
 using FLoops, ThreadsX
 
-import GeoDataFrames as GDF
-using
-    ArchGDAL,
-    GeoParquet,
-    Rasters
+# Utilities and helpers for assessments
+include("utility/utility.jl")
 
-using
-    HTTP,
-    Oxygen
+# Assessment logic
+include("assessment_methods/assessment_methods.jl")
 
-include("job_worker/Worker.jl")
-
-include("Middleware.jl")
-include("admin.jl")
-include("file_io.jl")
-include("server_cache.jl")
-
-# TODO Remove these due to deprecation
-include("job_management/JobInterface.jl")
-include("job_management/DiskService.jl")
-
-include("criteria_assessment/criteria.jl")
-include("criteria_assessment/query_thresholds.jl")
-include("criteria_assessment/regional_assessment.jl")
-
-include("site_assessment/common_functions.jl")
-include("site_assessment/best_fit_polygons.jl")
-
-function get_regions()
-    # TODO: Comes from config?
-    regions = String[
-        "Townsville-Whitsunday",
-        "Cairns-Cooktown",
-        "Mackay-Capricorn",
-        "FarNorthern"
-    ]
-
-    return regions
-end
-
-function get_auth_router(config::Dict)
-    # Setup auth middleware - depends on config.toml - can return identity func
-    auth = setup_jwt_middleware(config)
-    return router(""; middleware=[auth])
-end
+# Worker system
+include("job_worker/job_worker.jl")
 
 function start_server(config_path)
     @info "Launching server... please wait"
 
-    warmup_cache(config_path)
-
     @info "Parsing configuration from $(config_path)..."
     config = TOML.parsefile(config_path)
+
+    @info "Initialising regional data and setting up tile cache"
+    initialise_data_with_cache(config)
 
     @info "Setting up auth middleware and router."
     auth = get_auth_router(config)
 
-    @info "Setting up criteria routes..."
-    setup_criteria_routes(config, auth)
-
-    @info "Setting up region routes..."
-    setup_region_routes(config, auth)
-
-    @info "Setting up tile routes..."
-    setup_tile_routes(config, auth)
-
-    @info "Setting up job routes..."
-    setup_job_routes(config, auth)
-
-    @info "Setting up admin routes..."
-    setup_admin_routes(config)
+    @info "Setting up utility routes..."
+    setup_utility_routes(config, auth)
 
     # Which host should we listen on?
     host = config["server_config"]["HOST"]
+
     # Which port should we listen on?
     port = 8000
 
@@ -110,35 +67,15 @@ This is a blocking operation until the worker times out.
 function start_worker()
     @info "Initializing worker from environment variables..."
     worker = create_worker_from_env()
-    @info "Starting worker loop from ReefGuideAPI.jl"
+    @info "Parsing TOML config"
+    config = TOML.parsefile(worker.config.config_path)
+    @info "Loading regional data"
+    initialise_data_with_cache(config)
+    @info "Starting worker loop from ReefGuideAPI.jl with $(Threads.nthreads()) threads."
     start(worker)
     @info "Worker closed itself..."
 end
 
-export
-    RegionalCriteria,
-    criteria_data_map
-
-# Methods to assess/identify deployment "plots" of reef.
-export
-    assess_reef_site,
-    identify_edge_aligned_sites,
-    filter_sites,
-    output_geojson
-
-# Geometry handling
-export
-    create_poly,
-    create_bbox,
-    port_buffer_mask,
-    meters_to_degrees,
-    polygon_to_lines
-
-# Raster->Index interactions (defunct?)
-export
-    valid_slope_lon_inds,
-    valid_slope_lat_inds,
-    valid_flat_lon_inds,
-    valid_flat_lat_inds
+export start_worker, start_server
 
 end

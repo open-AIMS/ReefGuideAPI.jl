@@ -2,10 +2,6 @@
 Manages the ECS specific runtime environment for the worker node.
 """
 
-using HTTP
-using JSON3
-using Dates
-
 """
 Core identifiers and metadata for an ECS Fargate task
 """
