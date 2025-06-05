@@ -209,53 +209,50 @@ Where site polygons are overlapping, keep only the highest scoring site polygon.
 
 # Arguments
 - `res_df` : Results DataFrame containing potential site polygons
-             (output from `identify_potential_sites()` or `identify_edge_aligned_sites()`).
+             (output from `find_optimal_site_alignment()`).
 
 # Returns
 DataFrame containing only the highest scoring sites where site polygons intersect, and
-containing only sites with scores greater than the `surr_threshold` specified in
-`identify_edge_aligned_sites()` (default=0.6).
+containing only sites with scores greater than a suitability threshold.
+Sites with values below the suitability threshold are marked with QC flag = 1.
 """
 function filter_sites(res_df::DataFrame)::DataFrame
     if nrow(res_df) == 0
         return res_df
     end
 
-    res_df.row_ID = 1:size(res_df, 1)
     ignore_list = Int64[]
 
-    for row in eachrow(res_df)
+    # Remove entries that are marked to be below the threshold score
+    poly_set = res_df[res_df.qc_flag .!= 1, :]
+
+    # Set unique IDs to ease search
+    poly_set.row_ID = 1:nrow(poly_set)
+
+    # Create search tree
+    tree = STRT.STRtree(poly_set.geometry)
+
+    for row in eachrow(poly_set)
         if row.row_ID ∈ ignore_list
             continue
         end
 
-        not_ignored = res_df.row_ID .∉ Ref(ignore_list)
         poly = row.geometry
-        poly_interx = GO.intersects.(Ref(poly), res_df[not_ignored, :geometry])
+        poly_interx = STRT.query.(Ref(tree), Ref(poly))
 
-        if count(poly_interx) > 1
-            intersecting_polys = res_df[not_ignored, :][poly_interx, :]
+        if length(poly_interx) > 1
+            intersecting_polys = poly_set[poly_interx, :]
 
             # Find the ID of the polygon with the best score.
             # Add polygon IDs with non-maximal score to the ignore list
             best_poly_idx = argmax(intersecting_polys.score)
-            best_score = intersecting_polys[best_poly_idx, :score]
-            if best_score < 0.7
-                # Ignore everything as they are below useful threshold
-                append!(ignore_list, intersecting_polys[:, :row_ID])
-                continue
-            end
-
             best_ID = intersecting_polys[best_poly_idx, :row_ID]
             not_best_ID = intersecting_polys.row_ID .!= best_ID
             append!(ignore_list, intersecting_polys[not_best_ID, :row_ID])
-        elseif count(poly_interx) == 1 && (row.score < 0.7)
-            # Remove current poly if below useful threshold
-            append!(ignore_list, Ref(row.row_ID))
         end
     end
 
-    return res_df[res_df.row_ID .∉ [unique(ignore_list)], :]
+    return poly_set[poly_set.row_ID .∉ [unique(ignore_list)], :]
 end
 
 """
@@ -280,7 +277,6 @@ function output_geojson(
 
     return nothing
 end
-
 
 """
     buffer_simplify(
