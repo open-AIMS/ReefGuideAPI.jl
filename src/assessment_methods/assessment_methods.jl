@@ -13,6 +13,8 @@ import GeoInterface as GI
 import GeoInterface.Wrappers as GIWrap
 import GeometryOps as GO
 import GeoDataFrames as GDF
+import SortTileRecursiveTree as STRT
+using ExtendableSparse
 
 include("apply_criteria.jl")
 include("best_fit_polygons.jl")
