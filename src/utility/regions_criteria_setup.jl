@@ -215,6 +215,7 @@ corresponding layer in the RasterStack
 struct RegionalDataEntry
     region_id::String
     region_metadata::RegionMetadata
+    valid_extent::Rasters.Raster
     raster_stack::Rasters.RasterStack
     slope_table::DataFrame
     criteria::BoundedCriteriaDict
@@ -222,6 +223,7 @@ struct RegionalDataEntry
     function RegionalDataEntry(;
         region_id::String,
         region_metadata::RegionMetadata,
+        valid_extent::Rasters.Raster,
         raster_stack::Rasters.RasterStack,
         slope_table::DataFrame,
         criteria::BoundedCriteriaDict
@@ -303,7 +305,9 @@ struct RegionalDataEntry
             instantiated_criteria
         ) expected_criteria = length(expected_criteria_set)
 
-        return new(region_id, region_metadata, raster_stack, slope_table, criteria)
+        return new(
+            region_id, region_metadata, valid_extent, raster_stack, slope_table, criteria
+        )
     end
 end
 
@@ -606,7 +610,9 @@ function initialise_data(config::Dict)::RegionalData
             )
 
             # Add coordinate columns for spatial referencing
-            add_lat_long_columns_to_dataframe(slope_table)
+            if "lons" ∉ names(slope_table)
+                add_lat_long_columns_to_dataframe(slope_table)
+            end
 
             # Filter criteria list to only those available for this region
             available_criteria::Vector{String} = region_metadata.available_criteria
@@ -652,10 +658,16 @@ function initialise_data(config::Dict)::RegionalData
             )
             raster_stack = RasterStack(data_paths; name=data_names, lazy=true)
 
+            extent_path = joinpath(
+                data_source_directory, "$(region_metadata.id)_valid_slopes.tif"
+            )
+            valid_extent = Raster(extent_path; lazy=true)
+
             # Store complete regional data entry
             regional_data[region_metadata.id] = RegionalDataEntry(;
                 region_id=region_metadata.id,
                 region_metadata,
+                valid_extent,
                 raster_stack,
                 slope_table,
                 criteria=bounds
