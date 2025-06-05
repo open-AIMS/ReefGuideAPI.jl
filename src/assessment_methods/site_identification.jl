@@ -92,7 +92,7 @@ function assess_region(
         indicator[r.lon_idx, r.lat_idx] = true
     end
 
-    return Raster(params.region_data.valid_extent; data=indicator)
+    return Raster(params.region_data.valid_extent; data=indicator, missingval=0)
 end
 
 function assess_sites(params::SuitabilityAssessmentParameters)
