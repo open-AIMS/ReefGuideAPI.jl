@@ -181,9 +181,9 @@ function process_job(
 end
 
 #
-# ================= 
-# TEST 
-# ================= 
+# =================
+# TEST
+# =================
 #
 
 """
@@ -225,7 +225,7 @@ end
 
 #
 # ===================
-# REGIONAL_ASSESSMENT 
+# REGIONAL_ASSESSMENT
 # ===================
 #
 
@@ -266,7 +266,7 @@ Handler for REGIONAL_ASSESSMENT jobs
 struct RegionalAssessmentHandler <: AbstractJobHandler end
 
 """
-Handler for the regional assessment job. 
+Handler for the regional assessment job.
 """
 function handle_job(
     ::RegionalAssessmentHandler, input::RegionalAssessmentInput,
@@ -290,7 +290,9 @@ function handle_job(
     @info "Done compiling parameters"
 
     @info "Performing regional assessment"
-    regional_assessment_filename = build_regional_assessment_file_path(params; ext="tiff", config)
+    regional_assessment_filename = build_regional_assessment_file_path(
+        params; ext="tiff", config
+    )
     @debug "COG File name: $(regional_assessment_filename)"
 
     if !isfile(regional_assessment_filename)
@@ -305,7 +307,7 @@ function handle_job(
         @info "Cache hit - skipping regional assessment process and re-uploading to output!"
     end
 
-    # Now upload this to s3 
+    # Now upload this to s3
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names
@@ -325,7 +327,7 @@ end
 
 #
 # ======================
-# SUITABILITY_ASSESSMENT 
+# SUITABILITY_ASSESSMENT
 # ======================
 #
 
@@ -373,7 +375,7 @@ Handler for SUITABILITY_ASSESSMENT jobs
 struct SuitabilityAssessmentHandler <: AbstractJobHandler end
 
 """
-Handler for the suitability assessment job. 
+Handler for the suitability assessment job.
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
@@ -412,7 +414,7 @@ function handle_job(
         output_geojson(geojson_name, best_sites)
     end
 
-    # Now upload this to s3 
+    # Now upload this to s3
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names
