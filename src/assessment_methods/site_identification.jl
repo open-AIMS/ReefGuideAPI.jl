@@ -45,7 +45,9 @@ function proportion_suitable(
 end
 
 """
-    assess_region(reg_assess_data, reg, qp, rtype)
+    assess_region(
+        params::RegionalAssessmentParameters
+    )::Raster
 
 Perform raster suitability assessment based on user-defined criteria.
 
@@ -56,75 +58,69 @@ Perform raster suitability assessment based on user-defined criteria.
 GeoTiff file of surrounding hectare suitability (1-100%) based on the criteria bounds input
 by a user.
 """
-function assess_region(params::RegionalAssessmentParameters)::Raster
+function assess_region(
+    params::RegionalAssessmentParameters
+)::Raster
     # Make mask of suitable locations
     @debug "$(now()) : Creating mask for region"
+
+    # Estimate size of mask (in MBs)
+    lookup_tbl = params.region_data.slope_table
+    region_dims = maximum(lookup_tbl.lon_idx), maximum(lookup_tbl.lat_idx)
+    mask_size_MB = prod(region_dims) / 1024^2
+
+    # Arbitrary threshold - use sparse matrices if likely to exceed memory
+    if mask_size_MB < 700
+        @debug "$(now()) : Creating mask as a regular matrix (est. size: $(mask_size_MB))"
+        indicator = zeros(
+            Int8, maximum(lookup_tbl.lon_idx), maximum(lookup_tbl.lat_idx)
+        )
+    else
+        @debug "$(now()) : Creating mask as a sparse matrix (est. size: $(mask_size_MB))"
+        indicator = ExtendableSparseMatrix{Int8,Int64}(
+            maximum(lookup_tbl.lon_idx), maximum(lookup_tbl.lat_idx)
+        )
+    end
 
     # Builds out a set of criteria filters using the regional criteria.
     # NOTE this will only filter over available criteria
     filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
 
-    # map our regional criteria 
-    @debug "Applying criteria thresholds to generate mask layer"
-    mask_data = filter_raster_by_criteria(
-        # This is the raster stack
-        params.region_data.raster_stack,
-        # The slope table dataframe
-        params.region_data.slope_table,
-        # The list of criteria bounds
-        filters
-    )
+    @debug "$(now()) : Applying criteria thresholds to generate mask layer"
+    matching_idx = filter_lookup_table_by_criteria(lookup_tbl, filters)
+    for r in eachrow(lookup_tbl[matching_idx, :])
+        indicator[r.lon_idx, r.lat_idx] = true
+    end
 
-    # Assess remaining pixels for their suitability
-    @debug "$(now()) : Calculating proportional suitability score"
-    suitability_scores = proportion_suitable(mask_data.data)
-
-    @debug "$(now()) : Rebuilding raster and returning results"
-    return rebuild(mask_data, suitability_scores)
+    return Raster(params.region_data.valid_extent; data=indicator)
 end
 
-function assess_sites(
-    params::SuitabilityAssessmentParameters,
-    regional_raster::Raster
-)
+function assess_sites(params::SuitabilityAssessmentParameters)
     target_crs = convert(EPSG, crs(regional_raster))
     suitability_threshold = params.suitability_threshold
     region = params.region
 
-    @debug "$(now()) : Identifying search pixels for $(region)"
-    target_locs = lookup_df_from_raster(regional_raster, suitability_threshold)
-
-    if size(target_locs, 1) == 0
-        # No viable set of locations, return empty dataframe
-        return DataFrame(;
-            score=[],
-            orientation=[],
-            qc_flag=[],
-            geometry=[]
-        )
-    end
-
-    # Otherwise, create the file
     @debug "$(now()) : Assessing criteria table for $(region)"
     # Get criteria bounds list from criteria
     filters = build_criteria_bounds_from_regional_criteria(params.regional_criteria)
 
-    crit_pixels::DataFrame = filter_lookup_table_by_criteria(
-        # Slope table
-        params.region_data.slope_table,
+    slope_table = params.region_data.slope_table
+    matching_idx::BitVector = filter_lookup_table_by_criteria(
+        slope_table,
         filters
     )
 
     res = abs(step(dims(regional_raster, X)))
-    @debug "$(now()) : Assessing $(size(target_locs, 1)) candidate locations in $(region)."
+    @debug "$(now()) : Assessing $(count(matching_idx)) candidate locations in $(region)."
     @debug "Finding optimal site alignment"
     initial_polygons = find_optimal_site_alignment(
-        crit_pixels,
-        target_locs,
+        slope_table[matching_idx, :],
         res,
         params.x_dist,
-        params.y_dist,
-        target_crs
+        params.y_dist;
+        target_crs=target_crs,
+        degree_step=20.0,
+        suit_threshold=suitability_threshold
     )
 
     return initial_polygons
