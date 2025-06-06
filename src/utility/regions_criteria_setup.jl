@@ -4,6 +4,7 @@
 
 const REGIONAL_DATA_CACHE_FILENAME = "regional_cache_v2.dat"
 const SLOPES_LOOKUP_SUFFIX = "_valid_slopes_lookup.parq"
+const SLOPES_RASTER_SUFFIX = "_valid_slopes.tif"
 const DEFAULT_CANONICAL_REEFS_FILE_NAME = "rrap_canonical_outlines.gpkg"
 
 # =============================================================================
@@ -659,7 +660,7 @@ function initialise_data(config::Dict)::RegionalData
             raster_stack = RasterStack(data_paths; name=data_names, lazy=true)
 
             extent_path = joinpath(
-                data_source_directory, "$(region_metadata.id)_valid_slopes.tif"
+                data_source_directory, "$(region_metadata.id)$(SLOPES_RASTER_SUFFIX)"
             )
             valid_extent = Raster(extent_path; lazy=true)
 

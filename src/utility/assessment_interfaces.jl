@@ -222,17 +222,3 @@ function build_regional_assessment_file_path(
 
     return file_path
 end
-
-
-"""
-Converts parameters from a suitability assessment into a regional assessment
-"""
-function regional_params_from_suitability_params(
-    suitability_params::SuitabilityAssessmentParameters
-)::RegionalAssessmentParameters
-    return RegionalAssessmentParameters(;
-        region=suitability_params.region,
-        regional_criteria=suitability_params.regional_criteria,
-        region_data=suitability_params.region_data,
-    )
-end
