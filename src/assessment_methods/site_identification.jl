@@ -72,14 +72,10 @@ function assess_region(
     # Arbitrary threshold - use sparse matrices if likely to exceed memory
     if mask_size_MB < 700
         @debug "$(now()) : Creating mask as a regular matrix (est. size: $(mask_size_MB))"
-        indicator = zeros(
-            Int8, maximum(lookup_tbl.lon_idx), maximum(lookup_tbl.lat_idx)
-        )
+        indicator = zeros(Int8, region_dims...)
     else
         @debug "$(now()) : Creating mask as a sparse matrix (est. size: $(mask_size_MB))"
-        indicator = ExtendableSparseMatrix{Int8,Int64}(
-            maximum(lookup_tbl.lon_idx), maximum(lookup_tbl.lat_idx)
-        )
+        indicator = ExtendableSparseMatrix{Int8,Int64}(region_dims...)
     end
 
     # Builds out a set of criteria filters using the regional criteria.
