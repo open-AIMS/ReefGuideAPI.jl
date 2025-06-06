@@ -64,21 +64,27 @@ function filter_raster_by_criteria(
 end
 
 """
-Filters the slope table (which contains raster param values too) by building a
+Filters a lookup table (which contains raster param values too) by building a
 bit mask AND'd for all thresholds
+
+# Arguments
+- `lookup` : A lookup table to filter
+- `ruleset` : Vector of `CriteriaBounds` to filter with
+
+# Returns
+BitVector, of pixels that meet criteria
 """
 function filter_lookup_table_by_criteria(
-    slope_table::DataFrame,
+    lookup::DataFrame,
     ruleset::Vector{CriteriaBounds}
-)::DataFrame
-    slope_table.all_crit .= 1
+)::BitVector
+    matches::BitVector = fill(true, nrow(lookup))
 
     for threshold in ruleset
-        slope_table.all_crit =
-            slope_table.all_crit .& threshold.rule(slope_table[!, threshold.name])
+        matches = matches .& threshold.rule(lookup[!, threshold.name])
     end
 
-    return slope_table[BitVector(slope_table.all_crit), :]
+    return matches
 end
 
 """

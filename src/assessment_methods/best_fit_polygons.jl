@@ -1,6 +1,5 @@
 """Geometry-based assessment methods."""
 
-
 # Tabular data assessment methods
 
 """
@@ -353,13 +352,11 @@ end
 
 """
     find_optimal_site_alignment(
-        env_lookup::DataFrame,
-        search_pixels::DataFrame,
+        lookup_tbl::DataFrame,
         res::Float64,
         x_dist::Union{Int64,Float64},
-        y_dist::Union{Int64,Float64},
-        target_crs::GeoFormatTypes.EPSG;
-        degree_step::Float64=20.0,
+        y_dist::Union{Int64,Float64};
+        degree_step::Float64=10.0,
         suit_threshold::Float64=0.7
     )::DataFrame
 
@@ -370,12 +367,10 @@ is identified and used for searching with custom rotation parameters.
 Method is currently opperating for CRS in degrees units.
 
 # Arguments
-- `env_lookup` : DataFrame containing environmental variables for assessment.
-- `search_pixels` : DataFrame containing lon and lat columns for each pixel that is intended for analysis.
+- `lookup_tbl` : DataFrame containing environmental variables for assessment.
 - `res` : Resolution of the original raster pixels. Can by found via `abs(step(dims(raster, X)))`.
 - `x_dist` : Length of horizontal side of search box (in meters).
 - `y_dist` : Length of vertical side of search box (in meters).
-- `target_crs` : CRS of the input Rasters. Using GeoFormatTypes.EPSG().
 - `degree_step` : Degree to perform rotations around identified edge angle.
 - `suit_threshold` : Theshold used to skip searching where the proportion of suitable pixels is too low.
 
@@ -383,12 +378,11 @@ Method is currently opperating for CRS in degrees units.
 DataFrame containing highest score, rotation and polygon for each assessment at pixels in indices.
 """
 function find_optimal_site_alignment(
-    env_lookup::DataFrame,
-    search_pixels::DataFrame,
+    lookup_tbl::DataFrame,
     res::Float64,
     x_dist::Union{Int64,Float64},
-    y_dist::Union{Int64,Float64},
-    target_crs::GeoFormatTypes.EPSG;
+    y_dist::Union{Int64,Float64};
+    target_crs=EPSG(4326),
     degree_step::Float64=10.0,
     suit_threshold::Float64=0.7
 )::DataFrame
@@ -412,24 +406,31 @@ function find_optimal_site_alignment(
 
     # Create KD-tree to identify pixels for assessment that are close to each other.
     # We can then apply a heuristic to avoid near-identical assessments.
-    sp_inds = Tuple.(search_pixels.indices)
-    inds = Matrix{Float32}([first.(sp_inds) last.(sp_inds)]')
+    @debug "$(now()) : Applying KD-tree filtering on $(nrow(lookup_tbl)) locations"
+    inds = Matrix{Float32}([lookup_tbl.lons lookup_tbl.lats]')
     kdtree = KDTree(inds; leafsize=25)
-    ignore_idx = Int64[]
-    for (i, coords) in enumerate(eachcol(inds))
+    t_ignore_idx = Dict(x => Int64[] for x in Threads.threadpooltids(:default))
+    Threads.@threads for i in 1:size(inds, 2)
+        ignore_idx = t_ignore_idx[Threads.threadid()]
         if i in ignore_idx
             continue
         end
 
+        coords = inds[:, i]
+
         # If there are a group of pixels close to each other, only assess the one closest to
         # the center of the group.
-        # Select pixels within ~22 meters (1 pixel = 10m² ∴ 3.3 ≈ 33m horizontal distance)
-        idx, dists = knn(kdtree, coords, 30)  # retrieve 30 closest locations
-        sel = (dists == 0) .| (dists .< 3.3)  # select current pixel and those ~33m away
-        xs = mean(inds[1, idx[sel]])
-        ys = mean(inds[2, idx[sel]])
+        idx, dists = knn(kdtree, coords, 60)  # retrieve 60 closest locations
+
+        # Select current pixel and those ~50% of max shape length away
+        x_d = meters_to_degrees(x_dist, coords[2])
+        y_d = meters_to_degrees(y_dist, coords[2])
+        max_l = max(x_d, y_d) * 0.5
+        sel = (dists .<= max_l)
 
         # Find index of pixel closest to the center of the group
+        xs = mean(inds[1, idx[sel]])
+        ys = mean(inds[2, idx[sel]])
         closest_idx = argmin(
             map(p2 -> sum((p2 .- (xs, ys)) .^ 2), eachcol(inds[:, idx[sel]]))
         )
@@ -440,48 +441,35 @@ function find_optimal_site_alignment(
         append!(ignore_idx, to_ignore)
     end
 
+    # Create search tree
+    tree = STRT.STRtree(lookup_tbl.geometry)
+
     # Search each location to assess
-    ignore_idx = unique(ignore_idx)
-    assessment_locs = search_pixels[Not(ignore_idx), :]
+    ignore_locs = unique(vcat(values(t_ignore_idx)...))
+    assessment_locs = lookup_tbl[Not(ignore_locs), :]
     n_pixels = nrow(assessment_locs)
-    @debug "$(now()) : KD-tree filtering - removed $(length(ignore_idx)) near-identical locations, now assessing $(n_pixels) locations"
+    @debug "$(now()) : KD-tree filtering - removed $(length(ignore_locs)) near-identical locations, now assessing $(n_pixels) locations"
 
     best_score = zeros(n_pixels)
-    best_poly = Vector(undef, n_pixels)
+    best_poly = Vector{GI.Wrappers.Polygon}(undef, n_pixels)
     best_rotation = zeros(Int64, n_pixels)
     quality_flag = zeros(Int64, n_pixels)
-    max_x_y_dist = maximum([x_dist, y_dist])
+
     FLoops.assistant(false)
     @floop for (i, pix) in enumerate(eachrow(assessment_locs))
         lon = pix.lons
         lat = pix.lats
 
-        rotated_copy::Vector{GI.Wrappers.Polygon} = move_geom.(
-            rotated_geoms,
-            Ref((lon, lat))
-        )
+        rotated_copy::Vector{GI.Wrappers.Polygon} =
+            move_geom.(
+                rotated_geoms,
+                Ref((lon, lat))
+            )
 
-        max_offset = (
-            abs(meters_to_degrees(max_x_y_dist * 0.5, lat)) +
-            (2.0 * res)
-        )
-
-        bounds = Float64[
-            lon - max_offset,
-            lon + max_offset,
-            lat - max_offset,
-            lat + max_offset
-        ]
-
-        # Identify relevant pixels to assess
-        loc_constraint = (
-            (env_lookup.lons .>= bounds[1]) .&  # left
-            (env_lookup.lons .<= bounds[2]) .&  # right
-            (env_lookup.lats .>= bounds[3]) .&  # bottom
-            (env_lookup.lats .<= bounds[4])     # top
-        )
-        rel_pix = env_lookup[loc_constraint, :]
-        n_matches = nrow(rel_pix)
+        # Find pixels within each rotated search area
+        in_pixels = unique(reduce(vcat, STRT.query.(Ref(tree), rotated_copy)))
+        relevant_pixels = lookup_tbl[in_pixels, :]
+        n_matches = nrow(relevant_pixels)
 
         # Skip if no relevant pixels or if the number of suitable pixels are below required
         # threshold
@@ -494,9 +482,9 @@ function find_optimal_site_alignment(
         end
 
         best_score[i], best_rotation[i], best_poly[i], quality_flag[i] = assess_reef_site(
-            rel_pix,
+            relevant_pixels,
             rotated_copy,
-            10.0
+            suit_threshold
         )
     end
 
