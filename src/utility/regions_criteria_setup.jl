@@ -390,8 +390,8 @@ in the slope table data columns. Only processes criteria that are available
 for the specific region as defined in the region metadata.
 
 # Arguments
-- `table::DataFrame` : Slope table containing criteria data columns
-- `region_metadata::RegionMetadata` : Region metadata specifying available criteria
+- `table` : Slope table containing criteria data columns
+- `region_metadata` : Region metadata specifying available criteria
 
 # Returns
 `BoundedCriteriaDict` with computed bounds for relevant criteria
@@ -700,7 +700,9 @@ to full data initialization. Handles cache invalidation and saves new data to di
 - `config::Dict` : Configuration dictionary containing cache and data settings
 - `force_cache_invalidation::Bool` : If true, bypass all caches and reload data
 """
-function initialise_data_with_cache(config::Dict; force_cache_invalidation::Bool=false)
+function initialise_data_with_cache(
+    config::Dict; force_cache_invalidation::Bool=false
+)::Nothing
     @info "Initializing regional data with caching" force_cache_invalidation
 
     # Access global cache variable
