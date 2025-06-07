@@ -383,6 +383,29 @@ REGIONAL_DATA::OptionalValue{RegionalData} = nothing
 # =============================================================================
 
 """
+    compute_criteria_bounds(
+        criteria::CriteriaMetadata,
+        table::DataFrame
+    )::BoundedCriteria
+
+Helper function to compute bounds for a specific criteria.
+"""
+function compute_criteria_bounds(
+    criteria::CriteriaMetadata,
+    table::DataFrame
+)::BoundedCriteria
+    bounds = bounds_from_tuple(extrema(table[:, criteria.id]))
+    @debug "Computed $(criteria.display_label) bounds" range = "$(bounds.min):$(bounds.max)"
+
+    return BoundedCriteria(; metadata=criteria, bounds=bounds)
+end
+
+"""
+    derive_criteria_bounds_from_slope_table(
+        table::DataFrame,
+        region_metadata::RegionMetadata
+    )::BoundedCriteriaDict
+
 Build regional criteria bounds from slope table data.
 
 Computes min/max bounds for each assessment criteria by finding extrema
@@ -403,35 +426,14 @@ function derive_criteria_bounds_from_slope_table(
     @debug "Computing assessment criteria bounds from slope table" table_rows = nrow(table) region_id =
         region_metadata.id available_criteria = region_metadata.available_criteria
 
-    # Helper function to compute bounds for a specific criteria
-    function compute_criteria_bounds(
-        criteria::CriteriaMetadata
-    )::Union{BoundedCriteria,Nothing}
-        if criteria.id ∈ region_metadata.available_criteria
-            if hasproperty(table, Symbol(criteria.id))
-                bounds = bounds_from_tuple(extrema(table[:, criteria.id]))
-                @debug "Computed $(criteria.display_label) bounds" range = "$(bounds.min):$(bounds.max)"
-                return BoundedCriteria(; metadata=criteria, bounds=bounds)
-            else
-                @error "Region metadata lists $(criteria.display_label) with id $(criteria.id) as available but column missing from slope table" region_id =
-                    region_metadata.id column = criteria.id
-                throw(
-                    ErrorException(
-                        "Missing required column '$(criteria.id)' in slope table for region $(region_metadata.id)"
-                    )
-                )
-            end
-        end
-        return nothing
-    end
-
     # For each criteria, if available in region, try to find bounds
-    criteria_dict::BoundedCriteriaDict = Dict()
+    criteria_dict::BoundedCriteriaDict = BoundedCriteriaDict()
     for criteria in values(ASSESSMENT_CRITERIA)
-        bounded_criteria = compute_criteria_bounds(criteria)
         # Only include criteria relevant to the region
-        if !isnothing(bounded_criteria)
-            criteria_dict[criteria.id] = bounded_criteria
+        is_available_criteria = criteria.id ∈ region_metadata.available_criteria
+        table_has_criteria = hasproperty(table, Symbol(criteria.id))
+        if is_available_criteria && table_has_criteria
+            criteria_dict[criteria.id] = compute_criteria_bounds(criteria, table)
         end
     end
 
@@ -583,11 +585,11 @@ This is the main data loading function that builds the complete data structure.
 # Returns
 `RegionalData` struct containing all loaded and processed regional information.
 """
-function initialise_data(config::Dict)::RegionalData
+function initialise_data(config::Dict{String,Any})::RegionalData
     @info "Starting regional data initialization from source files"
 
-    regional_data::RegionalDataDict = Dict()
-    data_source_directory = config["prepped_data"]["PREPPED_DATA_DIR"]
+    regional_data::RegionalDataDict = RegionalDataDict()
+    data_source_directory::String = config["prepped_data"]["PREPPED_DATA_DIR"]
     @info "Using data source directory" directory = data_source_directory
 
     # Process each region sequentially
