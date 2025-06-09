@@ -82,8 +82,10 @@ end
 
 export start_worker, start_server
 
+# Auto-generate precompilation signatures for ReefGuide
 @precompile_signatures(ReefGuideAPI)
 
+# Force precompilation of methods that slow down initial use.
 @setup_workload begin
     @compile_workload begin
         GeoParquet.read(joinpath(pkgdir(ReefGuideAPI), "assets", "dummy.parq"))
