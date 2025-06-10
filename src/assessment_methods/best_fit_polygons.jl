@@ -387,11 +387,11 @@ function find_optimal_site_alignment(
     suit_threshold::Float64=0.7
 )::DataFrame
     max_count = (
-        (x_dist * y_dist) / ceil(degrees_to_meters(res, mean(search_pixels.lats)))^2
+        (x_dist * y_dist) / ceil(degrees_to_meters(res, mean(lookup_tbl.lats)))^2
     )
 
     search_box = initial_search_box(
-        (search_pixels.lons[1], search_pixels.lats[1]),
+        (lookup_tbl.lons[1], lookup_tbl.lats[1]),
         x_dist,
         y_dist,
         target_crs

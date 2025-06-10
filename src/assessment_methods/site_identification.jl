@@ -92,8 +92,10 @@ function assess_region(
 end
 
 function assess_sites(params::SuitabilityAssessmentParameters)
+    regional_raster = params.region_data.raster_stack
     target_crs = convert(EPSG, crs(regional_raster))
-    suitability_threshold = params.suitability_threshold
+    # convert suitability integer -> float 64
+    suitability_threshold = float64(params.suitability_threshold / 100.0)
     region = params.region
 
     @debug "$(now()) : Assessing criteria table for $(region)"
