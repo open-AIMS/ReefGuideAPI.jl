@@ -181,9 +181,9 @@ function process_job(
 end
 
 #
-# ================= 
-# TEST 
-# ================= 
+# =================
+# TEST
+# =================
 #
 
 """
@@ -225,7 +225,7 @@ end
 
 #
 # ===================
-# REGIONAL_ASSESSMENT 
+# REGIONAL_ASSESSMENT
 # ===================
 #
 
@@ -266,7 +266,7 @@ Handler for REGIONAL_ASSESSMENT jobs
 struct RegionalAssessmentHandler <: AbstractJobHandler end
 
 """
-Handler for the regional assessment job. 
+Handler for the regional assessment job.
 """
 function handle_job(
     ::RegionalAssessmentHandler, input::RegionalAssessmentInput,
@@ -290,7 +290,9 @@ function handle_job(
     @info "Done compiling parameters"
 
     @info "Performing regional assessment"
-    regional_assessment_filename = build_regional_assessment_file_path(params; ext="tiff", config)
+    regional_assessment_filename = build_regional_assessment_file_path(
+        params; ext="tiff", config
+    )
     @debug "COG File name: $(regional_assessment_filename)"
 
     if !isfile(regional_assessment_filename)
@@ -305,7 +307,7 @@ function handle_job(
         @info "Cache hit - skipping regional assessment process and re-uploading to output!"
     end
 
-    # Now upload this to s3 
+    # Now upload this to s3
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names
@@ -325,7 +327,7 @@ end
 
 #
 # ======================
-# SUITABILITY_ASSESSMENT 
+# SUITABILITY_ASSESSMENT
 # ======================
 #
 
@@ -373,7 +375,7 @@ Handler for SUITABILITY_ASSESSMENT jobs
 struct SuitabilityAssessmentHandler <: AbstractJobHandler end
 
 """
-Handler for the suitability assessment job. 
+Handler for the suitability assessment job.
 """
 function handle_job(
     ::SuitabilityAssessmentHandler, input::SuitabilityAssessmentInput,
@@ -395,40 +397,10 @@ function handle_job(
     )
     @info "Done compiling parameters"
 
-    @debug "Converting suitability job into regional job for regional assessment"
-    regional_params = regional_params_from_suitability_params(params)
-    @debug "Conversion complete"
-
-    @info "Performing regional assessment"
-    regional_assessment_fn = build_regional_assessment_file_path(
-        regional_params; ext="tiff", config=config
-    )
-    @debug "COG File name: $(regional_assessment_fn)"
-
-    if !isfile(regional_assessment_fn)
-        @debug "File system cache was not hit for this task"
-        @debug "Assessing region $(params.region)"
-        regional_raster = assess_region(regional_params)
-
-        @debug now() "Writing COG of regional assessment to $(regional_assessment_fn)"
-        _write_cog(regional_assessment_fn, regional_raster, config)
-        @debug now() "Finished writing cog "
-    else
-        @info "Cache hit - skipping regional assessment process..."
-        @debug "Pulling out raster from cache"
-        regional_raster = Raster(regional_assessment_fn; missingval=0, lazy=true)
-    end
-
     @debug "Performing site assessment"
     best_sites = filter_sites(
-        assess_sites(
-            params,
-            regional_raster
-        )
+        assess_sites(params)
     )
-
-    # Specifically clear from memory to invoke garbage collector
-    regional_raster = nothing
 
     @debug "Writing to temporary file"
     geojson_name = "$(tempname()).geojson"
@@ -442,7 +414,7 @@ function handle_job(
         output_geojson(geojson_name, best_sites)
     end
 
-    # Now upload this to s3 
+    # Now upload this to s3
     client = S3StorageClient(; region=context.aws_region)
 
     # Output file names

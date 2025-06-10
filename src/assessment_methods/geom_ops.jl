@@ -195,9 +195,9 @@ Vector containing tuples of coordinates for a horizontal line found within geom.
 function find_horizontal(geom::GIWrap.Polygon)::Vector{Tuple{Float64,Float64}}
     coords = collect(GI.coordinates(geom)...)
     first_coord = first(coords)
-    second_coord = coords[
-        (getindex.(coords, 2) .∈ first_coord[2]) .&& (getindex.(coords, 1) .∉ first_coord[1])
-    ]
+    lat_in_first = (getindex.(coords, 2) .∈ first_coord[2])
+    lon_not_in_first = (getindex.(coords, 1) .∉ first_coord[1])
+    second_coord = coords[lat_in_first .&& lon_not_in_first]
 
     return [tuple(first_coord...), tuple(first(second_coord)...)]
 end

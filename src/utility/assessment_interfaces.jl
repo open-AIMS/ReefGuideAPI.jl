@@ -25,7 +25,7 @@ struct RegionalAssessmentParameters
     function RegionalAssessmentParameters(;
         region::String,
         regional_criteria::BoundedCriteriaDict,
-        region_data::RegionalDataEntry,
+        region_data::RegionalDataEntry
     )
         return new(region, regional_criteria, region_data)
     end
@@ -76,12 +76,12 @@ end
 """
 Merge user-specified bounds with regional defaults.
 
-Creates bounds using user values where provided, falling back to regional 
+Creates bounds using user values where provided, falling back to regional
 bounds for unspecified values. Returns nothing if regional criteria is not available.
 
 # Arguments
 - `user_min::OptionalValue{Float64}` : User-specified minimum value (optional)
-- `user_max::OptionalValue{Float64}` : User-specified maximum value (optional)  
+- `user_max::OptionalValue{Float64}` : User-specified maximum value (optional)
 - `regional_criteria::OptionalValue{RegionalCriteriaEntry}` : Regional criteria with default bounds (optional)
 
 # Returns
@@ -116,7 +116,6 @@ const PARAM_MAP::Dict{String,OptionalValue{Tuple{Symbol,Symbol}}} = Dict(
     "WavesTp" => (:waves_period_min, :waves_period_max),
     "Rugosity" => (:rugosity_min, :rugosity_max)
 )
-
 
 """
 Generate a deterministic hash string for RegionalAssessmentParameters.
@@ -221,18 +220,4 @@ function build_regional_assessment_file_path(
         param_hash
 
     return file_path
-end
-
-
-"""
-Converts parameters from a suitability assessment into a regional assessment
-"""
-function regional_params_from_suitability_params(
-    suitability_params::SuitabilityAssessmentParameters
-)::RegionalAssessmentParameters
-    return RegionalAssessmentParameters(;
-        region=suitability_params.region,
-        regional_criteria=suitability_params.regional_criteria,
-        region_data=suitability_params.region_data,
-    )
 end
