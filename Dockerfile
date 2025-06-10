@@ -13,12 +13,14 @@ LABEL org.opencontainers.image.base.name=${BASE_IMAGE}
 
 
 # Update all pre-installed OS packages (to get security updates)
-# and add a few extra utilities
+# and add a few extra utilities -
+# Installs build essentials for sysimage
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     apt-get update \
     && apt-get -y upgrade \
     && apt-get install --no-install-recommends -y \
+    build-essential \
     git \
     less \
     nano \
@@ -118,24 +120,33 @@ RUN echo $(julia --project=.  -e 'using Pkg; println(Pkg.dependencies()[Base.UUI
 # Compile MKL_jll first - this improves build time significantly - unsure exactly why
 RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MKL_jll", version=ENV["MKL_VERSION"])); Pkg.precompile()'
 
+# Install package compiler
+RUN julia --project=@reefguide \
+    -e 'using Pkg; Pkg.add("PackageCompiler")'
+
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
 # Should be v speedy if the .toml file is unchanged, because all the
 # dependencies *should* already be installed.
 COPY ./src src
+
+# Dev and precompile reefguide API
 RUN julia --project=@reefguide \
-    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.precompile(); using ReefGuideAPI;'
+    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); using ReefGuideAPI; Pkg.precompile();'
+
+# Build custom sys image
+RUN julia --project=@reefguide \
+    -e  'using ReefGuideAPI; using PackageCompiler; create_sysimage(["ReefGuideAPI"]; sysimage_path="ReefGuideSysImage.dll", cpu_target="x86_64;haswell;skylake;skylake-avx512;tigerlake")'
 
 # Expect to include the prepped data at /data/reefguide and the config at
 # /data/.config.toml
 VOLUME ["/data/reefguide"]
 
+# Server port
 EXPOSE 8000
 
-# By default, drops the user into a  julia shell with ReefGuideAPI activated
-ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-e"]
+# By default, drops the user into a  julia shell with ReefGuideAPI activated (from custom sys image)
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-J", "ReefGuideSysImage.dll", "-e"]
 
 # Derived applications should override the command e.g. to start worker use
-# CMD ["using ReefGuideAPI; ReefGuideAPI.start_worker()"]
-
-CMD ["using ReefGuideAPI; ReefGuideAPI.start_server(\"/data/reefguide/config.toml\")"]
+CMD ["using ReefGuideAPI; ReefGuideAPI.start_worker()"]
