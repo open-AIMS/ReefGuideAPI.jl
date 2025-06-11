@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "6fb79bd8da16ed2240c62044e56e825aaaef4a46"
+project_hash = "3d5a0b33a7af4f2946e13fad2322181d045cdacf"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -1614,6 +1614,12 @@ git-tree-sha1 = "bc95bf4149bf535c09602e3acdf950d9b4376227"
 uuid = "9237b28f-5490-5468-be7b-bb81f5f5e6cf"
 version = "10.1.4+3"
 
+[[deps.Minio]]
+deps = ["AWS", "AWSS3", "FilePathsBase", "Pkg", "URIs", "minio_jll"]
+git-tree-sha1 = "ab0cf8db62040e835197b4e9416ab34baa89b693"
+uuid = "4281f0d9-7ae0-406e-9172-b7277c1efa20"
+version = "0.2.2"
+
 [[deps.Missings]]
 deps = ["DataAPI"]
 git-tree-sha1 = "ec4f7fbeab05d7747bdf98eb74d130a2a2ed298d"
@@ -2676,6 +2682,12 @@ deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "OpenSSL_jll", "XZ_jll
 git-tree-sha1 = "86addc139bca85fdf9e7741e10977c45785727b7"
 uuid = "337d8026-41b4-5cde-a456-74a10e5b31d1"
 version = "1.11.3+0"
+
+[[deps.minio_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "59287c60d58776bbdecef63f8fda50ff345bb4dd"
+uuid = "ad83bbfc-c153-533a-bb97-700a7db721e0"
+version = "1.0.0+1"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]

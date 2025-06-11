@@ -53,11 +53,12 @@ struct HandlerContext
     "The path to the config file"
     config_path::String
     aws_region::String
+    s3_endpoint::OptionalValue{String}
 
     function HandlerContext(;
-        storage_uri::String, config_path::String, aws_region::String="ap-southeast-2"
+        storage_uri::String, config_path::String, aws_region::String="ap-southeast-2", s3_endpoint::OptionalValue{String}=nothing
     )
-        return new(storage_uri, config_path, aws_region)
+        return new(storage_uri, config_path, aws_region, s3_endpoint)
     end
 end
 
@@ -308,7 +309,7 @@ function handle_job(
     end
 
     # Now upload this to s3
-    client = S3StorageClient(; region=context.aws_region)
+    client = S3StorageClient(; region=context.aws_region, s3_endpoint=context.s3_endpoint)
 
     # Output file names
     output_file_name_rel = "regional_assessment.tiff"
@@ -415,7 +416,7 @@ function handle_job(
     end
 
     # Now upload this to s3
-    client = S3StorageClient(; region=context.aws_region)
+    client = S3StorageClient(; region=context.aws_region, s3_endpoint=context.s3_endpoint)
 
     # Output file names
     output_file_name_rel = "suitable.geojson"
