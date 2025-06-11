@@ -41,10 +41,10 @@ ReefGuideAPI.start_server(".config.toml")
 
 Ensure your local stack of [reefguide](https://github.com/open-AIMS/reefguide) is running. You can then do the below:
 
-Setup env file: 
+Setup env file:
 
 ```
-cp .env.dist .env
+cp .env.local .env
 ```
 
 Then run the worker
