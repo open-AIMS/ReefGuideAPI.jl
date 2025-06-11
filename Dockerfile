@@ -124,6 +124,12 @@ RUN MKL_VERSION=$(cat mkl.dep) julia -e 'using Pkg; Pkg.add(PackageSpec(name="MK
 RUN julia --project=@reefguide \
     -e 'using Pkg; Pkg.add("PackageCompiler")'
 
+# Add custom fork of GeometryOps
+# TODO: Remove once fix that resolves precompilation issues gets released
+#       (blocks system image generation)
+RUN julia --project=@reefguide \
+    -e 'using Pkg; Pkg.add(url="https://github.com/ConnectedSystems/GeometryOps.jl", rev="main");'
+
 # Install the ReefGuideAPI source code and configure it as a development
 # package in the @reefguide shared environment.
 # Should be v speedy if the .toml file is unchanged, because all the
