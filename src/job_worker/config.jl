@@ -22,6 +22,8 @@ struct WorkerConfig
     config_path::String
     "AWS Region"
     aws_region::String
+    "S3 Endpoint for local S3 compatibility"
+    s3_endpoint::OptionalValue{String}
 
     # Kwarg constructor
     function WorkerConfig(;
@@ -34,7 +36,8 @@ struct WorkerConfig
         # Polling interval 2 second by default
         poll_interval_ms::Int64=2000,
         # Idle timeout 5 minutes by default
-        idle_timeout_ms::Int64=5 * 60 * 1000
+        idle_timeout_ms::Int64=5 * 60 * 1000,
+        s3_endpoint::OptionalValue{String}=nothing
     )
         return new(
             api_endpoint,
@@ -44,7 +47,8 @@ struct WorkerConfig
             poll_interval_ms,
             idle_timeout_ms,
             config_path,
-            aws_region
+            aws_region,
+            s3_endpoint
         )
     end
 end
@@ -149,6 +153,9 @@ function load_config_from_env()::WorkerConfig
         @warn "AWS_REGION environment variable not set, defaulting to $(aws_region)"
     end
 
+    # Get S3 endpoint
+    s3_endpoint = get_env("S3_ENDPOINT", false)
+
     # Optional environment variables with defaults (2 seconds)
     poll_interval_ms::Int64 = parse(
         Int64, something(get_env("POLL_INTERVAL_MS", false), string(2 * 1000))
@@ -167,7 +174,8 @@ function load_config_from_env()::WorkerConfig
         poll_interval_ms,
         idle_timeout_ms,
         config_path,
-        aws_region
+        aws_region,
+        s3_endpoint
     )
 end
 

@@ -35,6 +35,65 @@ using ReefGuideAPI
 ReefGuideAPI.start_server(".config.toml")
 ```
 
+## Running the worker
+
+### Local quick start
+
+Ensure your local stack of [reefguide](https://github.com/open-AIMS/reefguide) is running. You can then do the below:
+
+Setup env file: 
+
+```
+cp .env.dist .env
+```
+
+Then run the worker
+
+```julia
+] add DotEnv
+using DotEnv
+DotEnv.load!()
+using ReefGuideAPI
+ReefGuideAPI.start_worker()
+```
+
+### Env examples
+
+The example below points to a local setup.
+
+```
+API_ENDPOINT=http://localhost:5000
+AWS_REGION=ap-southeast-2
+JOB_TYPES=SUITABILITY_ASSESSMENT,REGIONAL_ASSESSMENT,TEST
+WORKER_USERNAME=worker@email.com
+WORKER_PASSWORD=password
+JULIA_DEBUG=ReefGuideAPI
+CONFIG_PATH=config.toml
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+
+# For minio dropin
+S3_ENDPOINT=http://localhost:9000
+MINIO_USERNAME=minioadmin
+MINIO_PASSWORD=minioadmin
+```
+
+### Running against a real deployment
+
+Typically you would deploy a production worker using a separate process to manage the env variables. But the below shows an example .env file (noting we do not include the minio dropin)
+
+```
+API_ENDPOINT='https://web-api.reefguide.example.com'
+AWS_REGION='ap-southeast-2'
+JOB_TYPES=SUITABILITY_ASSESSMENT,TEST
+WORKER_USERNAME=worker@service.com
+WORKER_PASSWORD=<password>
+POLL_INTERVAL_MS=5000
+IDLE_TIMEOUT_MS=600000
+JULIA_DEBUG=ReefGuideAPI
+CONFIG_PATH=config.toml
+```
+
 ### Using Docker
 
 ```bash

@@ -6,6 +6,7 @@ using AWSS3
 using AWS
 using Random
 using JSONWebTokens
+using Minio
 
 include("config.jl")
 include("ecs.jl")

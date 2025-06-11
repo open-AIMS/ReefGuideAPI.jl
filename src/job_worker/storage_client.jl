@@ -32,12 +32,14 @@ S3 Storage Client implementation
 """
 struct S3StorageClient <: StorageClient
     region::String
+    s3_endpoint::OptionalValue{String}
 
     # Constructor with defaults
     function S3StorageClient(;
-        region::String
+        region::String,
+        s3_endpoint::OptionalValue{String}=nothing
     )
-        return new(region)
+        return new(region, s3_endpoint)
     end
 end
 
@@ -59,7 +61,17 @@ function upload_file(
 
         @debug "Uploading file from $(local_path) to $(storage_path)"
 
-        aws = AWS.AWSConfig(; region=client.region)
+        aws =
+            !isnothing(client.s3_endpoint) ?
+            # Use minio special config if we need to
+            Minio.MinioConfig(
+                client.s3_endpoint;
+                # TODO would be nicer to pass through config tree
+                username=ENV["MINIO_USERNAME"],
+                password=ENV["MINIO_PASSWORD"]
+            ) :
+            # Otherwise use typical AWS config
+            AWS.AWSConfig(; region=client.region)
 
         # Read the file content
         file_data = Base.read(local_path)
