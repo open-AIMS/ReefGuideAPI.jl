@@ -56,7 +56,7 @@ struct HandlerContext
     s3_endpoint::OptionalValue{String}
 
     function HandlerContext(;
-        storage_uri::String, config_path::String, aws_region::String="ap-southeast-2",s3_endpoint::OptionalValue{String}=nothing
+        storage_uri::String, config_path::String, aws_region::String="ap-southeast-2", s3_endpoint::OptionalValue{String}=nothing
     )
         return new(storage_uri, config_path, aws_region, s3_endpoint)
     end
