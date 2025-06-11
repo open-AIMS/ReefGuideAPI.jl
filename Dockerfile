@@ -142,7 +142,7 @@ RUN julia --project=@reefguide \
 
 # Build custom sys image
 RUN julia --project=@reefguide \
-    -e  'using ReefGuideAPI; using PackageCompiler; create_sysimage(["ReefGuideAPI"]; sysimage_path="ReefGuideSysImage.dll", cpu_target="x86_64;haswell;skylake;skylake-avx512;tigerlake")'
+    -e  'using ReefGuideAPI; using PackageCompiler; create_sysimage(["ReefGuideAPI"]; sysimage_path="ReefGuideSysImage.so", cpu_target="x86_64;haswell;skylake;skylake-avx512;tigerlake")'
 
 # Expect to include the prepped data at /data/reefguide and the config at
 # /data/.config.toml
@@ -152,7 +152,7 @@ VOLUME ["/data/reefguide"]
 EXPOSE 8000
 
 # By default, drops the user into a  julia shell with ReefGuideAPI activated (from custom sys image)
-ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-J", "ReefGuideSysImage.dll", "-e"]
+ENTRYPOINT ["julia", "--project=@reefguide", "-t", "auto,1", "-J", "ReefGuideSysImage.so", "-e"]
 
 # Derived applications should override the command e.g. to start worker use
 CMD ["using ReefGuideAPI; ReefGuideAPI.start_worker()"]
