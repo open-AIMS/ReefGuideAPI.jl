@@ -1,6 +1,6 @@
 module ReefGuideAPI
 
-# System imports 
+# System imports
 using Base.Threads
 
 # File IO
@@ -17,6 +17,10 @@ using DataFrames, OrderedCollections, SparseArrays
 
 # Multithreading
 using FLoops, ThreadsX
+
+# Precompilation
+using PrecompileSignatures: @precompile_signatures
+using PrecompileTools
 
 # Utilities and helpers for assessments
 include("utility/utility.jl")
@@ -77,5 +81,16 @@ function start_worker()
 end
 
 export start_worker, start_server
+
+# Auto-generate precompilation signatures for ReefGuide
+@precompile_signatures(ReefGuideAPI)
+
+# Force precompilation of methods that slow down initial use.
+@setup_workload begin
+    @compile_workload begin
+        GeoParquet.read(joinpath(pkgdir(ReefGuideAPI), "assets", "dummy.parq"))
+        GDF.read(joinpath(pkgdir(ReefGuideAPI), "assets", "dummy.gpkg"))
+    end
+end
 
 end
