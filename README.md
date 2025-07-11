@@ -1,3 +1,24 @@
+# ⚠️ DEPRECATED / ARCHIVED
+
+> **This repository is deprecated and no longer maintained.**
+
+## Why is this deprecated?
+
+ReefGuideAPI.jl has been split up into two projects
+
+- [ReefGuide.jl](https://github.com/open-AIMS/ReefGuide.jl) - the ReefGuide Julia algorithms 
+- [ReefGuideWorker.jl](https://github.com/open-AIMS/ReefGuideWorker.jl) - the ReefGuide worker node that consumes ReefGuide.jl to run user workloads
+
+## Need Help?
+
+If you have questions or concerns about this deprecation, please contact the ReefGuide development team.
+
+---
+
+*This notice was added on 11/07/25. The repository will remain accessible for historical reference.*
+
+---
+
 # Reef Guidance API
 
 API for supporting reef suitability assessments.
